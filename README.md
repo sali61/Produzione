@@ -68,6 +68,17 @@ Variabile frontend opzionale:
 - `GET /api/system/me` (protetto JWT, supporta header opzionale `X-Act-As-Username`)
 - `GET /api/profiles/available` (profili utente + OU responsabile, supporta header opzionale `X-Act-As-Username`)
 - `GET /api/commesse/options` (filtro commesse per profilo)
+- `GET /api/commesse/sintesi/filters` (catalogo filtri distinct per `Commesse > Sintesi`)
+- `GET /api/commesse/sintesi` (area dati `Commesse > Sintesi`)
+
+Dettaglio `Commesse > Sintesi`:
+
+- estrazione dati da `exec produzione.spSintesiCommesse`
+  (che usa in sola lettura `produzione.spBixeniaAnalisiCommesse`,
+  wrapper su `CDG.BIXeniaAnalisiCommesse` con `@tiporicerca='AnalisiCommessa'`)
+- filtri utente applicati via `@FiltroDaApplicare`
+- se `anno` non viene specificato, la stored aggrega i risultati per commessa
+  sommando gli indicatori economici principali (ore/costi/ricavi/utile)
 
 ## Contesto utente propagato
 
