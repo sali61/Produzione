@@ -1,0 +1,524 @@
+.app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, #eaf3ff 0%, transparent 45%),
+    radial-gradient(circle at 96% 18%, #e5efff 0%, transparent 42%),
+    linear-gradient(180deg, #f5f8fe 0%, #eff4fc 100%);
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1.1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #d7e1f0;
+  box-shadow: 0 6px 20px rgba(15, 33, 61, 0.06);
+}
+
+.brand-area {
+  display: grid;
+}
+
+.brand {
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #133466;
+}
+
+.brand-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #5e7395;
+}
+
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.menu a,
+.menu-trigger,
+.menu-action {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #bfd0e8;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #244165;
+  padding: 0.45rem 0.82rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.menu-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.menu-action {
+  width: 100%;
+  text-align: left;
+}
+
+.menu a:hover,
+.menu-trigger:hover,
+.menu-action:hover {
+  background: #f1f6ff;
+  border-color: #93afd7;
+}
+
+.menu-dropdown {
+  position: relative;
+}
+
+.menu-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 110;
+  min-width: 13.2rem;
+  display: none;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid #ccd9ec;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(16, 37, 66, 0.16);
+}
+
+.menu-dropdown-right .menu-dropdown-panel {
+  left: auto;
+  right: 0;
+}
+
+.menu-dropdown.is-open .menu-dropdown-panel {
+  display: grid;
+}
+
+.menu-note {
+  margin: 0;
+  color: #274a74;
+  background: #f7fbff;
+  border: 1px solid #d7e3f3;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.76rem;
+}
+
+.top-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  border: 1px solid #bfd0e8;
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+  background: #f4f8ff;
+  color: #22466d;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.status-badge.ok {
+  border-color: #9bc3a2;
+  background: #edf9ef;
+  color: #1f6335;
+}
+
+.status-badge.ko {
+  border-color: #d9b1b1;
+  background: #fff1f1;
+  color: #8a2323;
+}
+
+.context-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #c9d8ec;
+  border-radius: 9px;
+  background: #f4f8ff;
+  color: #28486f;
+  padding: 0.28rem 0.45rem;
+}
+
+.context-switcher span {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.context-switcher select {
+  border: 1px solid #b8cae5;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1f3c63;
+  padding: 0.28rem 0.45rem;
+}
+
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border-color: #c6d6ed;
+  background: #f4f8ff;
+}
+
+.user-menu-trigger strong {
+  font-size: 0.95rem;
+}
+
+.user-menu-trigger span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #496792;
+}
+
+.content {
+  padding: 1.1rem 1.2rem 1.4rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.content-empty {
+  padding: 0;
+  min-height: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.panel {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  padding: 0.95rem 1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.6rem;
+}
+
+.status-text {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  color: #243d5e;
+}
+
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.22rem 0.9rem;
+}
+
+.context-grid p {
+  margin: 0.1rem 0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.modal-card {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.modal-details {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.modal-details p {
+  margin: 0;
+}
+
+.form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #274a74;
+}
+
+.form input {
+  border: 1px solid #b8cae5;
+  border-radius: 7px;
+  color: #1f3c63;
+  padding: 0.4rem 0.5rem;
+}
+
+.produzione-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.bonifici-ricerca {
+  margin-top: 0.2rem;
+  display: grid;
+}
+
+.bonifici-ricerca-box {
+  border: 1px solid #5d7591;
+  border-radius: 2px;
+  background: #adc2da;
+  padding: 0.42rem 0.48rem 0.56rem;
+  overflow-x: auto;
+}
+
+.bonifici-ricerca-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem 1rem;
+  min-width: 760px;
+}
+
+.bonifici-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  color: #132a49;
+}
+
+.bonifici-field label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #102e51;
+}
+
+.bonifici-field input,
+.bonifici-field select {
+  width: auto;
+  min-height: 27px;
+  padding: 0.2rem 0.38rem;
+  border: 1px solid #6a7d95;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #1b2f4b;
+  font-size: 0.82rem;
+}
+
+.produzione-field-profilo select {
+  width: 320px;
+  max-width: 100%;
+}
+
+.produzione-field-commessa input {
+  width: 420px;
+  max-width: 100%;
+}
+
+.bonifici-ricerca-actions {
+  margin-top: 0.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.inline-actions {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+button {
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #1d4ed8;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0.58rem 0.86rem;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ghost-button {
+  background: transparent;
+  border: 1px solid #bfd0e8;
+  color: #244165;
+}
+
+.ghost-button:hover {
+  background: #f1f6ff;
+  border-color: #93afd7;
+}
+
+.commesse-summary {
+  margin-top: 0.1rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d8e4f3;
+  border-radius: 6px;
+  background: #f3f8ff;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.commesse-summary p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.bonifici-table-wrap {
+  overflow-x: auto;
+}
+
+.bonifici-table-wrap-main {
+  max-height: 52dvh;
+  overflow-y: auto;
+  border: 1px solid #d8e4f3;
+  border-radius: 6px;
+}
+
+.bonifici-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bonifici-table th,
+.bonifici-table td {
+  border: 1px solid #d8e4f3;
+  padding: 0.33rem 0.42rem;
+  font-size: 0.78rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bonifici-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eef4fd;
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 0.75rem;
+  color: #274a74;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+@media (max-width: 900px) {
+  .top-bar {
+    align-items: flex-start;
+  }
+
+  .menu {
+    width: 100%;
+  }
+
+  .menu-dropdown-panel {
+    position: static;
+    min-width: 0;
+    width: 100%;
+    box-shadow: none;
+  }
+
+  .menu-dropdown-right .menu-dropdown-panel {
+    right: auto;
+  }
+
+  .top-actions {
+    margin-left: 0;
+  }
+
+  .bonifici-ricerca-box {
+    overflow-x: visible;
+  }
+
+  .bonifici-ricerca-row {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.44rem 0.7rem;
+  }
+
+  .bonifici-field {
+    flex: 1 1 240px;
+    flex-wrap: wrap;
+  }
+
+  .bonifici-field input,
+  .bonifici-field select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .menu {
+    width: 100%;
+  }
+
+  .top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .content {
+    padding: 0.9rem;
+  }
+}

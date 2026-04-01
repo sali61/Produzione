@@ -1,0 +1,7 @@
+{
+  "configuration": "Release",
+  "runtime": "",
+  "frontendApiBaseUrl": "https://produzione.xeniaprogetti.it",
+  "backendAppSettingsPath": "src/backend/Produzione.Api/appsettings.json"
+}
+

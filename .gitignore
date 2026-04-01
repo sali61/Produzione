@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+dist/
+
+# Node
+node_modules/
+
+# IDE / tooling
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Runtime/logs
+.logs/
+.tmp/
+*.log
+
+# Local publish overrides
+scripts/publish/publish.settings.local.json

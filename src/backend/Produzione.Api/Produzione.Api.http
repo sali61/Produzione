@@ -1,0 +1,14 @@
+@Produzione.Api_HostAddress = https://localhost:7643
+
+GET {{Produzione.Api_HostAddress}}/api/system/health
+Accept: application/json
+
+###
+
+@token = INSERISCI_TOKEN_JWT
+
+GET {{Produzione.Api_HostAddress}}/api/system/me
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
