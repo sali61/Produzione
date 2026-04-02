@@ -250,29 +250,29 @@
 
 .sintesi-page {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.28rem;
 }
 
 .sintesi-filter-panel,
 .sintesi-data-panel {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.24rem;
 }
 
 .sintesi-form {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.24rem;
 }
 
 .sintesi-filters-grid {
   display: grid;
   grid-template-columns: 235px minmax(290px, 1.25fr) minmax(220px, 1fr) 88px minmax(220px, 1fr);
-  gap: 0.35rem 0.55rem;
+  gap: 0.28rem 0.55rem;
 }
 
 .sintesi-field {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.16rem;
 }
 
 .sintesi-field-checkbox {
@@ -311,7 +311,7 @@
 }
 
 .sintesi-field label {
-  font-size: 0.79rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: #274a74;
 }
@@ -322,13 +322,14 @@
   border-radius: 7px;
   background: #ffffff;
   color: #1f3c63;
-  min-height: 33px;
-  padding: 0.26rem 0.4rem;
+  min-height: 30px;
+  padding: 0.18rem 0.35rem;
+  font-size: 0.82rem;
 }
 
 .sintesi-field select[multiple] {
-  min-height: 92px;
-  padding: 0.2rem 0.3rem;
+  min-height: 56px;
+  padding: 0.1rem 0.28rem;
 }
 
 .sintesi-field-stato {
@@ -340,10 +341,91 @@
   min-width: 76px;
 }
 
+.sintesi-field-business-unit {
+  max-width: 300px;
+  justify-self: start;
+  width: 100%;
+}
+
+.sintesi-field-escludi-prodotti {
+  align-self: end;
+  justify-self: end;
+  width: auto;
+  min-width: 0;
+  padding-bottom: 0.02rem;
+}
+
+.sintesi-field-escludi-prodotti .checkbox-label {
+  border: 1px solid #c5d6eb;
+  border-radius: 8px;
+  background: #f3f8ff;
+  padding: 0.25rem 0.5rem;
+}
+
 .commessa-inline-controls {
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) minmax(200px, 1.2fr);
   gap: 0.25rem;
+}
+
+.sintesi-filter-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.38rem;
+  border: 1px solid #d6e2f3;
+  border-radius: 8px;
+  background: #f7fbff;
+  color: #2a4f7b;
+  font-size: 0.76rem;
+}
+
+.sintesi-filter-progress-text {
+  font-weight: 600;
+}
+
+.sintesi-filter-progress-count {
+  color: #4a678d;
+  font-variant-numeric: tabular-nums;
+}
+
+.sintesi-filter-progress.is-active {
+  border-color: #9ebbe2;
+  background: #edf5ff;
+  color: #21476f;
+}
+
+.sintesi-filter-progress-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #dbe8fb;
+}
+
+.sintesi-filter-progress-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2b5fb0 0%, #4f86d9 100%);
+  animation: sintesi-filter-progress-move 1.2s ease-in-out infinite;
+}
+
+@keyframes sintesi-filter-progress-move {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.sintesi-form.is-filter-loading .sintesi-field input,
+.sintesi-form.is-filter-loading .sintesi-field select {
+  background: #f4f8ff;
 }
 
 .sintesi-hint {
@@ -496,6 +578,27 @@
   flex-wrap: wrap;
 }
 
+.sintesi-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-top: 0.02rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid #d6e2f3;
+}
+
+.sintesi-toolbar-message {
+  margin: 0;
+  min-width: 0;
+  color: #2a4f7b;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 button {
   border: none;
   border-radius: 0.5rem;
@@ -546,6 +649,10 @@ button:disabled {
   overflow-y: auto;
   border: 1px solid #d8e4f3;
   border-radius: 6px;
+}
+
+.sintesi-results-wrap {
+  max-height: 68dvh;
 }
 
 .bonifici-table {
@@ -645,7 +752,51 @@ button:disabled {
 }
 
 .detail-anagrafica-panel {
-  margin-top: 0.2rem;
+  margin-top: 0;
+  padding-bottom: 0.5rem;
+}
+
+.detail-page {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.34rem;
+  height: calc(100dvh - 148px);
+  min-height: calc(100dvh - 148px);
+  align-content: stretch;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+
+.detail-top-zone {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  border: 1px solid #d6e2f3;
+  border-radius: 10px;
+  background: #f7fbff;
+  padding: 0.34rem;
+}
+
+.detail-main-zone {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #d6e2f3;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.36rem;
+  scrollbar-gutter: stable;
+}
+
+.detail-anagrafica-panel .ghost-button {
+  padding: 0.42rem 0.72rem;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  flex-wrap: wrap;
 }
 
 .detail-anagrafica-table th,
@@ -653,34 +804,181 @@ button:disabled {
   white-space: nowrap;
 }
 
-.detail-tabs-panel {
-  margin-top: 0.2rem;
+.detail-summary-strip-panel {
+  margin-top: 0;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
 }
 
-.detail-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+.detail-kpi-table-wrap {
+  overflow-x: auto;
 }
 
-.detail-tab {
-  border: 1px solid #bdd0ea;
-  border-radius: 10px;
+.detail-kpi-table {
+  min-width: 1200px;
+}
+
+.detail-kpi-table th,
+.detail-kpi-table td {
+  font-size: 0.76rem;
+}
+
+.detail-kpi-table .detail-kpi-group-head {
+  background: #e5eefb;
+  color: #1e456f;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.detail-kpi-table td {
   background: #f8fbff;
-  color: #244165;
-  padding: 0.34rem 0.66rem;
-  font-size: 0.8rem;
+}
+
+.detail-kpi-percent-col {
+  min-width: 140px;
+}
+
+.detail-kpi-percent-cell {
+  min-width: 140px;
+}
+
+.detail-tooltip-label {
+  display: inline-block;
+  border-bottom: 1px dotted #6e87ad;
+  cursor: help;
+}
+
+.detail-kpi-action-col {
+  min-width: 112px;
+  text-align: center;
+}
+
+.detail-kpi-action-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.detail-kpi-action-cell button {
+  min-height: 1.65rem;
+  padding: 0.34rem 0.62rem;
+  font-size: 0.75rem;
+}
+
+.detail-kpi-caption {
+  margin: 0 0 0.08rem;
+  font-size: 0.73rem;
+  color: #4a678d;
+}
+
+.detail-kpi-percent-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.detail-kpi-percent-input {
+  width: 5.6rem;
+  height: 1.7rem;
+  border: 1px solid #b6cceb;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  text-align: right;
+  color: #163a66;
+  font-size: 0.78rem;
+  background: #fff;
+}
+
+.detail-kpi-percent-input:focus {
+  outline: 2px solid #9ec1ef;
+  outline-offset: 1px;
+}
+
+.detail-kpi-percent-suffix {
+  font-variant-numeric: tabular-nums;
+  color: #163a66;
   font-weight: 600;
 }
 
-.detail-tab:hover {
-  background: #eef5ff;
+.detail-grid-panels {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.15fr) minmax(300px, 1.15fr) minmax(280px, 1fr) minmax(320px, 1fr);
+  grid-template-areas:
+    "consuntivo vendite acquisti requisiti"
+    "ordini ordini percent requisiti"
+    "offerte offerte percent requisiti";
+  gap: 0.5rem;
+  min-height: 0;
+  align-items: stretch;
+  align-content: start;
 }
 
-.detail-tab.is-active {
-  border-color: #3463a7;
-  background: #dfeafe;
-  color: #173b67;
+.detail-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.4rem;
+  min-height: clamp(180px, 28dvh, 40dvh);
+  overflow: hidden;
+  border-color: #c9d9ef;
+}
+
+.detail-card > .panel-header {
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid #e2ebf7;
+}
+
+.detail-card-consuntivo {
+  grid-area: consuntivo;
+  min-height: clamp(170px, 24dvh, 34dvh);
+}
+
+.detail-card-vendite {
+  grid-area: vendite;
+  min-height: clamp(170px, 24dvh, 34dvh);
+}
+
+.detail-card-acquisti {
+  grid-area: acquisti;
+  min-height: clamp(170px, 24dvh, 34dvh);
+}
+
+.detail-card-ordini {
+  grid-area: ordini;
+  min-height: clamp(200px, 30dvh, 42dvh);
+}
+
+.detail-card-offerte {
+  grid-area: offerte;
+  min-height: clamp(200px, 30dvh, 42dvh);
+}
+
+.detail-card-percent {
+  grid-area: percent;
+  min-height: clamp(220px, 34dvh, 50dvh);
+}
+
+.detail-card-requisiti {
+  grid-area: requisiti;
+  min-height: 0;
+}
+
+.detail-card h3 {
+  font-size: 0.9rem;
+  color: #193d69;
+}
+
+.detail-card-body {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.detail-card-table-wrap {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
 }
 
 .detail-numeri-table td:first-child,
@@ -698,6 +996,9 @@ button:disabled {
   border-radius: 8px;
   background: #f8fbff;
   padding: 0.38rem 0.45rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
 }
 
 .detail-pivot-title {
@@ -711,9 +1012,96 @@ button:disabled {
   font-size: 0.74rem;
 }
 
+.detail-requisiti-table th,
+.detail-requisiti-table td {
+  font-size: 0.75rem;
+}
+
+.detail-inline-action {
+  padding: 0.2rem 0.45rem;
+  min-height: 1.7rem;
+  font-size: 0.72rem;
+}
+
+.detail-requisiti-dettaglio {
+  margin-top: 0.18rem;
+  border-top: 1px solid #d6e2f3;
+  padding-top: 0.3rem;
+}
+
+.detail-requisito-expand-row > td {
+  background: #f7fbff;
+  border-top: none;
+  padding: 0.4rem 0.45rem;
+}
+
+.detail-requisiti-table-inline {
+  width: 100%;
+}
+
 .detail-movimenti-table th,
 .detail-movimenti-table td {
   font-size: 0.76rem;
+}
+
+.detail-ordini-table th,
+.detail-ordini-table td,
+.detail-offerte-table th,
+.detail-offerte-table td {
+  font-size: 0.75rem;
+}
+
+.detail-raggiungimento-body {
+  border: 1px solid #d6e2f3;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 0.42rem 0.5rem;
+  align-content: start;
+  overflow: auto;
+}
+
+.detail-raggiungimento-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.28rem 0.55rem;
+  align-items: center;
+}
+
+.detail-raggiungimento-grid span {
+  font-size: 0.78rem;
+  color: #274a74;
+}
+
+.detail-raggiungimento-grid strong {
+  font-size: 0.8rem;
+  color: #163a66;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.detail-avanzamento-box {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.detail-avanzamento-table th,
+.detail-avanzamento-table td {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.detail-avanzamento-table th {
+  width: 45%;
+}
+
+.detail-avanzamento-grid-table th {
+  width: auto;
+  white-space: nowrap;
+}
+
+.detail-avanzamento-grid-table td {
+  white-space: nowrap;
 }
 
 .detail-mov-row-past td {
@@ -750,6 +1138,42 @@ button:disabled {
 
 .error {
   color: #b91c1c;
+}
+
+@media (max-width: 1600px) {
+  .detail-grid-panels {
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    grid-template-areas:
+      "consuntivo vendite requisiti"
+      "acquisti percent requisiti"
+      "ordini ordini requisiti"
+      "offerte offerte requisiti";
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 1200px) {
+  .detail-page {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .detail-main-zone {
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .detail-grid-panels {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    grid-template-areas:
+      "consuntivo vendite"
+      "acquisti percent"
+      "ordini ordini"
+      "offerte offerte"
+      "requisiti requisiti";
+    min-height: 0;
+  }
 }
 
 @media (max-width: 900px) {
@@ -802,6 +1226,55 @@ button:disabled {
 
   .commessa-inline-controls {
     grid-template-columns: 1fr;
+  }
+
+  .sintesi-toolbar-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sintesi-toolbar-message {
+    white-space: normal;
+  }
+
+  .sintesi-field-escludi-prodotti {
+    justify-self: start;
+  }
+
+  .detail-grid-panels {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "consuntivo"
+      "vendite"
+      "acquisti"
+      "percent"
+      "ordini"
+      "offerte"
+      "requisiti";
+    min-height: 0;
+  }
+
+  .detail-top-zone,
+  .detail-main-zone {
+    border-radius: 8px;
+    padding: 0.28rem;
+  }
+
+  .detail-kpi-table {
+    min-width: 980px;
+  }
+
+  .detail-card-table-wrap {
+    height: auto;
+    min-height: 44dvh;
+  }
+
+  .detail-page {
+    min-height: 0;
+  }
+
+  .detail-card {
+    min-height: 0;
   }
 }
 

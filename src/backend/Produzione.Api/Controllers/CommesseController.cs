@@ -205,6 +205,7 @@ public sealed class CommesseController(
                         Stato = row.Stato,
                         MacroTipologia = row.MacroTipologia,
                         Prodotto = row.Prodotto,
+                        Controparte = row.Controparte,
                         BusinessUnit = row.BusinessUnit,
                         Rcc = row.Rcc,
                         Pm = row.Pm,
@@ -312,6 +313,7 @@ public sealed class CommesseController(
             var now = DateTime.Now;
             var currentYear = now.Year;
             var currentMonth = now.Month;
+            var dataFineConsuntivoAttivita = new DateTime(currentYear, currentMonth, 1).AddDays(-1);
 
             var anagraficaFromRows = rows.Count > 0
                 ? rows
@@ -343,28 +345,54 @@ public sealed class CommesseController(
                 })
                 .ToArray();
 
-            var progressivoCorrente = await commesseFilterRepository.GetCommessaProgressivoAnnoCorrenteAsync(
+            var aggregatoAnnoCorrente = rows
+                .Where(row => row.Anno.HasValue && row.Anno.Value == currentYear)
+                .GroupBy(_ => currentYear)
+                .Select(group => new CommessaDettaglioAnnoRowDto
+                {
+                    Anno = currentYear,
+                    OreLavorate = group.Sum(item => item.OreLavorate),
+                    CostoPersonale = group.Sum(item => item.CostoPersonale),
+                    Ricavi = group.Sum(item => item.Ricavi),
+                    Costi = group.Sum(item => item.Costi),
+                    UtileSpecifico = group.Sum(item => item.UtileSpecifico),
+                    RicaviFuturi = group.Sum(item => item.RicaviFuturi),
+                    CostiFuturi = group.Sum(item => item.CostiFuturi)
+                })
+                .FirstOrDefault();
+
+            var mesiAnnoCorrente = await commesseFilterRepository.GetCommessaMesiAnnoCorrenteAsync(
                 contextData.EffectiveUser,
                 profileResult,
                 normalizedCommessa,
                 currentYear,
-                currentMonth,
-                cancellationToken)
-                ?? new CommessaDettaglioProgressivoCorrente(
-                    currentYear,
-                    currentMonth,
-                    0m,
-                    0m,
-                    0m,
-                    0m,
-                    0m,
-                    0m,
-                    0m);
+                cancellationToken);
 
             var fatturatoDettaglio = await commesseFilterRepository.GetCommessaFatturatoDettaglioAsync(
                 contextData.EffectiveUser,
                 normalizedCommessa,
                 cancellationToken);
+            var ordiniOfferteDettaglio = await commesseFilterRepository.GetCommessaOrdiniOfferteDettaglioAsync(
+                normalizedCommessa,
+                cancellationToken);
+            var avanzamentoStorico = await commesseFilterRepository.GetCommessaAvanzamentoStoricoAsync(
+                normalizedCommessa,
+                cancellationToken);
+            var avanzamentoSalvato = avanzamentoStorico
+                .Where(item => item.DataRiferimento.Date == dataFineConsuntivoAttivita.Date)
+                .OrderByDescending(item => item.DataSalvataggio)
+                .ThenByDescending(item => item.Id)
+                .FirstOrDefault();
+            var requisitiOreDettaglio = await commesseFilterRepository.GetCommessaRequisitiOreDettaglioAsync(
+                normalizedCommessa,
+                dataFineConsuntivoAttivita,
+                cancellationToken);
+
+            var orePrevisteTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OrePreviste);
+            var oreSpeseTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OreSpese);
+            var percentualeRaggiuntoProposta = orePrevisteTotali <= 0
+                ? 0m
+                : Math.Clamp(oreSpeseTotali / orePrevisteTotali, 0m, 1m);
 
             var response = new CommesseDettaglioResponseDto
             {
@@ -379,23 +407,28 @@ public sealed class CommesseController(
                     TipologiaCommessa = anagraficaFromRows?.TipologiaCommessa ?? anagraficaFromRepository?.TipologiaCommessa ?? string.Empty,
                     Stato = anagraficaFromRows?.Stato ?? anagraficaFromRepository?.Stato ?? string.Empty,
                     MacroTipologia = anagraficaFromRows?.MacroTipologia ?? anagraficaFromRepository?.MacroTipologia ?? string.Empty,
-                    Prodotto = anagraficaFromRows?.Prodotto ?? anagraficaFromRepository?.Prodotto ?? string.Empty,
+                    Prodotto = anagraficaFromRepository?.Prodotto ?? anagraficaFromRows?.Prodotto ?? string.Empty,
+                    Controparte = anagraficaFromRepository?.Controparte ?? anagraficaFromRows?.Controparte ?? string.Empty,
                     BusinessUnit = anagraficaFromRows?.BusinessUnit ?? anagraficaFromRepository?.BusinessUnit ?? string.Empty,
                     Rcc = anagraficaFromRows?.Rcc ?? anagraficaFromRepository?.Rcc ?? string.Empty,
                     Pm = anagraficaFromRows?.Pm ?? anagraficaFromRepository?.Pm ?? string.Empty
                 },
                 AnniStorici = anniStorici,
-                AnnoCorrenteProgressivo = new CommessaDettaglioAnnoRowDto
-                {
-                    Anno = progressivoCorrente.Anno,
-                    OreLavorate = progressivoCorrente.OreLavorate,
-                    CostoPersonale = progressivoCorrente.CostoPersonale,
-                    Ricavi = progressivoCorrente.Ricavi,
-                    Costi = progressivoCorrente.Costi,
-                    UtileSpecifico = progressivoCorrente.UtileSpecifico,
-                    RicaviFuturi = progressivoCorrente.RicaviFuturi,
-                    CostiFuturi = progressivoCorrente.CostiFuturi
-                },
+                AnnoCorrenteProgressivo = aggregatoAnnoCorrente,
+                MesiAnnoCorrente = mesiAnnoCorrente
+                    .Select(item => new CommessaDettaglioMeseRowDto
+                    {
+                        Anno = item.Anno,
+                        Mese = item.Mese,
+                        OreLavorate = item.OreLavorate,
+                        CostoPersonale = item.CostoPersonale,
+                        Ricavi = item.Ricavi,
+                        Costi = item.Costi,
+                        UtileSpecifico = item.UtileSpecifico,
+                        RicaviFuturi = item.RicaviFuturi,
+                        CostiFuturi = item.CostiFuturi
+                    })
+                    .ToArray(),
                 Vendite = fatturatoDettaglio.Vendite
                     .Select(item => new CommessaFatturaMovimentoDto
                     {
@@ -435,6 +468,89 @@ public sealed class CommesseController(
                         Budget = item.Budget,
                         PercentualeRaggiungimento = item.PercentualeRaggiungimento
                     })
+                    .ToArray(),
+                Ordini = ordiniOfferteDettaglio.Ordini
+                    .Select(item => new CommessaOrdineDto
+                    {
+                        Protocollo = item.Protocollo,
+                        DocumentoStato = item.DocumentoStato,
+                        Posizione = item.Posizione,
+                        IdDettaglioOrdine = item.IdDettaglioOrdine,
+                        Descrizione = item.Descrizione,
+                        Quantita = item.Quantita,
+                        PrezzoUnitario = item.PrezzoUnitario,
+                        ImportoOrdine = item.ImportoOrdine,
+                        QuantitaOriginaleOrdinata = item.QuantitaOriginaleOrdinata,
+                        QuantitaFatture = item.QuantitaFatture
+                    })
+                    .ToArray(),
+                Offerte = ordiniOfferteDettaglio.Offerte
+                    .Select(item => new CommessaOffertaDto
+                    {
+                        Protocollo = item.Protocollo,
+                        Anno = item.Anno,
+                        Data = item.Data,
+                        Oggetto = item.Oggetto,
+                        DocumentoStato = item.DocumentoStato,
+                        RicavoPrevisto = item.RicavoPrevisto,
+                        CostoPrevisto = item.CostoPrevisto,
+                        CostoPrevistoPersonale = item.CostoPrevistoPersonale,
+                        OrePrevisteOfferta = item.OrePrevisteOfferta,
+                        PercentualeSuccesso = item.PercentualeSuccesso,
+                        OrdiniCollegati = item.OrdiniCollegati
+                    })
+                    .ToArray(),
+                AvanzamentoSalvato = avanzamentoSalvato is null
+                    ? null
+                    : new CommessaAvanzamentoDto
+                    {
+                        Id = avanzamentoSalvato.Id,
+                        IdCommessa = avanzamentoSalvato.IdCommessa,
+                        PercentualeRaggiunto = avanzamentoSalvato.PercentualeRaggiunto,
+                        ImportoRiferimento = avanzamentoSalvato.ImportoRiferimento,
+                        DataRiferimento = avanzamentoSalvato.DataRiferimento,
+                        DataSalvataggio = avanzamentoSalvato.DataSalvataggio,
+                        IdAutore = avanzamentoSalvato.IdAutore
+                    },
+                AvanzamentoStorico = avanzamentoStorico
+                    .OrderBy(item => item.DataRiferimento)
+                    .ThenBy(item => item.Id)
+                    .Select(item => new CommessaAvanzamentoDto
+                    {
+                        Id = item.Id,
+                        IdCommessa = item.IdCommessa,
+                        PercentualeRaggiunto = item.PercentualeRaggiunto,
+                        ImportoRiferimento = item.ImportoRiferimento,
+                        DataRiferimento = item.DataRiferimento,
+                        DataSalvataggio = item.DataSalvataggio,
+                        IdAutore = item.IdAutore
+                    })
+                    .ToArray(),
+                DataConsuntivoAttivita = dataFineConsuntivoAttivita,
+                PercentualeRaggiuntoProposta = percentualeRaggiuntoProposta,
+                RequisitiOre = requisitiOreDettaglio.Requisiti
+                    .Select(item => new CommessaRequisitoOreSummaryDto
+                    {
+                        IdRequisito = item.IdRequisito,
+                        Requisito = item.Requisito,
+                        OrePreviste = item.OrePreviste,
+                        OreSpese = item.OreSpese,
+                        OreRestanti = item.OreRestanti,
+                        PercentualeAvanzamento = item.PercentualeAvanzamento
+                    })
+                    .ToArray(),
+                RequisitiOreRisorse = requisitiOreDettaglio.Risorse
+                    .Select(item => new CommessaRequisitoOreRisorsaDto
+                    {
+                        IdRequisito = item.IdRequisito,
+                        Requisito = item.Requisito,
+                        IdRisorsa = item.IdRisorsa,
+                        NomeRisorsa = item.NomeRisorsa,
+                        OrePreviste = item.OrePreviste,
+                        OreSpese = item.OreSpese,
+                        OreRestanti = item.OreRestanti,
+                        PercentualeAvanzamento = item.PercentualeAvanzamento
+                    })
                     .ToArray()
             };
 
@@ -454,6 +570,107 @@ public sealed class CommesseController(
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Errore interno durante il recupero dettaglio commessa."
+            });
+        }
+    }
+
+    [HttpPost("dettaglio/avanzamento")]
+    [ProducesResponseType(typeof(CommessaAvanzamentoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SalvaAvanzamento(
+        [FromQuery] string profile,
+        [FromBody] CommessaAvanzamentoSaveRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+            {
+                return BadRequest(new { message = "Commessa obbligatoria." });
+            }
+
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var normalizedCommessa = request.Commessa.Trim();
+            var commessaExists = await commesseFilterRepository.CommessaExistsAsync(normalizedCommessa, cancellationToken);
+            if (!commessaExists)
+            {
+                return NotFound(new
+                {
+                    message = $"Commessa '{normalizedCommessa}' non trovata."
+                });
+            }
+
+            var hasAccess = await commesseFilterRepository.CanAccessCommessaAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                normalizedCommessa,
+                cancellationToken);
+            if (!hasAccess)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato alla commessa '{normalizedCommessa}'."
+                });
+            }
+
+            var dataRiferimento = request.DataRiferimento.Date;
+            if (dataRiferimento == DateTime.MinValue.Date)
+            {
+                var now = DateTime.Now;
+                dataRiferimento = new DateTime(now.Year, now.Month, 1).AddDays(-1).Date;
+            }
+
+            var percentuale = Math.Clamp(request.PercentualeRaggiunto, 0m, 100m);
+            var saved = await commesseFilterRepository.SaveCommessaAvanzamentoAsync(
+                contextData.EffectiveUser,
+                normalizedCommessa,
+                percentuale,
+                request.ImportoRiferimento,
+                dataRiferimento,
+                cancellationToken);
+
+            if (saved is null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "Salvataggio avanzamento non riuscito."
+                });
+            }
+
+            return Ok(new CommessaAvanzamentoDto
+            {
+                Id = saved.Id,
+                IdCommessa = saved.IdCommessa,
+                PercentualeRaggiunto = saved.PercentualeRaggiunto,
+                ImportoRiferimento = saved.ImportoRiferimento,
+                DataRiferimento = saved.DataRiferimento,
+                DataSalvataggio = saved.DataSalvataggio,
+                IdAutore = saved.IdAutore
+            });
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/avanzamento.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/avanzamento.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il salvataggio avanzamento."
             });
         }
     }

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Fragment, type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 
@@ -66,6 +66,7 @@ type SortColumn =
   | 'tipologiaCommessa'
   | 'stato'
   | 'macroTipologia'
+  | 'controparte'
   | 'prodotto'
   | 'businessUnit'
   | 'rcc'
@@ -88,6 +89,7 @@ type SintesiFiltersForm = {
   businessUnit: string
   rcc: string
   pm: string
+  escludiProdotti: boolean
 }
 
 type CommessaSintesiRow = {
@@ -98,6 +100,7 @@ type CommessaSintesiRow = {
   stato: string
   macroTipologia: string
   prodotto: string
+  controparte: string
   businessUnit: string
   rcc: string
   pm: string
@@ -123,6 +126,7 @@ type CommessaDettaglioAnagrafica = {
   stato: string
   macroTipologia: string
   prodotto: string
+  controparte: string
   businessUnit: string
   rcc: string
   pm: string
@@ -139,6 +143,75 @@ type CommessaDettaglioAnnoRow = {
   costiFuturi: number
 }
 
+type CommessaDettaglioMeseRow = {
+  anno: number
+  mese: number
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  utileSpecifico: number
+  ricaviFuturi: number
+  costiFuturi: number
+}
+
+type CommessaRequisitoOreSummaryRow = {
+  idRequisito: number
+  requisito: string
+  orePreviste: number
+  oreSpese: number
+  oreRestanti: number
+  percentualeAvanzamento: number
+}
+
+type CommessaRequisitoOreRisorsaRow = {
+  idRequisito: number
+  requisito: string
+  idRisorsa: number
+  nomeRisorsa: string
+  orePreviste: number
+  oreSpese: number
+  oreRestanti: number
+  percentualeAvanzamento: number
+}
+
+type CommessaOrdineRow = {
+  protocollo: string
+  documentoStato: string
+  posizione: string
+  idDettaglioOrdine: number
+  descrizione: string
+  quantita: number
+  prezzoUnitario: number
+  importoOrdine: number
+  quantitaOriginaleOrdinata: number
+  quantitaFatture: number
+}
+
+type CommessaOffertaRow = {
+  protocollo: string
+  anno?: number | null
+  data?: string | null
+  oggetto: string
+  documentoStato: string
+  ricavoPrevisto: number
+  costoPrevisto: number
+  costoPrevistoPersonale: number
+  orePrevisteOfferta: number
+  percentualeSuccesso: number
+  ordiniCollegati: string
+}
+
+type CommessaAvanzamentoRow = {
+  id: number
+  idCommessa: number
+  percentualeRaggiunto: number
+  importoRiferimento: number
+  dataRiferimento?: string | null
+  dataSalvataggio?: string | null
+  idAutore: number
+}
+
 type CommesseDettaglioResponse = {
   profile: string
   commessa: string
@@ -147,9 +220,18 @@ type CommesseDettaglioResponse = {
   anagrafica?: CommessaDettaglioAnagrafica | null
   anniStorici: CommessaDettaglioAnnoRow[]
   annoCorrenteProgressivo?: CommessaDettaglioAnnoRow | null
+  mesiAnnoCorrente?: CommessaDettaglioMeseRow[]
   vendite: CommessaFatturaMovimentoRow[]
   acquisti: CommessaFatturaMovimentoRow[]
   fatturatoPivot: CommessaFatturatoPivotRow[]
+  ordini?: CommessaOrdineRow[]
+  offerte?: CommessaOffertaRow[]
+  avanzamentoSalvato?: CommessaAvanzamentoRow | null
+  avanzamentoStorico?: CommessaAvanzamentoRow[]
+  dataConsuntivoAttivita?: string | null
+  percentualeRaggiuntoProposta?: number
+  requisitiOre?: CommessaRequisitoOreSummaryRow[]
+  requisitiOreRisorse?: CommessaRequisitoOreRisorsaRow[]
 }
 
 type CommessaFatturaMovimentoRow = {
@@ -174,8 +256,6 @@ type CommessaFatturatoPivotRow = {
   budget: string
   percentualeRaggiungimento: string
 }
-
-type DetailTabKey = 'numeri' | 'vendite' | 'acquisti'
 
 const tokenStorageKey = 'produzione.jwt'
 const redirectGuardKey = 'produzione.sso.redirecting'
@@ -206,6 +286,7 @@ const emptySintesiFiltersForm: SintesiFiltersForm = {
   businessUnit: '',
   rcc: '',
   pm: '',
+  escludiProdotti: false,
 }
 
 const emptyFiltersCatalog: CommesseSintesiFiltersResponse = {
@@ -220,6 +301,44 @@ const emptyFiltersCatalog: CommesseSintesiFiltersResponse = {
   businessUnits: [],
   rcc: [],
   pm: [],
+}
+
+const normalizeDateKey = (value?: string | Date | null) => {
+  if (!value) {
+    return ''
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return ''
+    }
+
+    const year = value.getFullYear()
+    const month = (value.getMonth() + 1).toString().padStart(2, '0')
+    const day = value.getDate().toString().padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const literalPrefix = value.slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(literalPrefix)) {
+    return literalPrefix
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  const year = parsed.getFullYear()
+  const month = (parsed.getMonth() + 1).toString().padStart(2, '0')
+  const day = parsed.getDate().toString().padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const normalizePercentTo100 = (value: number) => {
+  const safeValue = Number.isFinite(value) ? value : 0
+  const scaledValue = Math.abs(safeValue) <= 1 ? safeValue * 100 : safeValue
+  return Math.min(100, Math.max(0, scaledValue))
 }
 
 function App() {
@@ -247,13 +366,16 @@ function App() {
   const [sintesiRows, setSintesiRows] = useState<CommessaSintesiRow[]>([])
   const [sintesiSearched, setSintesiSearched] = useState(false)
   const [sintesiLoadingFilters, setSintesiLoadingFilters] = useState(false)
+  const [sintesiFilterLoadingDetail, setSintesiFilterLoadingDetail] = useState('')
   const [sintesiLoadingData, setSintesiLoadingData] = useState(false)
   const [detailCommessa, setDetailCommessa] = useState('')
   const [detailData, setDetailData] = useState<CommesseDettaglioResponse | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailSaving, setDetailSaving] = useState(false)
   const [detailStatusMessage, setDetailStatusMessage] = useState('')
   const [detailRouteProcessed, setDetailRouteProcessed] = useState(false)
-  const [detailActiveTab, setDetailActiveTab] = useState<DetailTabKey>('numeri')
+  const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
+  const [selectedRequisitoId, setSelectedRequisitoId] = useState<number | null>(null)
 
   const backendBaseUrl = (import.meta.env.VITE_BACKEND_BASE_URL ?? '').replace(/\/$/, '')
   const authPortalBaseUrl = (import.meta.env.VITE_AUTH_PORTAL_URL ?? 'https://localhost:5043').replace(/\/$/, '')
@@ -300,11 +422,14 @@ function App() {
     setSintesiFiltersCatalog(emptyFiltersCatalog)
     setSintesiRows([])
     setSintesiSearched(false)
+    setSintesiFilterLoadingDetail('')
     setDetailCommessa('')
     setDetailData(null)
+    setDetailSaving(false)
     setDetailStatusMessage('')
     setDetailRouteProcessed(false)
-    setDetailActiveTab('numeri')
+    setDetailPercentRaggiuntoInput('')
+    setSelectedRequisitoId(null)
     sessionStorage.removeItem(impersonationStorageKey)
     sessionStorage.removeItem(sintesiStateStorageKey)
   }
@@ -563,6 +688,8 @@ function App() {
     }
 
     setSintesiLoadingFilters(true)
+    setSintesiFilterLoadingDetail('Recupero opzioni dal backend...')
+    setStatusMessage(`Aggiornamento filtri in corso per il profilo "${profile}"...`)
     try {
       const params = new URLSearchParams()
       params.set('profile', profile)
@@ -599,6 +726,7 @@ function App() {
       }
 
       const payload = (await response.json()) as CommesseSintesiFiltersResponse
+      setSintesiFilterLoadingDetail('Applicazione opzioni filtro...')
       setSintesiFiltersCatalog(payload)
       const allowedAnni = new Set(payload.anni.map((option) => option.value))
       setSintesiFiltersForm((current) => ({
@@ -611,11 +739,13 @@ function App() {
         businessUnit: keepIfPresent(current.businessUnit, payload.businessUnits),
         rcc: keepIfPresent(current.rcc, payload.rcc),
         pm: keepIfPresent(current.pm, payload.pm),
+        escludiProdotti: current.escludiProdotti,
       }))
       setStatusMessage(`Filtri caricati per il profilo "${profile}".`)
       return true
     } finally {
       setSintesiLoadingFilters(false)
+      setSintesiFilterLoadingDetail('')
     }
   }
 
@@ -747,9 +877,11 @@ function App() {
     }
 
     setDetailLoading(true)
+    setDetailSaving(false)
     setDetailCommessa(normalizedCommessa)
-    setDetailActiveTab('numeri')
     setDetailData(null)
+    setDetailPercentRaggiuntoInput('')
+    setSelectedRequisitoId(null)
     try {
       const params = new URLSearchParams()
       params.set('profile', profile)
@@ -789,18 +921,18 @@ function App() {
       const payload = (await response.json()) as CommesseDettaglioResponse
       setDetailData(payload)
       const storicoCount = payload.anniStorici.length
+      const mesiCorrenteCount = payload.mesiAnnoCorrente?.length ?? 0
       const venditeCount = payload.vendite?.length ?? 0
       const acquistiCount = payload.acquisti?.length ?? 0
-      const mese = payload.currentMonth.toString().padStart(2, '0')
       setDetailStatusMessage(
-        `Dettaglio commessa "${normalizedCommessa}": ${storicoCount} anni storici, ${venditeCount} vendite, ${acquistiCount} acquisti + progressivo ${payload.currentYear}/${mese}.`,
+        `Dettaglio commessa "${normalizedCommessa}": ${storicoCount} anni storici, ${mesiCorrenteCount} mesi ${payload.currentYear}, ${venditeCount} vendite, ${acquistiCount} acquisti.`,
       )
     } finally {
       setDetailLoading(false)
     }
   }
 
-  const openCommessaDetailInNewTab = (commessa: string) => {
+  const openCommessaDetail = (commessa: string) => {
     const normalizedCommessa = commessa.trim()
     if (!normalizedCommessa) {
       return
@@ -822,7 +954,22 @@ function App() {
       url.searchParams.delete('actAs')
     }
 
-    window.open(url.toString(), '_blank', 'noopener')
+    window.history.replaceState({}, document.title, url.toString())
+    setActivePage('commessa-dettaglio')
+    void loadCommessaDetail(normalizedCommessa)
+  }
+
+  const backToSintesi = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('page')
+    url.searchParams.delete('commessa')
+    window.history.replaceState({}, document.title, url.toString())
+
+    setActivePage('commesse-sintesi')
+
+    if (sintesiRows.length === 0 && !sintesiLoadingData) {
+      void executeSintesiSearch()
+    }
   }
 
   const refreshSintesiFilters = () => {
@@ -1021,9 +1168,12 @@ function App() {
         businessUnit: persisted.filters.businessUnit ?? '',
         rcc: persisted.filters.rcc ?? '',
         pm: persisted.filters.pm ?? '',
+        escludiProdotti: Boolean(persisted.filters.escludiProdotti),
       }
 
-      setActivePage(persisted.activePage === 'commesse-sintesi' ? 'commesse-sintesi' : 'none')
+      // Dopo login/session restore l'app deve rimanere sulla home neutra:
+      // la pagina Sintesi si apre solo da menu esplicito utente.
+      setActivePage('none')
       setSintesiMode(persisted.mode === 'aggregato' ? 'aggregato' : 'dettaglio')
       setCommessaSearch(persisted.commessaSearch ?? '')
       setSortColumn((persisted.sortColumn as SortColumn) ?? 'commessa')
@@ -1120,13 +1270,13 @@ function App() {
   const sintesiSelects: Array<{
     id: string
     label: string
-    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa'>
+    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti'>
     options: FilterOption[]
   }> = [
     { id: 'sintesi-tipologia', label: 'Tipologia Commessa', key: 'tipologiaCommessa', options: sintesiFiltersCatalog.tipologieCommessa },
     { id: 'sintesi-stato', label: 'Stato', key: 'stato', options: sintesiFiltersCatalog.stati },
     { id: 'sintesi-macro', label: 'Macrotipologia', key: 'macroTipologia', options: sintesiFiltersCatalog.macroTipologie },
-    { id: 'sintesi-prodotto', label: 'Prodotto', key: 'prodotto', options: sintesiFiltersCatalog.prodotti },
+    { id: 'sintesi-controparte', label: 'Controparte', key: 'prodotto', options: sintesiFiltersCatalog.prodotti },
     { id: 'sintesi-business-unit', label: 'Business Unit', key: 'businessUnit', options: sintesiFiltersCatalog.businessUnits },
     { id: 'sintesi-rcc', label: 'RCC', key: 'rcc', options: sintesiFiltersCatalog.rcc },
     { id: 'sintesi-pm', label: 'PM', key: 'pm', options: sintesiFiltersCatalog.pm },
@@ -1164,6 +1314,30 @@ function App() {
 
     return [selected, ...filteredCommesse]
   }, [filteredCommesse, sintesiFiltersCatalog.commesse, sintesiFiltersForm.commessa])
+  const totalFilterOptions = useMemo(() => (
+    sintesiFiltersCatalog.anni.length +
+    sintesiFiltersCatalog.commesse.length +
+    sintesiFiltersCatalog.tipologieCommessa.length +
+    sintesiFiltersCatalog.stati.length +
+    sintesiFiltersCatalog.macroTipologie.length +
+    sintesiFiltersCatalog.prodotti.length +
+    sintesiFiltersCatalog.businessUnits.length +
+    sintesiFiltersCatalog.rcc.length +
+    sintesiFiltersCatalog.pm.length
+  ), [sintesiFiltersCatalog])
+  const populatedFilterBuckets = useMemo(() => (
+    [
+      sintesiFiltersCatalog.anni,
+      sintesiFiltersCatalog.commesse,
+      sintesiFiltersCatalog.tipologieCommessa,
+      sintesiFiltersCatalog.stati,
+      sintesiFiltersCatalog.macroTipologie,
+      sintesiFiltersCatalog.prodotti,
+      sintesiFiltersCatalog.businessUnits,
+      sintesiFiltersCatalog.rcc,
+      sintesiFiltersCatalog.pm,
+    ].filter((options) => options.length > 0).length
+  ), [sintesiFiltersCatalog])
   const selectedAnniLabel = useMemo(() => {
     if (sintesiFiltersForm.anni.length === 0) {
       return 'tutti'
@@ -1188,8 +1362,10 @@ function App() {
         return row.stato
       case 'macroTipologia':
         return row.macroTipologia
+      case 'controparte':
+        return row.controparte
       case 'prodotto':
-        return row.prodotto
+        return row.controparte
       case 'businessUnit':
         return row.businessUnit
       case 'rcc':
@@ -1215,9 +1391,25 @@ function App() {
     }
   }
 
+  const displayRows = useMemo(() => {
+    if (!sintesiFiltersForm.escludiProdotti) {
+      return sintesiRows
+    }
+
+    return sintesiRows.filter((row) => {
+      const prodotto = row.prodotto.trim()
+      if (!prodotto) {
+        return true
+      }
+
+      const normalized = prodotto.toUpperCase()
+      return normalized === 'NON DEFINITO' || normalized === 'NON DEFINTO'
+    })
+  }, [sintesiRows, sintesiFiltersForm.escludiProdotti])
+
   const sortedRows = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1
-    return [...sintesiRows].sort((leftRow, rightRow) => {
+    return [...displayRows].sort((leftRow, rightRow) => {
       const left = resolveSortValue(leftRow, sortColumn)
       const right = resolveSortValue(rightRow, sortColumn)
 
@@ -1229,7 +1421,7 @@ function App() {
       const rightText = String(right ?? '').toLowerCase()
       return leftText.localeCompare(rightText, 'it', { sensitivity: 'base', numeric: true }) * direction
     })
-  }, [sintesiRows, sortColumn, sortDirection])
+  }, [displayRows, sortColumn, sortDirection])
 
   const totals = useMemo(() => (
     sortedRows.reduce((acc, row) => ({
@@ -1252,11 +1444,37 @@ function App() {
   ), [sortedRows])
 
   const detailAnagrafica = detailData?.anagrafica ?? null
+  const detailCurrentYear = detailData?.currentYear ?? 0
+  const detailCurrentMonth = detailData?.currentMonth ?? 0
+  const detailAggregatoAnnoCorrente = detailData?.annoCorrenteProgressivo ?? null
   const detailStoricoRows = detailData?.anniStorici ?? []
-  const detailProgressivoRow = detailData?.annoCorrenteProgressivo ?? null
+  const detailMesiCorrenteRows = useMemo(
+    () => [...(detailData?.mesiAnnoCorrente ?? [])]
+      .filter((row) => Number.isFinite(row.mese) && row.mese >= 1 && row.mese <= 12)
+      .sort((left, right) => left.mese - right.mese),
+    [detailData?.mesiAnnoCorrente],
+  )
   const detailVenditeRows = detailData?.vendite ?? []
   const detailAcquistiRows = detailData?.acquisti ?? []
-  const detailPivotRows = detailData?.fatturatoPivot ?? []
+  const detailOrdiniRows = detailData?.ordini ?? []
+  const detailOfferteRows = detailData?.offerte ?? []
+  const detailAvanzamentoSalvato = detailData?.avanzamentoSalvato ?? null
+  const detailAvanzamentoStorico = useMemo(
+    () => [...(detailData?.avanzamentoStorico ?? [])].sort((left, right) => {
+      const leftTime = left.dataRiferimento ? new Date(left.dataRiferimento).getTime() : Number.MAX_SAFE_INTEGER
+      const rightTime = right.dataRiferimento ? new Date(right.dataRiferimento).getTime() : Number.MAX_SAFE_INTEGER
+      const safeLeftTime = Number.isFinite(leftTime) ? leftTime : Number.MAX_SAFE_INTEGER
+      const safeRightTime = Number.isFinite(rightTime) ? rightTime : Number.MAX_SAFE_INTEGER
+      if (safeLeftTime !== safeRightTime) {
+        return safeLeftTime - safeRightTime
+      }
+
+      return left.id - right.id
+    }),
+    [detailData?.avanzamentoStorico],
+  )
+  const detailRequisitiOreRows = detailData?.requisitiOre ?? []
+  const detailRequisitiOreRisorseRows = detailData?.requisitiOreRisorse ?? []
 
   const sortMovimentiByDate = (rows: CommessaFatturaMovimentoRow[]) => (
     [...rows].sort((left, right) => {
@@ -1280,13 +1498,137 @@ function App() {
     [detailAcquistiRows],
   )
 
-  const detailRowsForTotals = useMemo(() => {
-    if (!detailProgressivoRow) {
-      return detailStoricoRows
+  const detailVenditeTotaleImporto = useMemo(
+    () => detailVenditeSorted.reduce((total, row) => total + row.importo, 0),
+    [detailVenditeSorted],
+  )
+
+  const detailAcquistiTotaleImporto = useMemo(
+    () => detailAcquistiSorted.reduce((total, row) => total + row.importo, 0),
+    [detailAcquistiSorted],
+  )
+
+  const detailOrdiniSorted = useMemo(
+    () => [...detailOrdiniRows].sort((left, right) => {
+      const protocolloCompare = left.protocollo.localeCompare(right.protocollo, 'it', { sensitivity: 'base', numeric: true })
+      if (protocolloCompare !== 0) {
+        return protocolloCompare
+      }
+
+      const posizioneCompare = left.posizione.localeCompare(right.posizione, 'it', { sensitivity: 'base', numeric: true })
+      if (posizioneCompare !== 0) {
+        return posizioneCompare
+      }
+
+      return left.idDettaglioOrdine - right.idDettaglioOrdine
+    }),
+    [detailOrdiniRows],
+  )
+
+  const detailOfferteSorted = useMemo(
+    () => [...detailOfferteRows].sort((left, right) => {
+      const yearCompare = (right.anno ?? Number.MIN_SAFE_INTEGER) - (left.anno ?? Number.MIN_SAFE_INTEGER)
+      if (yearCompare !== 0) {
+        return yearCompare
+      }
+
+      const leftTime = left.data ? new Date(left.data).getTime() : Number.MIN_SAFE_INTEGER
+      const rightTime = right.data ? new Date(right.data).getTime() : Number.MIN_SAFE_INTEGER
+      if (leftTime !== rightTime) {
+        return rightTime - leftTime
+      }
+
+      return left.protocollo.localeCompare(right.protocollo, 'it', { sensitivity: 'base', numeric: true })
+    }),
+    [detailOfferteRows],
+  )
+
+  const detailOrdiniAggregati = useMemo(() => (
+    detailOrdiniSorted.reduce((acc, row) => {
+      const importoOrdinato = row.importoOrdine
+      const importoFatturato = row.quantitaFatture * row.prezzoUnitario
+      return {
+        quantita: acc.quantita + row.quantita,
+        quantitaOriginale: acc.quantitaOriginale + row.quantitaOriginaleOrdinata,
+        quantitaFatturata: acc.quantitaFatturata + row.quantitaFatture,
+        importoOrdinato: acc.importoOrdinato + importoOrdinato,
+        importoFatturato: acc.importoFatturato + importoFatturato,
+      }
+    }, {
+      quantita: 0,
+      quantitaOriginale: 0,
+      quantitaFatturata: 0,
+      importoOrdinato: 0,
+      importoFatturato: 0,
+    })
+  ), [detailOrdiniSorted])
+
+  const detailOrdiniPercentualeQuantita = (
+    detailOrdiniAggregati.quantita <= 0
+      ? 0
+      : detailOrdiniAggregati.quantitaFatturata / detailOrdiniAggregati.quantita
+  )
+
+  const detailRequisitiOreTotals = useMemo(() => (
+    detailRequisitiOreRows.reduce((acc, row) => ({
+      orePreviste: acc.orePreviste + row.orePreviste,
+      oreSpese: acc.oreSpese + row.oreSpese,
+      oreRestanti: acc.oreRestanti + row.oreRestanti,
+    }), {
+      orePreviste: 0,
+      oreSpese: 0,
+      oreRestanti: 0,
+    })
+  ), [detailRequisitiOreRows])
+
+  const detailRequisitiOrePercentualeProposta = useMemo(() => {
+    const fromApi = detailData?.percentualeRaggiuntoProposta
+    if (typeof fromApi === 'number' && Number.isFinite(fromApi)) {
+      return Math.min(1, Math.max(0, fromApi))
     }
 
-    return [...detailStoricoRows, detailProgressivoRow]
-  }, [detailStoricoRows, detailProgressivoRow])
+    if (detailRequisitiOreTotals.orePreviste <= 0) {
+      return null
+    }
+
+    return Math.min(
+      1,
+      Math.max(0, detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.orePreviste),
+    )
+  }, [detailData?.percentualeRaggiuntoProposta, detailRequisitiOreTotals])
+
+  const detailRowsForTotals = useMemo(
+    () => [...detailStoricoRows, ...detailMesiCorrenteRows],
+    [detailStoricoRows, detailMesiCorrenteRows],
+  )
+
+  const detailSintesiRows = useMemo(() => {
+    const annualRows = detailStoricoRows.map((row) => ({
+      key: `storico-${row.anno}`,
+      anno: row.anno,
+      scenario: '',
+      utileSpecifico: row.utileSpecifico,
+      oreLavorate: row.oreLavorate,
+      costoPersonale: row.costoPersonale,
+      ricavi: row.ricavi,
+      costi: row.costi,
+      isMonthRow: false,
+    }))
+
+    const monthlyRows = detailMesiCorrenteRows.map((row) => ({
+      key: `mese-${row.anno}-${row.mese}`,
+      anno: row.anno,
+      scenario: String(row.mese).padStart(2, '0'),
+      utileSpecifico: row.utileSpecifico,
+      oreLavorate: row.oreLavorate,
+      costoPersonale: row.costoPersonale,
+      ricavi: row.ricavi,
+      costi: row.costi,
+      isMonthRow: true,
+    }))
+
+    return [...annualRows, ...monthlyRows]
+  }, [detailStoricoRows, detailMesiCorrenteRows])
 
   const detailTotals = useMemo(() => (
     detailRowsForTotals.reduce((acc, row) => ({
@@ -1295,39 +1637,242 @@ function App() {
       ricavi: acc.ricavi + row.ricavi,
       costi: acc.costi + row.costi,
       utileSpecifico: acc.utileSpecifico + row.utileSpecifico,
-      ricaviFuturi: acc.ricaviFuturi + row.ricaviFuturi,
-      costiFuturi: acc.costiFuturi + row.costiFuturi,
     }), {
       oreLavorate: 0,
       costoPersonale: 0,
       ricavi: 0,
       costi: 0,
       utileSpecifico: 0,
-      ricaviFuturi: 0,
-      costiFuturi: 0,
     })
   ), [detailRowsForTotals])
+
+  const detailConsuntivoMesePrecedenteRows = useMemo(
+    () => [
+      ...detailStoricoRows,
+      ...detailMesiCorrenteRows.filter((row) => row.mese < Math.max(detailCurrentMonth, 1)),
+    ],
+    [detailStoricoRows, detailMesiCorrenteRows, detailCurrentMonth],
+  )
+
+  const detailConsuntivoMesePrecedente = useMemo(() => (
+    detailConsuntivoMesePrecedenteRows.reduce((acc, row) => ({
+      oreLavorate: acc.oreLavorate + row.oreLavorate,
+      costoPersonale: acc.costoPersonale + row.costoPersonale,
+      ricavi: acc.ricavi + row.ricavi,
+      costi: acc.costi + row.costi,
+      utileSpecifico: acc.utileSpecifico + row.utileSpecifico,
+    }), {
+      oreLavorate: 0,
+      costoPersonale: 0,
+      ricavi: 0,
+      costi: 0,
+      utileSpecifico: 0,
+    })
+  ), [detailConsuntivoMesePrecedenteRows])
+
+  const detailLastDayPreviousMonth = useMemo(() => {
+    const fromApi = detailData?.dataConsuntivoAttivita
+    if (fromApi) {
+      const parsed = new Date(fromApi)
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed
+      }
+    }
+
+    if (detailCurrentYear <= 0 || detailCurrentMonth <= 0) {
+      return null
+    }
+
+    return new Date(detailCurrentYear, detailCurrentMonth - 1, 0)
+  }, [detailData?.dataConsuntivoAttivita, detailCurrentYear, detailCurrentMonth])
+
+  const detailCurrentRiferimentoKey = useMemo(
+    () => normalizeDateKey(detailLastDayPreviousMonth),
+    [detailLastDayPreviousMonth],
+  )
+
+  const detailCurrentRiferimentoLegacyUtcKey = useMemo(() => {
+    if (!detailLastDayPreviousMonth) {
+      return ''
+    }
+
+    const utcKey = detailLastDayPreviousMonth.toISOString().slice(0, 10)
+    return utcKey !== detailCurrentRiferimentoKey ? utcKey : ''
+  }, [detailCurrentRiferimentoKey, detailLastDayPreviousMonth])
+
+  const detailAvanzamentoRiferimentoCorrente = useMemo(() => {
+    if (!detailCurrentRiferimentoKey) {
+      return null
+    }
+
+    const baseCandidates = [
+      ...(detailAvanzamentoStorico ?? []),
+      ...(detailAvanzamentoSalvato ? [detailAvanzamentoSalvato] : []),
+    ]
+
+    const exactCandidates = baseCandidates.filter(
+      (item) => normalizeDateKey(item.dataRiferimento) === detailCurrentRiferimentoKey,
+    )
+
+    const candidates = exactCandidates.length > 0
+      ? exactCandidates
+      : (
+        detailCurrentRiferimentoLegacyUtcKey
+          ? baseCandidates.filter(
+            (item) => normalizeDateKey(item.dataRiferimento) === detailCurrentRiferimentoLegacyUtcKey,
+          )
+          : []
+      )
+
+    if (candidates.length === 0) {
+      return null
+    }
+
+    return [...candidates].sort((left, right) => {
+      const leftTime = left.dataSalvataggio ? new Date(left.dataSalvataggio).getTime() : Number.MIN_SAFE_INTEGER
+      const rightTime = right.dataSalvataggio ? new Date(right.dataSalvataggio).getTime() : Number.MIN_SAFE_INTEGER
+      const safeLeftTime = Number.isFinite(leftTime) ? leftTime : Number.MIN_SAFE_INTEGER
+      const safeRightTime = Number.isFinite(rightTime) ? rightTime : Number.MIN_SAFE_INTEGER
+      if (safeLeftTime !== safeRightTime) {
+        return safeRightTime - safeLeftTime
+      }
+
+      return right.id - left.id
+    })[0] ?? null
+  }, [detailAvanzamentoSalvato, detailAvanzamentoStorico, detailCurrentRiferimentoKey, detailCurrentRiferimentoLegacyUtcKey])
+
+  const detailPercentRaggiuntoSalvato = useMemo(() => (
+    detailAvanzamentoRiferimentoCorrente
+      ? normalizePercentTo100(detailAvanzamentoRiferimentoCorrente.percentualeRaggiunto)
+      : null
+  ), [detailAvanzamentoRiferimentoCorrente])
+
+  const detailAcquistiPassatiMesePrecedente = useMemo(() => {
+    if (!detailLastDayPreviousMonth) {
+      return 0
+    }
+
+    return detailAcquistiRows.reduce((total, row) => {
+      if (!row.dataMovimento) {
+        return total
+      }
+
+      const dataMovimento = new Date(row.dataMovimento)
+      if (Number.isNaN(dataMovimento.getTime()) || dataMovimento > detailLastDayPreviousMonth) {
+        return total
+      }
+
+      return total + row.importo
+    }, 0)
+  }, [detailAcquistiRows, detailLastDayPreviousMonth])
+
+  const detailCostiPassatiRiconciliati = useMemo(() => {
+    if (Math.abs(detailConsuntivoMesePrecedente.costi) > 0.0001) {
+      return detailConsuntivoMesePrecedente.costi
+    }
+
+    if (Math.abs(detailAcquistiPassatiMesePrecedente) > 0.0001) {
+      return detailAcquistiPassatiMesePrecedente
+    }
+
+    return detailConsuntivoMesePrecedente.costi
+  }, [detailAcquistiPassatiMesePrecedente, detailConsuntivoMesePrecedente.costi])
+
+  const detailUtileConsuntivatoRiconciliato = (
+    detailConsuntivoMesePrecedente.ricavi
+    - detailConsuntivoMesePrecedente.costoPersonale
+    - detailCostiPassatiRiconciliati
+  )
+
+  const detailOreFuture = useMemo(
+    () => {
+      if (detailRequisitiOreRows.length > 0) {
+        return detailRequisitiOreTotals.oreRestanti
+      }
+
+      return detailMesiCorrenteRows
+        .filter((row) => row.mese >= Math.max(detailCurrentMonth, 1))
+        .reduce((total, row) => total + row.oreLavorate, 0)
+    },
+    [detailRequisitiOreRows.length, detailRequisitiOreTotals.oreRestanti, detailMesiCorrenteRows, detailCurrentMonth],
+  )
+
+  const detailRicaviFuturiAggregati = detailAggregatoAnnoCorrente?.ricaviFuturi ?? 0
+  const detailCostiFuturiAggregati = detailAggregatoAnnoCorrente?.costiFuturi ?? 0
+
+  const detailPercentRaggiuntoMesePrecedenteAutomatico = useMemo(() => {
+    if (detailRequisitiOrePercentualeProposta !== null) {
+      return detailRequisitiOrePercentualeProposta
+    }
+
+    if (!detailLastDayPreviousMonth || detailCurrentYear <= 0 || detailCurrentMonth <= 0) {
+      return 0
+    }
+
+    const startOfYear = new Date(detailCurrentYear, 0, 1)
+    const endOfYear = new Date(detailCurrentYear, 11, 31)
+    const elapsedDays = Math.floor((detailLastDayPreviousMonth.getTime() - startOfYear.getTime()) / 86400000) + 1
+    const totalDays = Math.floor((endOfYear.getTime() - startOfYear.getTime()) / 86400000) + 1
+
+    if (totalDays <= 0) {
+      return 0
+    }
+
+    return Math.min(1, Math.max(0, elapsedDays / totalDays))
+  }, [detailRequisitiOrePercentualeProposta, detailLastDayPreviousMonth, detailCurrentYear, detailCurrentMonth])
+
+  const detailPercentRaggiuntoMesePrecedenteManuale = useMemo(() => {
+    const normalized = detailPercentRaggiuntoInput.trim().replace(',', '.')
+    if (!normalized) {
+      return null
+    }
+
+    const parsed = Number(normalized)
+    if (!Number.isFinite(parsed)) {
+      return null
+    }
+
+    return Math.min(100, Math.max(0, parsed))
+  }, [detailPercentRaggiuntoInput])
+
+  const detailPercentRaggiuntoMesePrecedente = detailPercentRaggiuntoMesePrecedenteManuale === null
+    ? (
+      detailPercentRaggiuntoSalvato === null
+        ? detailPercentRaggiuntoMesePrecedenteAutomatico
+        : detailPercentRaggiuntoSalvato / 100
+    )
+    : detailPercentRaggiuntoMesePrecedenteManuale / 100
+
+  const detailFatturatoPassato = detailConsuntivoMesePrecedente.ricavi
+  const detailRicavoPrevisto = detailRicaviFuturiAggregati
+  const detailRicavoMaturatoAlMesePrecedente = detailRicavoPrevisto * detailPercentRaggiuntoMesePrecedente
+  const detailUtileRicalcolatoMesePrecedente = (
+    detailFatturatoPassato
+    + detailRicavoMaturatoAlMesePrecedente
+    - detailConsuntivoMesePrecedente.costoPersonale
+    - detailCostiPassatiRiconciliati
+  )
+  const detailUtileFineProgetto = (
+    detailFatturatoPassato
+    + detailRicaviFuturiAggregati
+    - detailCostiPassatiRiconciliati
+    - detailCostiFuturiAggregati
+    - detailConsuntivoMesePrecedente.costoPersonale
+    - (detailConsuntivoMesePrecedente.costoPersonale * (1 - detailPercentRaggiuntoMesePrecedente))
+  )
 
   const sintesiCountLabel = sintesiLoadingData
     ? 'Caricamento dati...'
     : `${sortedRows.length} righe`
-  const detailCountLabel = useMemo(() => {
-    if (detailLoading) {
-      return 'Caricamento dettaglio...'
-    }
-
-    if (detailActiveTab === 'vendite') {
-      return `${detailVenditeSorted.length} vendite`
-    }
-
-    if (detailActiveTab === 'acquisti') {
-      return `${detailAcquistiSorted.length} acquisti`
-    }
-
-    return `${detailStoricoRows.length} anni storici`
-  }, [detailLoading, detailActiveTab, detailVenditeSorted.length, detailAcquistiSorted.length, detailStoricoRows.length])
-
   const numberFormatter = useMemo(() => (
+    new Intl.NumberFormat('it-IT', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: true,
+    })
+  ), [])
+
+  const percentFormatter = useMemo(() => (
     new Intl.NumberFormat('it-IT', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -1354,6 +1899,179 @@ function App() {
     return parsed.toLocaleDateString('it-IT')
   }
 
+  const formatPercentRatio = (value: number) => {
+    const safeValue = Number.isFinite(value) ? value : 0
+    return `${percentFormatter.format(Math.min(1, Math.max(0, safeValue)) * 100)}%`
+  }
+
+  const formatPercentValue = (value: number) => {
+    const safeValue = Number.isFinite(value) ? value : 0
+    const normalizedValue = Math.abs(safeValue) <= 1 ? safeValue * 100 : safeValue
+    return `${percentFormatter.format(normalizedValue)}%`
+  }
+
+  const handleDetailPercentRaggiuntoInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const compactValue = event.target.value.replace(/\s+/g, '')
+    if (!compactValue) {
+      setDetailPercentRaggiuntoInput('')
+      return
+    }
+
+    if (!/^\d{0,3}(?:[.,]\d{0,2})?$/.test(compactValue)) {
+      return
+    }
+
+    const parsed = Number(compactValue.replace(',', '.'))
+    if (Number.isFinite(parsed) && parsed > 100) {
+      setDetailPercentRaggiuntoInput('100')
+      return
+    }
+
+    setDetailPercentRaggiuntoInput(compactValue)
+  }
+
+  const handleDetailPercentRaggiuntoInputBlur = () => {
+    const normalized = detailPercentRaggiuntoInput.trim().replace(',', '.')
+    if (!normalized) {
+      return
+    }
+
+    const parsed = Number(normalized)
+    if (!Number.isFinite(parsed)) {
+      return
+    }
+
+    const clamped = Math.min(100, Math.max(0, parsed))
+    setDetailPercentRaggiuntoInput(percentFormatter.format(clamped))
+  }
+
+  const handleSaveDetailPercentRaggiunto = async () => {
+    if (!detailData?.commessa) {
+      return
+    }
+
+    if (!token.trim() || !currentProfile.trim()) {
+      setDetailStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!detailLastDayPreviousMonth) {
+      setDetailStatusMessage('Data di riferimento non disponibile per il salvataggio avanzamento.')
+      return
+    }
+
+    const normalized = detailPercentRaggiuntoInput.trim().replace(',', '.')
+    const parsed = normalized
+      ? Number(normalized)
+      : (
+        detailPercentRaggiuntoSalvato
+        ?? Math.min(100, Math.max(0, detailPercentRaggiuntoMesePrecedenteAutomatico * 100))
+      )
+    if (!Number.isFinite(parsed)) {
+      setDetailStatusMessage('Valore % raggiunto non valido: inserire un numero compreso tra 0 e 100.')
+      return
+    }
+
+    const clamped = Math.min(100, Math.max(0, parsed))
+    setDetailPercentRaggiuntoInput(percentFormatter.format(clamped))
+
+    setDetailSaving(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+
+      const response = await fetch(toBackendUrl(`/api/commesse/dettaglio/avanzamento?${params.toString()}`), {
+        method: 'POST',
+        headers: {
+          ...authHeaders(token, activeImpersonation),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          commessa: detailData.commessa,
+          percentualeRaggiunto: clamped,
+          importoRiferimento: detailRicavoPrevisto,
+          dataRiferimento: normalizeDateKey(detailLastDayPreviousMonth),
+        }),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403 || response.status === 404) {
+        const message = await readApiMessage(response)
+        setDetailStatusMessage(message || 'Salvataggio avanzamento non autorizzato.')
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setDetailStatusMessage(message || `Errore salvataggio avanzamento (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommessaAvanzamentoRow
+      setDetailData((current) => {
+        if (!current) {
+          return current
+        }
+
+        const payloadDateKey = normalizeDateKey(payload.dataRiferimento)
+        const storicoAggiornato = [
+          ...(current.avanzamentoStorico ?? []).filter((item) => (
+            !payloadDateKey || normalizeDateKey(item.dataRiferimento) !== payloadDateKey
+          )),
+          payload,
+        ].sort((left, right) => {
+          const leftTime = left.dataRiferimento ? new Date(left.dataRiferimento).getTime() : Number.MAX_SAFE_INTEGER
+          const rightTime = right.dataRiferimento ? new Date(right.dataRiferimento).getTime() : Number.MAX_SAFE_INTEGER
+          const safeLeftTime = Number.isFinite(leftTime) ? leftTime : Number.MAX_SAFE_INTEGER
+          const safeRightTime = Number.isFinite(rightTime) ? rightTime : Number.MAX_SAFE_INTEGER
+          if (safeLeftTime !== safeRightTime) {
+            return safeLeftTime - safeRightTime
+          }
+
+          return left.id - right.id
+        })
+
+        return {
+          ...current,
+          avanzamentoSalvato: payload,
+          avanzamentoStorico: storicoAggiornato,
+        }
+      })
+      setDetailPercentRaggiuntoInput(percentFormatter.format(Math.min(100, Math.max(0, payload.percentualeRaggiunto))))
+      setDetailStatusMessage(
+        `Avanzamento salvato (id ${payload.id}) su ${detailData.commessa} con riferimento ${formatDate(payload.dataRiferimento)}.`,
+      )
+    } finally {
+      setDetailSaving(false)
+    }
+  }
+
+  const toggleRequisitoDettaglio = (idRequisito: number) => {
+    setSelectedRequisitoId((current) => (current === idRequisito ? null : idRequisito))
+  }
+
+  useEffect(() => {
+    if (!detailData) {
+      return
+    }
+
+    if (detailPercentRaggiuntoSalvato !== null) {
+      setDetailPercentRaggiuntoInput(percentFormatter.format(detailPercentRaggiuntoSalvato))
+      return
+    }
+
+    const suggestedPercent = Math.min(
+      100,
+      Math.max(0, detailPercentRaggiuntoMesePrecedenteAutomatico * 100),
+    )
+    setDetailPercentRaggiuntoInput(percentFormatter.format(suggestedPercent))
+  }, [detailData?.commessa, detailPercentRaggiuntoMesePrecedenteAutomatico, detailPercentRaggiuntoSalvato, percentFormatter])
+
   const toggleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
@@ -1366,10 +2084,10 @@ function App() {
 
   const sortIndicator = (column: SortColumn) => {
     if (sortColumn !== column) {
-      return '↕'
+      return 'â†•'
     }
 
-    return sortDirection === 'asc' ? '▲' : '▼'
+    return sortDirection === 'asc' ? 'â–²' : 'â–¼'
   }
 
   const exportSintesiExcel = () => {
@@ -1385,7 +2103,7 @@ function App() {
       Tipologia: row.tipologiaCommessa,
       Stato: row.stato,
       Macrotipologia: row.macroTipologia,
-      Prodotto: row.prodotto,
+      Controparte: row.controparte,
       BusinessUnit: row.businessUnit,
       RCC: row.rcc,
       PM: row.pm,
@@ -1421,6 +2139,119 @@ function App() {
     const mode = sintesiMode === 'aggregato' ? 'aggregato' : 'dettaglio'
     const anno = selectedAnniLabel
     const filename = `Produzione_Sintesi_${mode}_${anno}_${timestamp}.xlsx`
+
+    XLSX.writeFile(workbook, filename)
+    setStatusMessage(`Export Excel completato: ${filename}`)
+  }
+
+  const exportDettaglioExcel = () => {
+    if (!detailData || !detailCommessa.trim()) {
+      setStatusMessage('Nessun dettaglio commessa disponibile da esportare in Excel.')
+      return
+    }
+
+    const workbook = XLSX.utils.book_new()
+    const appendSheet = (rows: Record<string, unknown>[], sheetName: string, cols?: Array<{ wch: number }>) => {
+      const safeRows = rows.length > 0 ? rows : [{ Info: 'Nessun dato disponibile' }]
+      const worksheet = XLSX.utils.json_to_sheet(safeRows)
+      if (cols && cols.length > 0) {
+        worksheet['!cols'] = cols
+      }
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+    }
+
+    if (detailAnagrafica) {
+      appendSheet([
+        {
+          Commessa: detailAnagrafica.commessa,
+          Descrizione: detailAnagrafica.descrizioneCommessa,
+          Tipologia: detailAnagrafica.tipologiaCommessa,
+          Stato: detailAnagrafica.stato,
+          Macrotipologia: detailAnagrafica.macroTipologia,
+          Prodotto: detailAnagrafica.prodotto,
+          Controparte: detailAnagrafica.controparte,
+          BusinessUnit: detailAnagrafica.businessUnit,
+          RCC: detailAnagrafica.rcc,
+          PM: detailAnagrafica.pm,
+        },
+      ], 'Anagrafica')
+    }
+
+    appendSheet(
+      detailSintesiRows.map((row) => ({
+        Anno: row.anno,
+        Scenario: row.scenario,
+        Utile: row.utileSpecifico,
+        OreLavorate: row.oreLavorate,
+        CostoPersonale: row.costoPersonale,
+        Ricavi: row.ricavi,
+        Costi: row.costi,
+      })),
+      'ConsuntivoStorico',
+    )
+
+    appendSheet(
+      detailVenditeSorted.map((row) => ({
+        Data: formatDate(row.dataMovimento),
+        Importo: row.importo,
+        Documento: row.numeroDocumento,
+        Descrizione: row.descrizione,
+        Provenienza: row.provenienza,
+        Temporale: row.statoTemporale,
+      })),
+      'Vendite',
+    )
+
+    appendSheet(
+      detailAcquistiSorted.map((row) => ({
+        Data: formatDate(row.dataMovimento),
+        Importo: row.importo,
+        Documento: row.numeroDocumento,
+        Descrizione: row.descrizione,
+        Controparte: row.controparte,
+        Provenienza: row.provenienza,
+        Temporale: row.statoTemporale,
+      })),
+      'Acquisti',
+    )
+
+    appendSheet(
+      detailRequisitiOreRows.map((row) => ({
+        IdRequisito: row.idRequisito,
+        Requisito: row.requisito,
+        OrePreviste: row.orePreviste,
+        OreSpese: row.oreSpese,
+        OreRestanti: row.oreRestanti,
+        PercentualeAvanzamento: row.percentualeAvanzamento,
+      })),
+      'RequisitiOre',
+    )
+
+    appendSheet(
+      detailRequisitiOreRisorseRows.map((row) => ({
+        IdRequisito: row.idRequisito,
+        Requisito: row.requisito,
+        IdRisorsa: row.idRisorsa,
+        NomeRisorsa: row.nomeRisorsa,
+        OrePreviste: row.orePreviste,
+        OreSpese: row.oreSpese,
+        OreRestanti: row.oreRestanti,
+        PercentualeAvanzamento: row.percentualeAvanzamento,
+      })),
+      'RequisitiRisorse',
+    )
+
+    const now = new Date()
+    const timestamp = [
+      now.getFullYear().toString(),
+      (now.getMonth() + 1).toString().padStart(2, '0'),
+      now.getDate().toString().padStart(2, '0'),
+      '_',
+      now.getHours().toString().padStart(2, '0'),
+      now.getMinutes().toString().padStart(2, '0'),
+      now.getSeconds().toString().padStart(2, '0'),
+    ].join('')
+    const filename = `Produzione_Dettaglio_${detailCommessa.trim()}_${timestamp}.xlsx`
 
     XLSX.writeFile(workbook, filename)
     setStatusMessage(`Export Excel completato: ${filename}`)
@@ -1526,10 +2357,13 @@ function App() {
               <h2>Commesse - Sintesi</h2>
               <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
             </header>
-            <p className="status-text">{statusMessage}</p>
 
             <section className="panel sintesi-filter-panel">
-              <form className="sintesi-form" onSubmit={handleSintesiSubmit}>
+              <form
+                className={`sintesi-form ${sintesiLoadingFilters ? 'is-filter-loading' : ''}`}
+                onSubmit={handleSintesiSubmit}
+                aria-busy={sintesiLoadingFilters}
+              >
                 <div className="sintesi-filters-grid">
                   <div className="sintesi-field sintesi-field-anni">
                     <div className="sintesi-field-header-row">
@@ -1547,7 +2381,7 @@ function App() {
                     <select
                       id="sintesi-anni"
                       multiple
-                      size={4}
+                      size={2}
                       value={sintesiFiltersForm.anni}
                       disabled={sintesiLoadingFilters}
                       onChange={(event) => setSintesiFiltersForm((current) => ({
@@ -1571,10 +2405,12 @@ function App() {
                         value={commessaSearch}
                         onChange={(event) => setCommessaSearch(event.target.value)}
                         placeholder="Cerca..."
+                        disabled={sintesiLoadingFilters}
                       />
                       <select
                         id="sintesi-commessa"
                         value={sintesiFiltersForm.commessa}
+                        disabled={sintesiLoadingFilters}
                         onChange={(event) => setSintesiFiltersForm((current) => ({
                           ...current,
                           commessa: event.target.value,
@@ -1593,12 +2429,17 @@ function App() {
                   {sintesiSelects.map((selectField) => (
                     <div
                       key={selectField.id}
-                      className={`sintesi-field ${selectField.id === 'sintesi-stato' ? 'sintesi-field-stato' : ''}`}
+                      className={[
+                        'sintesi-field',
+                        selectField.id === 'sintesi-stato' ? 'sintesi-field-stato' : '',
+                        selectField.id === 'sintesi-business-unit' ? 'sintesi-field-business-unit' : '',
+                      ].filter(Boolean).join(' ')}
                     >
                       <label htmlFor={selectField.id}>{selectField.label}</label>
                       <select
                         id={selectField.id}
                         value={sintesiFiltersForm[selectField.key]}
+                        disabled={sintesiLoadingFilters}
                         onChange={(event) => setSintesiFiltersForm((current) => ({
                           ...current,
                           [selectField.key]: event.target.value,
@@ -1613,10 +2454,25 @@ function App() {
                       </select>
                     </div>
                   ))}
+
+                  <div className="sintesi-field sintesi-field-checkbox sintesi-field-escludi-prodotti">
+                    <label htmlFor="sintesi-escludi-prodotti" className="checkbox-label checkbox-label-inline">
+                      <input
+                        id="sintesi-escludi-prodotti"
+                        type="checkbox"
+                        checked={sintesiFiltersForm.escludiProdotti}
+                        onChange={(event) => setSintesiFiltersForm((current) => ({
+                          ...current,
+                          escludiProdotti: event.target.checked,
+                        }))}
+                      />
+                      Escludi prodotti
+                    </label>
+                  </div>
                 </div>
 
                 <div className="inline-actions">
-                  <button type="submit" disabled={sintesiLoadingData || sessionLoading}>
+                  <button type="submit" disabled={sintesiLoadingData || sintesiLoadingFilters || sessionLoading}>
                     {sintesiLoadingData ? 'Ricerca in corso...' : 'Cerca'}
                   </button>
                   <button
@@ -1644,14 +2500,19 @@ function App() {
                     Export Excel
                   </button>
                 </div>
+
+                <div className="sintesi-toolbar-row" role="status" aria-live="polite" aria-atomic="true">
+                  <p className="sintesi-toolbar-message">
+                    {sintesiLoadingFilters
+                      ? `Aggiornamento filtri in corso. ${sintesiFilterLoadingDetail || 'Attendere...'}`
+                      : `${statusMessage} Filtri disponibili: ${populatedFilterBuckets}/9 categorie, ${totalFilterOptions} opzioni.`}
+                  </p>
+                  <span className="status-badge neutral">{sintesiCountLabel}</span>
+                </div>
               </form>
             </section>
 
             <section className="panel sintesi-data-panel">
-              <header className="panel-header">
-                <span className="status-badge neutral">{sintesiCountLabel}</span>
-              </header>
-
               {!sintesiSearched && (
                 <p className="empty-state">
                   Nessun dato visualizzato. Imposta i filtri e premi Cerca.
@@ -1665,7 +2526,7 @@ function App() {
               )}
 
               {sortedRows.length > 0 && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
                   <table className="bonifici-table">
                     <thead>
                       <tr>
@@ -1700,8 +2561,8 @@ function App() {
                           </button>
                         </th>
                         <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('prodotto')}>
-                            Prodotto <span className="sort-indicator">{sortIndicator('prodotto')}</span>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('controparte')}>
+                            Controparte <span className="sort-indicator">{sortIndicator('controparte')}</span>
                           </button>
                         </th>
                         <th>
@@ -1761,32 +2622,32 @@ function App() {
                         <tr key={`${row.commessa}-${row.businessUnit}-${index}`}>
                           <td>{row.anno ?? ''}</td>
                           <td>
-                            <button
-                              type="button"
-                              className="inline-link-button"
-                              onClick={() => openCommessaDetailInNewTab(row.commessa)}
-                              title={`Apri dettaglio commessa ${row.commessa} in nuova pagina`}
-                            >
-                              {row.commessa}
-                            </button>
+                                <button
+                                  type="button"
+                                  className="inline-link-button"
+                                  onClick={() => openCommessaDetail(row.commessa)}
+                                  title={`Apri dettaglio commessa ${row.commessa}`}
+                                >
+                                  {row.commessa}
+                                </button>
                           </td>
                           <td>{row.descrizioneCommessa}</td>
                           <td>{row.tipologiaCommessa}</td>
                           <td>{row.stato}</td>
                           <td>{row.macroTipologia}</td>
-                          <td>{row.prodotto}</td>
+                          <td>{row.controparte}</td>
                           <td>{row.businessUnit}</td>
                           <td>{row.rcc}</td>
                           <td>{row.pm}</td>
                           <td className="num">{formatNumber(row.oreLavorate)}</td>
-                          <td className="num">{formatNumber(row.costoPersonale)}</td>
-                          <td className="num">{formatNumber(row.ricavi)}</td>
-                          <td className="num">{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
                           <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                             {formatNumber(row.utileSpecifico)}
                           </td>
-                          <td className="num">{formatNumber(row.ricaviFuturi)}</td>
-                          <td className="num">{formatNumber(row.costiFuturi)}</td>
+                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1794,14 +2655,14 @@ function App() {
                       <tr className="table-totals-row">
                         <td colSpan={10} className="table-totals-label">Totale</td>
                         <td className="num">{formatNumber(totals.oreLavorate)}</td>
-                        <td className="num">{formatNumber(totals.costoPersonale)}</td>
-                        <td className="num">{formatNumber(totals.ricavi)}</td>
-                        <td className="num">{formatNumber(totals.costi)}</td>
+                        <td className={`num ${totals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonale)}</td>
+                        <td className={`num ${totals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricavi)}</td>
+                        <td className={`num ${totals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costi)}</td>
                         <td className={`num ${totals.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                           {formatNumber(totals.utileSpecifico)}
                         </td>
-                        <td className="num">{formatNumber(totals.ricaviFuturi)}</td>
-                        <td className="num">{formatNumber(totals.costiFuturi)}</td>
+                        <td className={`num ${totals.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricaviFuturi)}</td>
+                        <td className={`num ${totals.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costiFuturi)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1812,25 +2673,35 @@ function App() {
         )}
 
         {activePage === 'commessa-dettaglio' && (
-          <section className="panel sintesi-page">
-            <header className="panel-header">
-              <h2>Commesse - Dettaglio {detailCommessa ? `"${detailCommessa}"` : ''}</h2>
-              <div className="inline-actions">
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => setActivePage('commesse-sintesi')}
-                >
-                  Torna a Sintesi
-                </button>
-              </div>
-            </header>
-            <p className="status-text">{detailStatusMessage || 'Dettaglio commessa in caricamento.'}</p>
+          <section className="panel sintesi-page detail-page">
+            <span className="sr-only" aria-live="polite">
+              {`Dettaglio commessa ${detailCommessa ? `"${detailCommessa}"` : ''}. ${
+                detailStatusMessage || 'Dettaglio commessa in caricamento.'
+              }`}
+            </span>
 
-            <section className="panel detail-anagrafica-panel">
-              <header className="panel-header">
-                <h3>Anagrafica Commessa</h3>
-              </header>
+            <section className="detail-top-zone">
+              <section className="panel detail-anagrafica-panel">
+                <header className="panel-header">
+                  <h3>Anagrafica Commessa</h3>
+                  <div className="detail-header-actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={exportDettaglioExcel}
+                      disabled={detailLoading || !detailData}
+                    >
+                      Export Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={backToSintesi}
+                    >
+                      Torna a Sintesi
+                    </button>
+                  </div>
+                </header>
 
               {!detailAnagrafica && !detailLoading && (
                 <p className="empty-state">Nessun dato anagrafico disponibile per la commessa selezionata.</p>
@@ -1847,6 +2718,7 @@ function App() {
                         <th>Stato</th>
                         <th>Macrotipologia</th>
                         <th>Prodotto</th>
+                        <th>Controparte</th>
                         <th>Business Unit</th>
                         <th>RCC</th>
                         <th>PM</th>
@@ -1860,6 +2732,7 @@ function App() {
                         <td>{detailAnagrafica.stato}</td>
                         <td>{detailAnagrafica.macroTipologia}</td>
                         <td>{detailAnagrafica.prodotto}</td>
+                        <td>{detailAnagrafica.controparte}</td>
                         <td>{detailAnagrafica.businessUnit}</td>
                         <td>{detailAnagrafica.rcc}</td>
                         <td>{detailAnagrafica.pm}</td>
@@ -1870,155 +2743,182 @@ function App() {
               )}
             </section>
 
-            <section className="panel sintesi-data-panel detail-tabs-panel">
-              <header className="panel-header">
-                <span className="status-badge neutral">{detailCountLabel}</span>
-              </header>
-
-              <div className="detail-tabs" role="tablist" aria-label="Sezioni dettaglio commessa">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailActiveTab === 'numeri'}
-                  className={`detail-tab ${detailActiveTab === 'numeri' ? 'is-active' : ''}`}
-                  onClick={() => setDetailActiveTab('numeri')}
-                >
-                  Numeri
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailActiveTab === 'vendite'}
-                  className={`detail-tab ${detailActiveTab === 'vendite' ? 'is-active' : ''}`}
-                  onClick={() => setDetailActiveTab('vendite')}
-                >
-                  Vendite
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailActiveTab === 'acquisti'}
-                  className={`detail-tab ${detailActiveTab === 'acquisti' ? 'is-active' : ''}`}
-                  onClick={() => setDetailActiveTab('acquisti')}
-                >
-                  Acquisti
-                </button>
+            <section className="panel detail-summary-strip-panel">
+              <div className="bonifici-table-wrap detail-kpi-table-wrap" role="status" aria-live="polite">
+                <table className="bonifici-table detail-kpi-table">
+                  <thead>
+                    <tr>
+                      <th className="detail-kpi-group-head" colSpan={5}>
+                        Consuntivato {detailLastDayPreviousMonth ? `${detailLastDayPreviousMonth.toLocaleDateString('it-IT')} (anni precedenti inclusi)` : 'mese precedente'}
+                      </th>
+                      <th className="detail-kpi-group-head" colSpan={3}>
+                        {detailCurrentYear > 0 ? `Futuro ${detailCurrentYear}` : 'Futuro'}
+                      </th>
+                      <th className="detail-kpi-group-head" colSpan={5}>
+                        Proiezione {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : 'mese precedente'}
+                      </th>
+                      <th className="detail-kpi-group-head detail-kpi-action-col" colSpan={1}>
+                        Azione
+                      </th>
+                    </tr>
+                    <tr>
+                      <th className="num">Ore lavorate</th>
+                      <th className="num">Costo personale</th>
+                      <th className="num">Ricavi passati</th>
+                      <th className="num">Costi passati</th>
+                      <th className="num">Utile consuntivato</th>
+                      <th className="num">Ricavi futuri</th>
+                      <th className="num">Costi futuri</th>
+                      <th className="num">Ore future</th>
+                      <th className="num">
+                        <span className="detail-tooltip-label" title="Ricavo futuro da elaborare.">
+                          Ricavo previsto
+                        </span>
+                      </th>
+                      <th className="detail-kpi-percent-col">
+                        <span className="detail-tooltip-label" title="% di sviluppo realizzata.">
+                          % raggiunto
+                        </span>
+                      </th>
+                      <th className="num">
+                        <span className="detail-tooltip-label" title="Ricavo futuro attualizzato ad oggi secondo la percentuale della lavorazione realizzata.">
+                          Ricavo maturato
+                        </span>
+                      </th>
+                      <th className="num">
+                        <span className="detail-tooltip-label" title="Ricavo storico + Ricavo maturato - Costo storico - Costo del personale.">
+                          Utile ricalcolato
+                        </span>
+                      </th>
+                      <th className="num">
+                        <span className="detail-tooltip-label" title="Ricavo storico + Ricavo futuro - Costo storico - Costo futuro - Costo del personale storico - Costo del personale storico * (1 - % avanzamento).">
+                          Utile fine progetto
+                        </span>
+                      </th>
+                      <th className="detail-kpi-action-col">Salva</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className={`num ${detailConsuntivoMesePrecedente.oreLavorate < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailConsuntivoMesePrecedente.oreLavorate)}
+                      </td>
+                      <td className={`num ${detailConsuntivoMesePrecedente.costoPersonale < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailConsuntivoMesePrecedente.costoPersonale)}
+                      </td>
+                      <td className={`num ${detailConsuntivoMesePrecedente.ricavi < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailConsuntivoMesePrecedente.ricavi)}
+                      </td>
+                      <td className={`num ${detailCostiPassatiRiconciliati < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailCostiPassatiRiconciliati)}
+                      </td>
+                      <td className={`num ${detailUtileConsuntivatoRiconciliato < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailUtileConsuntivatoRiconciliato)}
+                      </td>
+                      <td className={`num ${detailRicaviFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviFuturiAggregati)}</td>
+                      <td className={`num ${detailCostiFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailCostiFuturiAggregati)}</td>
+                      <td className={`num ${detailOreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreFuture)}</td>
+                      <td className={`num ${detailRicavoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicavoPrevisto)}</td>
+                      <td className="detail-kpi-percent-cell">
+                        <label className="detail-kpi-percent-input-wrap">
+                          <input
+                            className="detail-kpi-percent-input"
+                            type="text"
+                            inputMode="decimal"
+                            value={detailPercentRaggiuntoInput}
+                            onChange={handleDetailPercentRaggiuntoInputChange}
+                            onBlur={handleDetailPercentRaggiuntoInputBlur}
+                            aria-label="% raggiunto progetto"
+                          />
+                          <span className="detail-kpi-percent-suffix">%</span>
+                        </label>
+                      </td>
+                      <td className={`num ${detailRicavoMaturatoAlMesePrecedente < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailRicavoMaturatoAlMesePrecedente)}
+                      </td>
+                      <td className={`num ${detailUtileRicalcolatoMesePrecedente < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailUtileRicalcolatoMesePrecedente)}
+                      </td>
+                      <td className={`num ${detailUtileFineProgetto < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailUtileFineProgetto)}
+                      </td>
+                      <td className="detail-kpi-action-cell">
+                        <button
+                          type="button"
+                          onClick={handleSaveDetailPercentRaggiunto}
+                          disabled={detailLoading || detailSaving || !detailData?.commessa}
+                        >
+                          {detailSaving ? 'Salvataggio...' : 'Salva'}
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
+            </section>
+            </section>
 
-              {detailPivotRows.length > 0 && (
-                <div className="detail-pivot-box">
-                  <h4 className="detail-pivot-title">Sintesi Fatturato Pivot</h4>
-                  <div className="bonifici-table-wrap">
-                    <table className="bonifici-table detail-pivot-table">
-                      <thead>
-                        <tr>
-                          <th>Anno</th>
-                          <th>RCC</th>
-                          <th>Fatturato</th>
-                          <th>Fatturato Futuro</th>
-                          <th>Ricavo Ipotetico</th>
-                          <th>Ricavo Ipotetico Pesato</th>
-                          <th>Totale Complessivo</th>
-                          <th>Budget</th>
-                          <th>% Raggiungimento</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailPivotRows.map((row, index) => (
-                          <tr key={`pivot-${row.anno ?? 'na'}-${row.rcc}-${index}`}>
-                            <td>{row.anno ?? ''}</td>
-                            <td>{row.rcc}</td>
-                            <td>{row.totaleFatturato}</td>
-                            <td>{row.totaleFatturatoFuturo}</td>
-                            <td>{row.totaleRicavoIpotetico}</td>
-                            <td>{row.totaleRicavoIpoteticoPesato}</td>
-                            <td>{row.totaleComplessivo}</td>
-                            <td>{row.budget}</td>
-                            <td>{row.percentualeRaggiungimento}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {detailActiveTab === 'numeri' && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                  {(detailStoricoRows.length === 0 && !detailProgressivoRow && !detailLoading) && (
+            <section className="detail-main-zone">
+            <section className="detail-grid-panels">
+              <section className="panel detail-card detail-card-consuntivo">
+                <header className="panel-header">
+                  <h3>Consuntivo storico</h3>
+                </header>
+                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                  {(detailSintesiRows.length === 0 && !detailLoading) && (
                     <p className="empty-state">Nessun dato numerico disponibile per la commessa selezionata.</p>
                   )}
 
-                  {(detailStoricoRows.length > 0 || detailProgressivoRow) && (
+                  {detailSintesiRows.length > 0 && (
                     <table className="bonifici-table detail-numeri-table">
                       <thead>
                         <tr>
                           <th>Anno</th>
                           <th>Scenario</th>
+                          <th className="num">Utile</th>
                           <th className="num">Ore Lavorate</th>
                           <th className="num">Costo Personale</th>
                           <th className="num">Ricavi</th>
                           <th className="num">Costi</th>
-                          <th className="num">Utile Specifico</th>
-                          <th className="num">Ricavi Futuri</th>
-                          <th className="num">Costi Futuri</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {detailStoricoRows.map((row) => (
-                          <tr key={`storico-${row.anno}`}>
+                        {detailSintesiRows.map((row) => (
+                          <tr key={row.key} className={row.isMonthRow ? 'detail-progressivo-row' : ''}>
                             <td>{row.anno}</td>
-                            <td>Consuntivo annuale</td>
-                            <td className="num">{formatNumber(row.oreLavorate)}</td>
-                            <td className="num">{formatNumber(row.costoPersonale)}</td>
-                            <td className="num">{formatNumber(row.ricavi)}</td>
-                            <td className="num">{formatNumber(row.costi)}</td>
+                            <td>{row.scenario}</td>
                             <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                               {formatNumber(row.utileSpecifico)}
                             </td>
-                            <td className="num">{formatNumber(row.ricaviFuturi)}</td>
-                            <td className="num">{formatNumber(row.costiFuturi)}</td>
+                            <td className="num">{formatNumber(row.oreLavorate)}</td>
+                            <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                            <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                            <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
                           </tr>
                         ))}
-                        {detailProgressivoRow && (
-                          <tr className="detail-progressivo-row">
-                            <td>{detailProgressivoRow.anno}</td>
-                            <td>
-                              Progressivo fino al mese {String(detailData?.currentMonth ?? 0).padStart(2, '0')}
-                            </td>
-                            <td className="num">{formatNumber(detailProgressivoRow.oreLavorate)}</td>
-                            <td className="num">{formatNumber(detailProgressivoRow.costoPersonale)}</td>
-                            <td className="num">{formatNumber(detailProgressivoRow.ricavi)}</td>
-                            <td className="num">{formatNumber(detailProgressivoRow.costi)}</td>
-                            <td className={`num ${detailProgressivoRow.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                              {formatNumber(detailProgressivoRow.utileSpecifico)}
-                            </td>
-                            <td className="num">{formatNumber(detailProgressivoRow.ricaviFuturi)}</td>
-                            <td className="num">{formatNumber(detailProgressivoRow.costiFuturi)}</td>
-                          </tr>
-                        )}
                       </tbody>
                       <tfoot>
                         <tr className="table-totals-row">
                           <td colSpan={2} className="table-totals-label">Totale</td>
-                          <td className="num">{formatNumber(detailTotals.oreLavorate)}</td>
-                          <td className="num">{formatNumber(detailTotals.costoPersonale)}</td>
-                          <td className="num">{formatNumber(detailTotals.ricavi)}</td>
-                          <td className="num">{formatNumber(detailTotals.costi)}</td>
                           <td className={`num ${detailTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                             {formatNumber(detailTotals.utileSpecifico)}
                           </td>
-                          <td className="num">{formatNumber(detailTotals.ricaviFuturi)}</td>
-                          <td className="num">{formatNumber(detailTotals.costiFuturi)}</td>
+                          <td className="num">{formatNumber(detailTotals.oreLavorate)}</td>
+                          <td className={`num ${detailTotals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.costoPersonale)}</td>
+                          <td className={`num ${detailTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.ricavi)}</td>
+                          <td className={`num ${detailTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.costi)}</td>
                         </tr>
                       </tfoot>
                     </table>
                   )}
                 </div>
-              )}
+              </section>
 
-              {detailActiveTab === 'vendite' && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+              <section className="panel detail-card detail-card-vendite">
+                <header className="panel-header">
+                  <h3>Vendite ordinate per data</h3>
+                </header>
+                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
                   {(detailVenditeSorted.length === 0 && !detailLoading) && (
                     <p className="empty-state">Nessuna vendita disponibile per la commessa selezionata.</p>
                   )}
@@ -2028,38 +2928,46 @@ function App() {
                       <thead>
                         <tr>
                           <th>Data</th>
+                          <th className="num">Importo</th>
                           <th>Documento</th>
                           <th>Descrizione</th>
-                          <th>Controparte</th>
                           <th>Provenienza</th>
                           <th>Temporale</th>
-                          <th className="num">Importo</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detailVenditeSorted.map((row, index) => (
                           <tr key={`vendita-${row.numeroDocumento}-${row.dataMovimento ?? 'na'}-${index}`} className={row.isFuture ? 'detail-mov-row-future' : 'detail-mov-row-past'}>
                             <td>{formatDate(row.dataMovimento)}</td>
+                            <td className={`num ${row.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importo)}</td>
                             <td>{row.numeroDocumento}</td>
                             <td>{row.descrizione}</td>
-                            <td>{row.controparte}</td>
                             <td>{row.provenienza}</td>
                             <td>
                               <span className={`detail-time-badge ${row.isFuture ? 'future' : 'past'}`}>
                                 {row.statoTemporale || (row.isFuture ? 'Futuro' : 'Passato')}
                               </span>
                             </td>
-                            <td className="num">{formatNumber(row.importo)}</td>
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr className="table-totals-row">
+                          <td className="table-totals-label">Totale</td>
+                          <td className={`num ${detailVenditeTotaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailVenditeTotaleImporto)}</td>
+                          <td colSpan={4} />
+                        </tr>
+                      </tfoot>
                     </table>
                   )}
                 </div>
-              )}
+              </section>
 
-              {detailActiveTab === 'acquisti' && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+              <section className="panel detail-card detail-card-acquisti">
+                <header className="panel-header">
+                  <h3>Acquisti ordinati per data</h3>
+                </header>
+                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
                   {(detailAcquistiSorted.length === 0 && !detailLoading) && (
                     <p className="empty-state">Nessun acquisto disponibile per la commessa selezionata.</p>
                   )}
@@ -2069,18 +2977,19 @@ function App() {
                       <thead>
                         <tr>
                           <th>Data</th>
+                          <th className="num">Importo</th>
                           <th>Documento</th>
                           <th>Descrizione</th>
                           <th>Controparte</th>
                           <th>Provenienza</th>
                           <th>Temporale</th>
-                          <th className="num">Importo</th>
                         </tr>
                       </thead>
                       <tbody>
                         {detailAcquistiSorted.map((row, index) => (
                           <tr key={`acquisto-${row.numeroDocumento}-${row.dataMovimento ?? 'na'}-${index}`} className={row.isFuture ? 'detail-mov-row-future' : 'detail-mov-row-past'}>
                             <td>{formatDate(row.dataMovimento)}</td>
+                            <td className={`num ${row.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importo)}</td>
                             <td>{row.numeroDocumento}</td>
                             <td>{row.descrizione}</td>
                             <td>{row.controparte}</td>
@@ -2090,14 +2999,318 @@ function App() {
                                 {row.statoTemporale || (row.isFuture ? 'Futuro' : 'Passato')}
                               </span>
                             </td>
-                            <td className="num">{formatNumber(row.importo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="table-totals-row">
+                          <td className="table-totals-label">Totale</td>
+                          <td className={`num ${detailAcquistiTotaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailAcquistiTotaleImporto)}</td>
+                          <td colSpan={5} />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              <section className="panel detail-card detail-card-ordini">
+                <header className="panel-header">
+                  <h3>Ordini</h3>
+                </header>
+                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                  {(detailOrdiniSorted.length === 0 && !detailLoading) && (
+                    <p className="empty-state">Nessun ordine disponibile per la commessa selezionata.</p>
+                  )}
+
+                  {detailOrdiniSorted.length > 0 && (
+                    <table className="bonifici-table detail-ordini-table">
+                      <thead>
+                        <tr>
+                          <th>Protocollo</th>
+                          <th>Stato</th>
+                          <th>Posizione</th>
+                          <th>Descrizione</th>
+                          <th className="num">Quantità</th>
+                          <th className="num">Prezzo Unit.</th>
+                          <th className="num">Importo Ordine</th>
+                          <th className="num">Qtà originale</th>
+                          <th className="num">Qtà fatture</th>
+                          <th className="num">% raggiung.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailOrdiniSorted.map((row) => {
+                          const percentualeRiga = row.quantita <= 0 ? 0 : row.quantitaFatture / row.quantita
+                          return (
+                            <tr key={`ordine-${row.idDettaglioOrdine}`}>
+                              <td>{row.protocollo}</td>
+                              <td>{row.documentoStato}</td>
+                              <td>{row.posizione}</td>
+                              <td>{row.descrizione}</td>
+                              <td className="num">{formatNumber(row.quantita)}</td>
+                              <td className="num">{formatNumber(row.prezzoUnitario)}</td>
+                              <td className={`num ${row.importoOrdine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoOrdine)}</td>
+                              <td className="num">{formatNumber(row.quantitaOriginaleOrdinata)}</td>
+                              <td className="num">{formatNumber(row.quantitaFatture)}</td>
+                              <td className="num">{formatPercentRatio(percentualeRiga)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="table-totals-row">
+                          <td colSpan={6} className="table-totals-label">Totale</td>
+                          <td className={`num ${detailOrdiniAggregati.importoOrdinato < 0 ? 'num-negative' : ''}`}>
+                            {formatNumber(detailOrdiniAggregati.importoOrdinato)}
+                          </td>
+                          <td className="num">{formatNumber(detailOrdiniAggregati.quantitaOriginale)}</td>
+                          <td className="num">{formatNumber(detailOrdiniAggregati.quantitaFatturata)}</td>
+                          <td className="num">{formatPercentRatio(detailOrdiniPercentualeQuantita)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              <section className="panel detail-card detail-card-offerte">
+                <header className="panel-header">
+                  <h3>Offerte</h3>
+                </header>
+                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                  {(detailOfferteSorted.length === 0 && !detailLoading) && (
+                    <p className="empty-state">Nessuna offerta disponibile per la commessa selezionata.</p>
+                  )}
+
+                  {detailOfferteSorted.length > 0 && (
+                    <table className="bonifici-table detail-offerte-table">
+                      <thead>
+                        <tr>
+                          <th>Anno</th>
+                          <th>Data</th>
+                          <th>Protocollo</th>
+                          <th>Oggetto</th>
+                          <th>Stato</th>
+                          <th className="num">Ricavo Previsto</th>
+                          <th className="num">Costo Previsto</th>
+                          <th className="num">Costo Prev. Personale</th>
+                          <th className="num">Ore prev. offerta</th>
+                          <th className="num">% Successo</th>
+                          <th>Ordini collegati</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailOfferteSorted.map((row, index) => (
+                          <tr key={`offerta-${row.protocollo}-${index}`}>
+                            <td>{row.anno ?? ''}</td>
+                            <td>{formatDate(row.data)}</td>
+                            <td>{row.protocollo}</td>
+                            <td>{row.oggetto}</td>
+                            <td>{row.documentoStato}</td>
+                            <td className={`num ${row.ricavoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoPrevisto)}</td>
+                            <td className={`num ${row.costoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevisto)}</td>
+                            <td className={`num ${row.costoPrevistoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevistoPersonale)}</td>
+                            <td className={`num ${row.orePrevisteOfferta < 0 ? 'num-negative' : ''}`}>{formatNumber(row.orePrevisteOfferta)}</td>
+                            <td className="num">{formatPercentValue(row.percentualeSuccesso)}</td>
+                            <td>{row.ordiniCollegati}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   )}
                 </div>
-              )}
+              </section>
+
+              <section className="panel detail-card detail-card-percent">
+                <header className="panel-header">
+                  <h3>% raggiungimento</h3>
+                </header>
+                <div className="detail-card-body detail-raggiungimento-body">
+                  <div className="detail-avanzamento-box">
+                    <p className="detail-kpi-caption">
+                      Dati salvati in produzione.avanzamento (stessa data riferimento = sovrascrittura).
+                    </p>
+
+                    {detailAvanzamentoStorico.length === 0 && (
+                      <p className="empty-state">Nessun avanzamento salvato disponibile per la commessa selezionata.</p>
+                    )}
+
+                    {detailAvanzamentoStorico.length > 0 && (
+                      <table className="bonifici-table detail-avanzamento-table detail-avanzamento-grid-table">
+                        <thead>
+                          <tr>
+                            <th>Data riferimento</th>
+                            <th className="num">% raggiunto</th>
+                            <th className="num">Importo riferimento</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailAvanzamentoStorico.map((row) => (
+                            <tr key={`avanzamento-${row.id}`}>
+                              <td>{formatDate(row.dataRiferimento)}</td>
+                              <td className="num">{formatPercentValue(row.percentualeRaggiunto)}</td>
+                              <td className={`num ${row.importoRiferimento < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(row.importoRiferimento)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="panel detail-card detail-card-requisiti">
+                <header className="panel-header">
+                  <h3>Ore requisiti commessa</h3>
+                </header>
+                <div className="detail-card-body">
+                  <p className="detail-kpi-caption">
+                    Speso attivitÃ  fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
+                  </p>
+
+                  {detailRequisitiOreRows.length === 0 && (
+                    <p className="empty-state">
+                      Nessun requisito con ore previste/spese disponibile per la commessa selezionata.
+                    </p>
+                  )}
+
+                  {detailRequisitiOreRows.length > 0 && (
+                    <>
+                      <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                        <table className="bonifici-table detail-requisiti-table">
+                          <thead>
+                            <tr>
+                              <th>Requisito</th>
+                              <th className="num">Ore Previste</th>
+                              <th className="num">Ore Spese</th>
+                              <th className="num">Ore Restanti</th>
+                              <th className="num">% Avanzamento</th>
+                              <th>Dettaglio</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detailRequisitiOreRows.map((row) => {
+                              const isExpanded = selectedRequisitoId === row.idRequisito
+                              const risorseRows = isExpanded
+                                ? detailRequisitiOreRisorseRows.filter((item) => item.idRequisito === row.idRequisito)
+                                : []
+                              const risorseTotals = risorseRows.reduce((acc, item) => ({
+                                orePreviste: acc.orePreviste + item.orePreviste,
+                                oreSpese: acc.oreSpese + item.oreSpese,
+                                oreRestanti: acc.oreRestanti + item.oreRestanti,
+                              }), {
+                                orePreviste: 0,
+                                oreSpese: 0,
+                                oreRestanti: 0,
+                              })
+
+                              return (
+                                <Fragment key={`requisito-${row.idRequisito}`}>
+                                  <tr>
+                                    <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
+                                    <td className="num">{formatNumber(row.orePreviste)}</td>
+                                    <td className="num">{formatNumber(row.oreSpese)}</td>
+                                    <td className={`num ${row.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                      {formatNumber(row.oreRestanti)}
+                                    </td>
+                                    <td className="num">{formatPercentRatio(row.percentualeAvanzamento)}</td>
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className="ghost-button detail-inline-action"
+                                        onClick={() => toggleRequisitoDettaglio(row.idRequisito)}
+                                      >
+                                        {isExpanded ? 'Nascondi' : 'Vedi'}
+                                      </button>
+                                    </td>
+                                  </tr>
+
+                                  {isExpanded && (
+                                    <tr className="detail-requisito-expand-row">
+                                      <td colSpan={6}>
+                                        {risorseRows.length === 0 && (
+                                          <p className="empty-state">Nessun dettaglio risorsa disponibile per il requisito selezionato.</p>
+                                        )}
+                                        {risorseRows.length > 0 && (
+                                          <div className="detail-requisiti-dettaglio">
+                                            <table className="bonifici-table detail-requisiti-table detail-requisiti-table-inline">
+                                              <thead>
+                                                <tr>
+                                                  <th>Risorsa</th>
+                                                  <th className="num">Ore Previste</th>
+                                                  <th className="num">Ore Spese</th>
+                                                  <th className="num">Ore Restanti</th>
+                                                  <th className="num">% Avanzamento</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {risorseRows.map((item) => (
+                                                  <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`}>
+                                                    <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
+                                                    <td className="num">{formatNumber(item.orePreviste)}</td>
+                                                    <td className="num">{formatNumber(item.oreSpese)}</td>
+                                                    <td className={`num ${item.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                                      {formatNumber(item.oreRestanti)}
+                                                    </td>
+                                                    <td className="num">{formatPercentRatio(item.percentualeAvanzamento)}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                              <tfoot>
+                                                <tr className="table-totals-row">
+                                                  <td className="table-totals-label">Totale requisito</td>
+                                                  <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
+                                                  <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
+                                                  <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                                    {formatNumber(risorseTotals.oreRestanti)}
+                                                  </td>
+                                                  <td className="num">
+                                                    {formatPercentRatio(
+                                                      risorseTotals.orePreviste > 0
+                                                        ? risorseTotals.oreSpese / risorseTotals.orePreviste
+                                                        : 0,
+                                                    )}
+                                                  </td>
+                                                </tr>
+                                              </tfoot>
+                                            </table>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
+                              )
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td className="table-totals-label">Totale</td>
+                              <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
+                              <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
+                              <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(detailRequisitiOreTotals.oreRestanti)}
+                              </td>
+                              <td className="num">
+                                {formatPercentRatio(
+                                  detailRequisitiOreTotals.orePreviste > 0
+                                    ? detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.orePreviste
+                                    : 0,
+                                )}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            </section>
             </section>
           </section>
         )}
@@ -2180,4 +3393,3 @@ function App() {
 }
 
 export default App
-

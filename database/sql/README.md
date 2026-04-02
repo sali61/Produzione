@@ -27,3 +27,7 @@ Script presenti:
   crea/aggiorna `produzione.spDettaglioCommesseFatturato(...)` per i tab
   `Vendite` e `Acquisti` del dettaglio commessa; espone anche il result-set
   `FatturatoPivot` ordinato per anno/RCC.
+- `006_tblAvanzamento.sql`:
+  crea la tabella `produzione.avanzamento` per il salvataggio della
+  `% raggiunto` per commessa e data di riferimento (fine mese precedente),
+  con vincolo di unicita su `(idcommessa, data_riferimento)`.

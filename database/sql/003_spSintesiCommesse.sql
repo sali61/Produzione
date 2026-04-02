@@ -26,6 +26,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @IdRisorsaBix INT = 3;
+
     DECLARE @TakeClamped INT =
         CASE
             WHEN @Take IS NULL OR @Take < 1 THEN 1
@@ -93,7 +95,7 @@ BEGIN
 
     INSERT INTO #AnalisiCommesse
     EXEC [produzione].[spBixeniaAnalisiCommesse]
-        @idrisorsa = @IdRisorsa,
+        @idrisorsa = @IdRisorsaBix,
         @tiporicerca = 'AnalisiCommessa',
         @FiltroDaApplicare = @FiltroFinale,
         @CampoAggregazione = NULL;
@@ -114,6 +116,7 @@ BEGIN
                     ELSE LTRIM(RTRIM(ISNULL(a.Nomeprodotto, N'')))
                 END
                 AS NVARCHAR(256)) AS Nomeprodotto,
+            CAST(ISNULL(a.controparte, N'') AS NVARCHAR(256)) AS controparte,
             CAST(ISNULL(a.idbusinessunit, N'') AS NVARCHAR(128)) AS idbusinessunit,
             CAST(ISNULL(a.RCC, N'') AS NVARCHAR(256)) AS RCC,
             CAST(ISNULL(a.PM, N'') AS NVARCHAR(256)) AS PM,
@@ -146,6 +149,7 @@ BEGIN
                 ELSE LTRIM(RTRIM(ISNULL(a.Nomeprodotto, N'')))
             END
             AS NVARCHAR(256)) AS Nomeprodotto,
+        CAST(ISNULL(a.controparte, N'') AS NVARCHAR(256)) AS controparte,
         CAST(ISNULL(a.idbusinessunit, N'') AS NVARCHAR(128)) AS idbusinessunit,
         CAST(ISNULL(a.RCC, N'') AS NVARCHAR(256)) AS RCC,
         CAST(ISNULL(a.PM, N'') AS NVARCHAR(256)) AS PM,
@@ -168,6 +172,7 @@ BEGIN
                 THEN N''
             ELSE LTRIM(RTRIM(ISNULL(a.Nomeprodotto, N'')))
         END,
+        a.controparte,
         a.idbusinessunit,
         a.RCC,
         a.PM

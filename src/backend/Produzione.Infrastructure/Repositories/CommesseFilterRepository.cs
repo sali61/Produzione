@@ -47,7 +47,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         select 1
                         from [orga].[vw_OU_OrganigrammaAncestor] ou
                         where ou.id_responsabile_ou_ancestor = @IdRisorsa
-                          and ou.sigla = c.idBusinessUnit
+                          and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
                     ))
               )
         order by Commessa
@@ -71,7 +71,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         select 1
                         from [orga].[vw_OU_OrganigrammaAncestor] ou
                         where ou.id_responsabile_ou_ancestor = @IdRisorsa
-                          and ou.sigla = c.idBusinessUnit
+                          and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
                     ))
               )
         """;
@@ -90,6 +90,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     else ltrim(rtrim(isnull(c.Nomeprodotto, '')))
                 end
             as nvarchar(256)) as Prodotto,
+            cast(ltrim(rtrim(isnull(c.controparte, ''))) as nvarchar(256)) as Controparte,
             cast(ltrim(rtrim(isnull(c.idBusinessUnit, ''))) as nvarchar(128)) as BusinessUnit,
             cast(ltrim(rtrim(isnull(c.RCC, ''))) as nvarchar(256)) as Rcc,
             cast(ltrim(rtrim(isnull(c.PM, ''))) as nvarchar(256)) as Pm
@@ -103,7 +104,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         select 1
                         from [orga].[vw_OU_OrganigrammaAncestor] ou
                         where ou.id_responsabile_ou_ancestor = @IdRisorsa
-                          and ou.sigla = c.idBusinessUnit
+                          and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
                     ))
               )
         order by c.data_commessa desc
@@ -112,6 +113,347 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
     private const string SintesiCommesseStoredProcedure = "produzione.spSintesiCommesse";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
     private const string DettaglioCommesseFatturatoStoredProcedure = "produzione.spDettaglioCommesseFatturato";
+    private const string CommessaRequisitiOreQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id
+        );
+
+        IF @IdCommessa IS NULL
+        BEGIN
+            SELECT TOP (0)
+                CAST(0 AS INT) AS IdRequisito,
+                CAST(N'' AS NVARCHAR(512)) AS Requisito,
+                CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
+                CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
+                CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
+                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento;
+
+            SELECT TOP (0)
+                CAST(0 AS INT) AS IdRequisito,
+                CAST(N'' AS NVARCHAR(512)) AS Requisito,
+                CAST(0 AS INT) AS IdRisorsa,
+                CAST(N'' AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
+                CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
+                CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
+                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento;
+
+            RETURN;
+        END;
+
+        CREATE TABLE #Dettaglio
+        (
+            IdRequisito INT NOT NULL,
+            IdCommessa INT NOT NULL,
+            Requisito NVARCHAR(512) NOT NULL,
+            IdRisorsa INT NOT NULL,
+            OrePreviste DECIMAL(18, 2) NOT NULL,
+            OreSpese DECIMAL(18, 2) NOT NULL
+        );
+
+        WITH Previsto AS
+        (
+            SELECT
+                rpc.id AS IdRequisito,
+                rpc.idcommessa AS IdCommessa,
+                CAST(ISNULL(rpc.Requisito, N'') AS NVARCHAR(512)) AS Requisito,
+                rpr.idrisorsa AS IdRisorsa,
+                CAST(SUM(ISNULL(rpr.orePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste
+            FROM dbo.requisitiPerRisorse rpr
+            INNER JOIN dbo.RequisitiPerCommessa rpc
+                ON rpr.idrequisito = rpc.id
+            WHERE rpc.idcommessa = @IdCommessa
+            GROUP BY
+                rpc.id,
+                rpc.idcommessa,
+                rpc.Requisito,
+                rpr.idrisorsa
+        ),
+        Speso AS
+        (
+            SELECT
+                a.CodiceCommessa,
+                a.idrequisito AS IdRequisito,
+                a.idrisorsa AS IdRisorsa,
+                CAST(SUM(ISNULL(a.ore, 0)) AS DECIMAL(18, 2)) AS OreSpese
+            FROM dbo.[Attività] a
+            WHERE a.CodiceCommessa = @IdCommessa
+              AND a.idrequisito IS NOT NULL
+              AND a.idrisorsa IS NOT NULL
+              AND (@DataLimite IS NULL OR CAST(a.[data] AS DATE) <= @DataLimite)
+            GROUP BY
+                a.CodiceCommessa,
+                a.idrequisito,
+                a.idrisorsa
+        )
+        INSERT INTO #Dettaglio
+        (
+            IdRequisito,
+            IdCommessa,
+            Requisito,
+            IdRisorsa,
+            OrePreviste,
+            OreSpese
+        )
+        SELECT
+            p.IdRequisito,
+            p.IdCommessa,
+            p.Requisito,
+            p.IdRisorsa,
+            p.OrePreviste,
+            CAST(ISNULL(s.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese
+        FROM Previsto p
+        LEFT JOIN Speso s
+            ON s.CodiceCommessa = p.IdCommessa
+           AND s.IdRequisito = p.IdRequisito
+           AND s.IdRisorsa = p.IdRisorsa;
+
+        SELECT
+            d.IdRequisito,
+            d.Requisito,
+            CAST(SUM(ISNULL(d.OrePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste,
+            CAST(SUM(ISNULL(d.OreSpese, 0)) AS DECIMAL(18, 2)) AS OreSpese,
+            CAST(SUM(ISNULL(d.OrePreviste, 0)) - SUM(ISNULL(d.OreSpese, 0)) AS DECIMAL(18, 2)) AS OreRestanti,
+            CAST(
+                CASE
+                    WHEN SUM(ISNULL(d.OrePreviste, 0)) <= 0 THEN 0
+                    ELSE SUM(ISNULL(d.OreSpese, 0)) / NULLIF(SUM(ISNULL(d.OrePreviste, 0)), 0)
+                END
+                AS DECIMAL(18, 4)
+            ) AS PercentualeAvanzamento
+        FROM #Dettaglio d
+        GROUP BY
+            d.IdRequisito,
+            d.Requisito
+        ORDER BY
+            d.Requisito;
+
+        SELECT
+            d.IdRequisito,
+            d.Requisito,
+            d.IdRisorsa,
+            CAST(
+                LEFT(
+                    LTRIM(RTRIM(COALESCE(
+                        NULLIF(ISNULL(r.[Nome Risorsa], N''), N''),
+                        NULLIF(ISNULL(r.NetUserName, N''), N''),
+                        N'ID ' + CAST(d.IdRisorsa AS NVARCHAR(20))
+                    ))),
+                    256
+                ) AS NVARCHAR(256)
+            ) AS NomeRisorsa,
+            CAST(ISNULL(d.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
+            CAST(ISNULL(d.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
+            CAST(ISNULL(d.OrePreviste, 0) - ISNULL(d.OreSpese, 0) AS DECIMAL(18, 2)) AS OreRestanti,
+            CAST(
+                CASE
+                    WHEN ISNULL(d.OrePreviste, 0) <= 0 THEN 0
+                    ELSE ISNULL(d.OreSpese, 0) / NULLIF(d.OrePreviste, 0)
+                END
+                AS DECIMAL(18, 4)
+            ) AS PercentualeAvanzamento
+        FROM #Dettaglio d
+        LEFT JOIN dbo.Risorse r
+            ON d.IdRisorsa = r.ID
+        ORDER BY
+            d.Requisito,
+            NomeRisorsa;
+        """;
+    private const string CommessaOrdiniOfferteQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id
+        );
+
+        IF @IdCommessa IS NULL
+        BEGIN
+            SELECT TOP (0)
+                CAST(N'' AS NVARCHAR(64)) AS Protocollo,
+                CAST(NULL AS INT) AS Anno,
+                CAST(NULL AS DATE) AS Data,
+                CAST(N'' AS NVARCHAR(512)) AS Oggetto,
+                CAST(N'' AS NVARCHAR(128)) AS DocumentoStato,
+                CAST(0 AS DECIMAL(18, 2)) AS RicavoPrevisto,
+                CAST(0 AS DECIMAL(18, 2)) AS CostoPrevisto,
+                CAST(0 AS DECIMAL(18, 2)) AS CostoPrevistoPersonale,
+                CAST(0 AS DECIMAL(18, 2)) AS OrePrevisteOfferta,
+                CAST(0 AS DECIMAL(18, 2)) AS PercentualeSuccesso,
+                CAST(N'' AS NVARCHAR(256)) AS OrdiniCollegati;
+
+            SELECT TOP (0)
+                CAST(N'' AS NVARCHAR(64)) AS Protocollo,
+                CAST(N'' AS NVARCHAR(128)) AS DocumentoStato,
+                CAST(N'' AS NVARCHAR(32)) AS Posizione,
+                CAST(0 AS INT) AS IdDettaglioOrdine,
+                CAST(N'' AS NVARCHAR(512)) AS Descrizione,
+                CAST(0 AS DECIMAL(18, 2)) AS Quantita,
+                CAST(0 AS DECIMAL(18, 2)) AS PrezzoUnitario,
+                CAST(0 AS DECIMAL(18, 2)) AS ImportoOrdine,
+                CAST(0 AS DECIMAL(18, 2)) AS QuantitaOriginaleOrdinata,
+                CAST(0 AS DECIMAL(18, 2)) AS QuantitaFatture;
+
+            RETURN;
+        END;
+
+        SELECT
+            CAST(ISNULL(o.protocollo, N'') AS NVARCHAR(64)) AS Protocollo,
+            CAST(o.anno AS INT) AS Anno,
+            CAST(o.[data] AS DATE) AS Data,
+            CAST(ISNULL(o.oggetto, N'') AS NVARCHAR(512)) AS Oggetto,
+            CAST(ISNULL(o.documentostato, N'') AS NVARCHAR(128)) AS DocumentoStato,
+            CAST(ISNULL(o.ricavoprevisto, 0) AS DECIMAL(18, 2)) AS RicavoPrevisto,
+            CAST(ISNULL(o.CostoPrevisto, 0) AS DECIMAL(18, 2)) AS CostoPrevisto,
+            CAST(ISNULL(o.CostoPrevistoPersonale, 0) AS DECIMAL(18, 2)) AS CostoPrevistoPersonale,
+            CAST(ISNULL(o.oreprevisteofferta, 0) AS DECIMAL(18, 2)) AS OrePrevisteOfferta,
+            CAST(ISNULL(o.PercentualeSuccesso, 0) AS DECIMAL(18, 2)) AS PercentualeSuccesso,
+            CAST(ISNULL(o.ordini_collegati, N'') AS NVARCHAR(256)) AS OrdiniCollegati
+        FROM [protocollo].[qryOffertaAnalisiTotale] o
+        WHERE o.idcommessa = @IdCommessa
+        ORDER BY
+            o.anno DESC,
+            o.[data] DESC,
+            o.protocollo;
+
+        SELECT
+            CAST(ISNULL(p.protocollo, N'') AS NVARCHAR(64)) AS Protocollo,
+            CAST(ISNULL(t.documentoStato, N'') AS NVARCHAR(128)) AS DocumentoStato,
+            CAST(ISNULL(d.posizione, N'') AS NVARCHAR(32)) AS Posizione,
+            CAST(ISNULL(d.id, 0) AS INT) AS IdDettaglioOrdine,
+            CAST(ISNULL(d.descrizione, N'') AS NVARCHAR(512)) AS Descrizione,
+            CAST(ISNULL(d.quantita, 0) AS DECIMAL(18, 2)) AS Quantita,
+            CAST(ISNULL(d.prezzoUnitario, 0) AS DECIMAL(18, 2)) AS PrezzoUnitario,
+            CAST(ISNULL(d.quantita, 0) * ISNULL(d.prezzoUnitario, 0) AS DECIMAL(18, 2)) AS ImportoOrdine,
+            CAST(ISNULL(d.quantitaOriginaleOrdinata, d.quantita) AS DECIMAL(18, 2)) AS QuantitaOriginaleOrdinata,
+            CAST(ISNULL(f.quantitaFatture, 0) AS DECIMAL(18, 2)) AS QuantitaFatture
+        FROM dbo.tipiDocumentoStato t
+        INNER JOIN dbo.Protocollo p
+            ON t.id = p.idStatoDocumento
+        INNER JOIN dbo.dettaglioOrdini d
+            ON d.protocollo = p.protocollo
+        LEFT JOIN
+        (
+            SELECT
+                idDettaglioOrdine,
+                CAST(SUM(ISNULL(quantita, 0)) AS DECIMAL(18, 2)) AS quantitaFatture
+            FROM dbo.dettaglioFatturePreviste
+            GROUP BY idDettaglioOrdine
+        ) f
+            ON f.idDettaglioOrdine = d.id
+        WHERE p.IDTipoDocumento = 3
+          AND p.idcommessa = @IdCommessa
+          AND ISNULL(d.quantita, 0) > 0
+        ORDER BY
+            p.protocollo,
+            d.posizione,
+            d.id;
+        """;
+    private const string CommessaAvanzamentoSelectQuery = """
+        SELECT TOP (1)
+            a.id,
+            a.idcommessa,
+            a.valore_percentuale,
+            a.importo_riferimento,
+            a.data_riferimento,
+            a.data_salvataggio,
+            a.idautore
+        FROM produzione.avanzamento a
+        INNER JOIN dbo.commesse c
+            ON a.idcommessa = c.id
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+          AND a.data_riferimento = @DataRiferimento
+        ORDER BY a.id DESC;
+        """;
+    private const string CommessaAvanzamentoStoricoQuery = """
+        SELECT
+            a.id,
+            a.idcommessa,
+            a.valore_percentuale,
+            a.importo_riferimento,
+            a.data_riferimento,
+            a.data_salvataggio,
+            a.idautore
+        FROM produzione.avanzamento a
+        INNER JOIN dbo.commesse c
+            ON a.idcommessa = c.id
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+        ORDER BY
+            a.data_riferimento ASC,
+            a.id ASC;
+        """;
+    private const string CommessaAvanzamentoUpsertQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id
+        );
+
+        IF @IdCommessa IS NULL
+        BEGIN
+            SELECT TOP (0)
+                CAST(0 AS INT) AS id,
+                CAST(0 AS INT) AS idcommessa,
+                CAST(0 AS DECIMAL(9, 4)) AS valore_percentuale,
+                CAST(0 AS DECIMAL(18, 2)) AS importo_riferimento,
+                CAST(NULL AS DATE) AS data_riferimento,
+                CAST(NULL AS DATETIME2(0)) AS data_salvataggio,
+                CAST(0 AS INT) AS idautore;
+            RETURN;
+        END;
+
+        UPDATE produzione.avanzamento
+        SET
+            valore_percentuale = @PercentualeRaggiunto,
+            importo_riferimento = @ImportoRiferimento,
+            data_salvataggio = SYSDATETIME(),
+            idautore = @IdAutore
+        WHERE idcommessa = @IdCommessa
+          AND data_riferimento = @DataRiferimento;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            INSERT INTO produzione.avanzamento
+            (
+                idcommessa,
+                valore_percentuale,
+                importo_riferimento,
+                data_riferimento,
+                data_salvataggio,
+                idautore
+            )
+            VALUES
+            (
+                @IdCommessa,
+                @PercentualeRaggiunto,
+                @ImportoRiferimento,
+                @DataRiferimento,
+                SYSDATETIME(),
+                @IdAutore
+            );
+        END;
+
+        SELECT TOP (1)
+            id,
+            idcommessa,
+            valore_percentuale,
+            importo_riferimento,
+            data_riferimento,
+            data_salvataggio,
+            idautore
+        FROM produzione.avanzamento
+        WHERE idcommessa = @IdCommessa
+          AND data_riferimento = @DataRiferimento
+        ORDER BY id DESC;
+        """;
+    private const int AnalisiCommesseIdRisorsa = 3;
 
     private static readonly CommesseSintesiFilters EmptySintesiFilters = new(
         Array.Empty<CommesseSintesiFilterOption>(),
@@ -314,6 +656,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 ReadString(reader, "Stato"),
                 ReadString(reader, "MacroTipologia"),
                 ReadString(reader, "Prodotto"),
+                ReadString(reader, "Controparte"),
                 ReadString(reader, "BusinessUnit"),
                 ReadString(reader, "Rcc"),
                 ReadString(reader, "Pm"));
@@ -480,6 +823,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ReadString(reader, "stato"),
                     ReadString(reader, "macrotipologia"),
                     ReadString(reader, "Nomeprodotto"),
+                    ReadString(reader, "controparte"),
                     ReadString(reader, "idbusinessunit"),
                     ReadString(reader, "RCC"),
                     ReadString(reader, "PM"),
@@ -603,6 +947,216 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
     }
 
+    public async Task<CommessaOrdiniOfferteDettaglio> GetCommessaOrdiniOfferteDettaglioAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return new CommessaOrdiniOfferteDettaglio(
+                Array.Empty<CommessaOffertaRow>(),
+                Array.Empty<CommessaOrdineRow>());
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaOrdiniOfferteQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+
+            var offerte = new List<CommessaOffertaRow>();
+            var ordini = new List<CommessaOrdineRow>();
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                offerte.Add(new CommessaOffertaRow(
+                    ReadString(reader, "Protocollo"),
+                    ReadNullableInt(reader, "Anno"),
+                    ReadNullableDate(reader, "Data"),
+                    ReadString(reader, "Oggetto"),
+                    ReadString(reader, "DocumentoStato"),
+                    ReadDecimal(reader, "RicavoPrevisto"),
+                    ReadDecimal(reader, "CostoPrevisto"),
+                    ReadDecimal(reader, "CostoPrevistoPersonale"),
+                    ReadDecimal(reader, "OrePrevisteOfferta"),
+                    ReadDecimal(reader, "PercentualeSuccesso"),
+                    ReadString(reader, "OrdiniCollegati")));
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    ordini.Add(new CommessaOrdineRow(
+                        ReadString(reader, "Protocollo"),
+                        ReadString(reader, "DocumentoStato"),
+                        ReadString(reader, "Posizione"),
+                        ReadNullableInt(reader, "IdDettaglioOrdine") ?? 0,
+                        ReadString(reader, "Descrizione"),
+                        ReadDecimal(reader, "Quantita"),
+                        ReadDecimal(reader, "PrezzoUnitario"),
+                        ReadDecimal(reader, "ImportoOrdine"),
+                        ReadDecimal(reader, "QuantitaOriginaleOrdinata"),
+                        ReadDecimal(reader, "QuantitaFatture")));
+                }
+            }
+
+            return new CommessaOrdiniOfferteDettaglio(
+                offerte
+                    .OrderByDescending(item => item.Anno ?? int.MinValue)
+                    .ThenByDescending(item => item.Data)
+                    .ThenBy(item => item.Protocollo)
+                    .ToArray(),
+                ordini
+                    .OrderBy(item => item.Protocollo)
+                    .ThenBy(item => item.Posizione)
+                    .ThenBy(item => item.IdDettaglioOrdine)
+                    .ToArray());
+        }
+        catch
+        {
+            return new CommessaOrdiniOfferteDettaglio(
+                Array.Empty<CommessaOffertaRow>(),
+                Array.Empty<CommessaOrdineRow>());
+        }
+    }
+
+    public async Task<CommessaAvanzamentoRow?> GetCommessaAvanzamentoAsync(
+        string commessa,
+        DateTime dataRiferimento,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return null;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaAvanzamentoSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+            command.Parameters.AddWithValue("@DataRiferimento", dataRiferimento.Date);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new CommessaAvanzamentoRow(
+                ReadNullableInt(reader, "id") ?? 0,
+                ReadNullableInt(reader, "idcommessa") ?? 0,
+                ReadDecimal(reader, "valore_percentuale"),
+                ReadDecimal(reader, "importo_riferimento"),
+                ReadNullableDate(reader, "data_riferimento") ?? dataRiferimento.Date,
+                ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
+                ReadNullableInt(reader, "idautore") ?? 0);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaAvanzamentoRow>> GetCommessaAvanzamentoStoricoAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return Array.Empty<CommessaAvanzamentoRow>();
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaAvanzamentoStoricoQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+
+            var rows = new List<CommessaAvanzamentoRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaAvanzamentoRow(
+                    ReadNullableInt(reader, "id") ?? 0,
+                    ReadNullableInt(reader, "idcommessa") ?? 0,
+                    ReadDecimal(reader, "valore_percentuale"),
+                    ReadDecimal(reader, "importo_riferimento"),
+                    ReadNullableDate(reader, "data_riferimento") ?? DateTime.MinValue,
+                    ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
+                    ReadNullableInt(reader, "idautore") ?? 0));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return Array.Empty<CommessaAvanzamentoRow>();
+        }
+    }
+
+    public async Task<CommessaAvanzamentoRow?> SaveCommessaAvanzamentoAsync(
+        UserContext user,
+        string commessa,
+        decimal percentualeRaggiunto,
+        decimal importoRiferimento,
+        DateTime dataRiferimento,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            string.IsNullOrWhiteSpace(commessa) ||
+            user.IdRisorsa <= 0)
+        {
+            return null;
+        }
+
+        var percentualeClamped = Math.Clamp(percentualeRaggiunto, 0m, 100m);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaAvanzamentoUpsertQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+            command.Parameters.AddWithValue("@PercentualeRaggiunto", percentualeClamped);
+            command.Parameters.AddWithValue("@ImportoRiferimento", importoRiferimento);
+            command.Parameters.AddWithValue("@DataRiferimento", dataRiferimento.Date);
+            command.Parameters.AddWithValue("@IdAutore", user.IdRisorsa);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new CommessaAvanzamentoRow(
+                ReadNullableInt(reader, "id") ?? 0,
+                ReadNullableInt(reader, "idcommessa") ?? 0,
+                ReadDecimal(reader, "valore_percentuale"),
+                ReadDecimal(reader, "importo_riferimento"),
+                ReadNullableDate(reader, "data_riferimento") ?? dataRiferimento.Date,
+                ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
+                ReadNullableInt(reader, "idautore") ?? 0);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<CommessaDettaglioProgressivoCorrente?> GetCommessaProgressivoAnnoCorrenteAsync(
         UserContext user,
         string profile,
@@ -640,7 +1194,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
             await using var command = new SqlCommand(MensileCommesseStoredProcedure, connection);
             command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.AddWithValue("@idrisorsa", user.IdRisorsa);
+            command.Parameters.AddWithValue("@idrisorsa", AnalisiCommesseIdRisorsa);
             command.Parameters.AddWithValue("@tiporicerca", "AnalisiCommessa");
             command.Parameters.AddWithValue(
                 "@FiltroDaApplicare",
@@ -677,6 +1231,162 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         catch
         {
             return null;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaDettaglioMeseCorrenteRow>> GetCommessaMesiAnnoCorrenteAsync(
+        UserContext user,
+        string profile,
+        string commessa,
+        int anno,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            string.IsNullOrWhiteSpace(commessa) ||
+            anno <= 0)
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var clauses = new List<string>();
+        AddStringClause(clauses, "commessa", commessa);
+        clauses.Add($"anno_competenza = {anno}");
+
+        var visibilityClause = BuildVisibilityClause(user, visibility);
+        if (!string.IsNullOrWhiteSpace(visibilityClause))
+        {
+            clauses.Add(visibilityClause);
+        }
+
+        var filtro = string.Join(" AND ", clauses);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(MensileCommesseStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", AnalisiCommesseIdRisorsa);
+            command.Parameters.AddWithValue("@tiporicerca", "AnalisiCommessa");
+            command.Parameters.AddWithValue(
+                "@FiltroDaApplicare",
+                string.IsNullOrWhiteSpace(filtro) ? DBNull.Value : filtro);
+            command.Parameters.AddWithValue("@CampoAggregazione", DBNull.Value);
+
+            var rows = new List<CommessaDettaglioMeseCorrenteRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var mese = ReadNullableInt(reader, "mese_competenza");
+                if (!mese.HasValue || mese.Value is < 1 or > 12)
+                {
+                    continue;
+                }
+
+                rows.Add(new CommessaDettaglioMeseCorrenteRow(
+                    anno,
+                    mese.Value,
+                    ReadDecimal(reader, "ore_lavorate"),
+                    ReadDecimal(reader, "costo_personale"),
+                    ReadDecimal(reader, "ricavi"),
+                    ReadDecimal(reader, "costi"),
+                    ReadDecimal(reader, "utile_specifico"),
+                    0m,
+                    0m));
+            }
+
+            return rows
+                .GroupBy(item => item.Mese)
+                .OrderBy(group => group.Key)
+                .Select(group => new CommessaDettaglioMeseCorrenteRow(
+                    anno,
+                    group.Key,
+                    group.Sum(item => item.OreLavorate),
+                    group.Sum(item => item.CostoPersonale),
+                    group.Sum(item => item.Ricavi),
+                    group.Sum(item => item.Costi),
+                    group.Sum(item => item.UtileSpecifico),
+                    group.Sum(item => item.RicaviFuturi),
+                    group.Sum(item => item.CostiFuturi)))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<CommessaRequisitiOreDettaglio> GetCommessaRequisitiOreDettaglioAsync(
+        string commessa,
+        DateTime dataFineConsuntivo,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return new CommessaRequisitiOreDettaglio(
+                Array.Empty<CommessaRequisitoOreSummaryRow>(),
+                Array.Empty<CommessaRequisitoOreRisorsaRow>());
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaRequisitiOreQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+            command.Parameters.AddWithValue("@DataLimite", dataFineConsuntivo.Date);
+
+            var requisiti = new List<CommessaRequisitoOreSummaryRow>();
+            var risorse = new List<CommessaRequisitoOreRisorsaRow>();
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                requisiti.Add(new CommessaRequisitoOreSummaryRow(
+                    ReadNullableInt(reader, "IdRequisito") ?? 0,
+                    ReadString(reader, "Requisito"),
+                    ReadDecimal(reader, "OrePreviste"),
+                    ReadDecimal(reader, "OreSpese"),
+                    ReadDecimal(reader, "OreRestanti"),
+                    ReadDecimal(reader, "PercentualeAvanzamento")));
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    risorse.Add(new CommessaRequisitoOreRisorsaRow(
+                        ReadNullableInt(reader, "IdRequisito") ?? 0,
+                        ReadString(reader, "Requisito"),
+                        ReadNullableInt(reader, "IdRisorsa") ?? 0,
+                        ReadString(reader, "NomeRisorsa"),
+                        ReadDecimal(reader, "OrePreviste"),
+                        ReadDecimal(reader, "OreSpese"),
+                        ReadDecimal(reader, "OreRestanti"),
+                        ReadDecimal(reader, "PercentualeAvanzamento")));
+                }
+            }
+
+            return new CommessaRequisitiOreDettaglio(
+                requisiti
+                    .OrderBy(item => item.Requisito)
+                    .ThenBy(item => item.IdRequisito)
+                    .ToArray(),
+                risorse
+                    .OrderBy(item => item.Requisito)
+                    .ThenBy(item => item.NomeRisorsa)
+                    .ThenBy(item => item.IdRisorsa)
+                    .ToArray());
+        }
+        catch
+        {
+            return new CommessaRequisitiOreDettaglio(
+                Array.Empty<CommessaRequisitoOreSummaryRow>(),
+                Array.Empty<CommessaRequisitoOreRisorsaRow>());
         }
     }
 
@@ -839,7 +1549,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
         AddStringClause(clauses, "stato", request.Stato);
         AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
-        AddStringClause(clauses, "Nomeprodotto", request.Prodotto);
+        AddStringClause(clauses, "controparte", request.Prodotto);
         AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
         AddStringClause(clauses, "RCC", request.Rcc);
         AddStringClause(clauses, "PM", request.Pm);
@@ -870,7 +1580,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         if (visibility.IsResponsabileOu)
         {
             clauses.Add(
-                $"EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = {user.IdRisorsa} AND ou.sigla = idbusinessunit)");
+                $"EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = {user.IdRisorsa} AND ou.sigla COLLATE DATABASE_DEFAULT = idbusinessunit COLLATE DATABASE_DEFAULT)");
         }
 
         return string.Join(" AND ", clauses);
@@ -952,3 +1662,4 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         bool IsRcc,
         bool IsResponsabileOu);
 }
+

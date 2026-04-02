@@ -25,11 +25,38 @@ public interface ICommesseFilterRepository
         UserContext user,
         string commessa,
         CancellationToken cancellationToken = default);
+    Task<CommessaOrdiniOfferteDettaglio> GetCommessaOrdiniOfferteDettaglioAsync(
+        string commessa,
+        CancellationToken cancellationToken = default);
+    Task<CommessaAvanzamentoRow?> GetCommessaAvanzamentoAsync(
+        string commessa,
+        DateTime dataRiferimento,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaAvanzamentoRow>> GetCommessaAvanzamentoStoricoAsync(
+        string commessa,
+        CancellationToken cancellationToken = default);
+    Task<CommessaAvanzamentoRow?> SaveCommessaAvanzamentoAsync(
+        UserContext user,
+        string commessa,
+        decimal percentualeRaggiunto,
+        decimal importoRiferimento,
+        DateTime dataRiferimento,
+        CancellationToken cancellationToken = default);
     Task<CommessaDettaglioProgressivoCorrente?> GetCommessaProgressivoAnnoCorrenteAsync(
         UserContext user,
         string profile,
         string commessa,
         int anno,
         int meseCorrente,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaDettaglioMeseCorrenteRow>> GetCommessaMesiAnnoCorrenteAsync(
+        UserContext user,
+        string profile,
+        string commessa,
+        int anno,
+        CancellationToken cancellationToken = default);
+    Task<CommessaRequisitiOreDettaglio> GetCommessaRequisitiOreDettaglioAsync(
+        string commessa,
+        DateTime dataFineConsuntivo,
         CancellationToken cancellationToken = default);
 }

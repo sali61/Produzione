@@ -7,6 +7,7 @@ public sealed record CommessaAnagraficaRow(
     string Stato,
     string MacroTipologia,
     string Prodotto,
+    string Controparte,
     string BusinessUnit,
     string Rcc,
     string Pm);

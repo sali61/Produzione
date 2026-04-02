@@ -29,6 +29,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @IdRisorsaBix INT = 3;
+
     DECLARE @Take INT =
         CASE
             WHEN @TakePerFilter IS NULL OR @TakePerFilter < 10 THEN 10
@@ -62,9 +64,9 @@ BEGIN
         SET @FiltroBix =
             CASE
                 WHEN @FiltroBix IS NULL THEN N'EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = '
-                    + CAST(@IdRisorsa AS NVARCHAR(20)) + N' AND ou.sigla = idbusinessunit)'
+                    + CAST(@IdRisorsa AS NVARCHAR(20)) + N' AND ou.sigla COLLATE DATABASE_DEFAULT = idbusinessunit COLLATE DATABASE_DEFAULT)'
                 ELSE @FiltroBix + N' AND EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = '
-                    + CAST(@IdRisorsa AS NVARCHAR(20)) + N' AND ou.sigla = idbusinessunit)'
+                    + CAST(@IdRisorsa AS NVARCHAR(20)) + N' AND ou.sigla COLLATE DATABASE_DEFAULT = idbusinessunit COLLATE DATABASE_DEFAULT)'
             END;
     END;
 
@@ -120,7 +122,7 @@ BEGIN
 
     INSERT INTO #AnalisiCommesse
     EXEC [produzione].[spBixeniaAnalisiCommesse]
-        @idrisorsa = @IdRisorsa,
+        @idrisorsa = @IdRisorsaBix,
         @tiporicerca = 'AnalisiCommessa',
         @FiltroDaApplicare = @FiltroBix,
         @CampoAggregazione = NULL;
@@ -128,35 +130,20 @@ BEGIN
     ;WITH Base AS
     (
         SELECT
-            CASE
-                WHEN c.data_commessa IS NULL THEN NULL
-                ELSE YEAR(c.data_commessa)
-            END AS Anno,
-            LTRIM(RTRIM(CAST(ISNULL(c.COMMESSA, N'') AS NVARCHAR(128)))) AS Commessa,
-            LTRIM(RTRIM(CAST(ISNULL(c.descrizione, N'') AS NVARCHAR(512)))) AS DescrizioneCommessa,
-            LTRIM(RTRIM(CAST(ISNULL(c.Tipo_commessa, N'') AS NVARCHAR(256)))) AS TipologiaCommessa,
-            LTRIM(RTRIM(CAST(ISNULL(c.stato, N'') AS NVARCHAR(128)))) AS Stato,
-            LTRIM(RTRIM(CAST(ISNULL(c.macrotipologia, N'') AS NVARCHAR(256)))) AS MacroTipologia,
-            LTRIM(RTRIM(CAST(ISNULL(c.Nomeprodotto, N'') AS NVARCHAR(256)))) AS Prodotto,
-            LTRIM(RTRIM(CAST(ISNULL(c.idBusinessUnit, N'') AS NVARCHAR(128)))) AS BusinessUnit,
-            LTRIM(RTRIM(CAST(ISNULL(c.RCC, N'') AS NVARCHAR(256)))) AS RccNome,
-            LTRIM(RTRIM(CAST(ISNULL(c.NetUserNameRCC, N'') AS NVARCHAR(256)))) AS RccUsername,
-            LTRIM(RTRIM(CAST(ISNULL(c.PM, N'') AS NVARCHAR(256)))) AS PmNome,
-            LTRIM(RTRIM(CAST(ISNULL(c.NetUserNamePM, N'') AS NVARCHAR(256)))) AS PmUsername
-        FROM cdg_qryComessaPmRcc c
-        WHERE (@Anno IS NULL OR YEAR(c.data_commessa) = @Anno)
-          AND (
-                @IsGlobal = 1
-                OR (@IsPm = 1 AND (c.idPM = @IdRisorsa OR UPPER(ISNULL(c.NetUserNamePM, N'')) = @UsernameNormalized))
-                OR (@IsRcc = 1 AND (c.idRCC = @IdRisorsa OR UPPER(ISNULL(c.NetUserNameRCC, N'')) = @UsernameNormalized))
-                OR (@IsResponsabileOu = 1 AND EXISTS
-                    (
-                        SELECT 1
-                        FROM [orga].[vw_OU_OrganigrammaAncestor] ou
-                        WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
-                          AND ou.sigla = c.idBusinessUnit
-                    ))
-              )
+            CAST(a.anno_competenza AS INT) AS Anno,
+            LTRIM(RTRIM(CAST(ISNULL(a.commessa, N'') AS NVARCHAR(128)))) AS Commessa,
+            LTRIM(RTRIM(CAST(ISNULL(a.descrizione, N'') AS NVARCHAR(512)))) AS DescrizioneCommessa,
+            LTRIM(RTRIM(CAST(ISNULL(a.tipo_commessa, N'') AS NVARCHAR(256)))) AS TipologiaCommessa,
+            LTRIM(RTRIM(CAST(ISNULL(a.stato, N'') AS NVARCHAR(128)))) AS Stato,
+            LTRIM(RTRIM(CAST(ISNULL(a.macrotipologia, N'') AS NVARCHAR(256)))) AS MacroTipologia,
+            LTRIM(RTRIM(CAST(ISNULL(a.controparte, N'') AS NVARCHAR(256)))) AS Prodotto,
+            LTRIM(RTRIM(CAST(ISNULL(a.idBusinessUnit, N'') AS NVARCHAR(128)))) AS BusinessUnit,
+            LTRIM(RTRIM(CAST(ISNULL(a.RCC, N'') AS NVARCHAR(256)))) AS RccNome,
+            LTRIM(RTRIM(CAST(ISNULL(a.RCC, N'') AS NVARCHAR(256)))) AS RccUsername,
+            LTRIM(RTRIM(CAST(ISNULL(a.PM, N'') AS NVARCHAR(256)))) AS PmNome,
+            LTRIM(RTRIM(CAST(ISNULL(a.PM, N'') AS NVARCHAR(256)))) AS PmUsername
+        FROM #AnalisiCommesse a
+        WHERE (@Anno IS NULL OR a.anno_competenza = @Anno)
     ),
     AnniFromBix AS
     (

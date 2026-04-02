@@ -8,6 +8,7 @@ public sealed record CommessaSintesiRow(
     string Stato,
     string MacroTipologia,
     string Prodotto,
+    string Controparte,
     string BusinessUnit,
     string Rcc,
     string Pm,
