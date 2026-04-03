@@ -578,6 +578,68 @@
   flex-wrap: wrap;
 }
 
+.analisi-rcc-page {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.analisi-rcc-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.analisi-rcc-year-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: #16365d;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.analisi-rcc-year-field input,
+.analisi-rcc-year-field select {
+  width: 11rem;
+}
+
+.analisi-rcc-year-field select[multiple] {
+  min-height: 6.7rem;
+  padding: 0.2rem 0.3rem;
+}
+
+.analisi-rcc-grids {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.analisi-rcc-grid-card .panel-header h3 {
+  margin: 0;
+}
+
+.analisi-rcc-table-wrap {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.analisi-rcc-table {
+  width: max-content;
+  min-width: 58rem;
+}
+
+.analisi-rcc-table th:first-child,
+.analisi-rcc-table td:first-child {
+  min-width: 14rem;
+  max-width: 14rem;
+}
+
+.analisi-rcc-table th.num,
+.analisi-rcc-table td.num {
+  min-width: 10.5rem;
+}
+
 .sintesi-toolbar-row {
   display: flex;
   align-items: center;
@@ -714,6 +776,46 @@ button:disabled {
   font-weight: 700;
 }
 
+.table-group-summary-row td {
+  background: #f6f9ff;
+  font-weight: 700;
+  color: #173b67;
+}
+
+.table-group-summary-row td.num-negative {
+  color: #b42318;
+}
+
+.table-group-summary-label {
+  text-align: left;
+}
+
+.table-group-summary-label-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.table-group-summary-count {
+  color: #5a7599;
+  font-weight: 600;
+}
+
+.group-toggle-button {
+  border: 1px solid #b6c9e4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #244d7d;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.74rem;
+  line-height: 1;
+  min-width: 1.4rem;
+}
+
+.group-toggle-button:hover {
+  background: #edf4ff;
+}
+
 .table-totals-label {
   text-align: right;
   color: #173b67;
@@ -731,6 +833,11 @@ button:disabled {
 }
 
 .num-negative {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.num-under-target {
   color: #b42318;
   font-weight: 700;
 }

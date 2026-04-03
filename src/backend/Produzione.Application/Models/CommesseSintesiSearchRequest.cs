@@ -11,4 +11,6 @@ public sealed record CommesseSintesiSearchRequest(
     string? Rcc,
     string? Pm,
     int Take,
-    bool Aggrega);
+    bool Aggrega,
+    bool? SoloScadute = null,
+    string? Provenienza = null);

@@ -11,12 +11,33 @@ public interface ICommesseFilterRepository
     Task<bool> CanAccessCommessaAsync(UserContext user, string profile, string commessa, CancellationToken cancellationToken = default);
     Task<CommessaAnagraficaRow?> GetCommessaAnagraficaAsync(UserContext user, string profile, string commessa, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<string>> SearchCommesseAsync(UserContext user, string profile, string? search, int take, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<string>> SearchProdottiCommesseAsync(UserContext user, string profile, string? search, int take, CancellationToken cancellationToken = default);
     Task<CommesseSintesiFilters> GetSintesiFiltersAsync(
         UserContext user,
         string profile,
         int? anno,
         CancellationToken cancellationToken = default);
+    Task<CommesseSintesiFilters> GetProdottiSintesiFiltersAsync(
+        UserContext user,
+        string profile,
+        int? anno,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<CommessaSintesiRow>> SearchSintesiAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaSintesiRow>> SearchProdottiSintesiAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<ContabilitaVenditaRow>> SearchVenditeAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<ContabilitaAcquistoRow>> SearchAcquistiAsync(
         UserContext user,
         string profile,
         CommesseSintesiSearchRequest request,

@@ -2,6 +2,7 @@
   "configuration": "Release",
   "runtime": "",
   "frontendApiBaseUrl": "https://produzione.xeniaprogetti.it",
+  "frontendAuthPortalUrl": "https://auth.xeniaprogetti.it",
   "backendAppSettingsPath": "src/backend/Produzione.Api/appsettings.json"
 }
 

@@ -14,6 +14,8 @@ public static class DependencyInjection
 
         services.AddSingleton<ICommesseFilterRepository>(_ =>
             new CommesseFilterRepository(connectionString));
+        services.AddSingleton<IAnalisiRccRepository>(_ =>
+            new AnalisiRccRepository(connectionString));
 
         return services;
     }

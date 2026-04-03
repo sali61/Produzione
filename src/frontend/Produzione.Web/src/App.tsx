@@ -35,8 +35,17 @@ type SessionProbeResult =
   | { state: 'forbidden'; message: string }
   | { state: 'error'; message: string }
 
-type MenuKey = 'commesse' | 'user'
-type AppPage = 'none' | 'commesse-sintesi' | 'commessa-dettaglio'
+type MenuKey = 'sintesi' | 'analisi-rcc' | 'dati-contabili' | 'user'
+type AppPage =
+  | 'none'
+  | 'commesse-sintesi'
+  | 'prodotti-sintesi'
+  | 'analisi-rcc-risultato-mensile'
+  | 'analisi-rcc-pivot-fatturato'
+  | 'dati-contabili-vendita'
+  | 'dati-contabili-acquisti'
+  | 'commessa-dettaglio'
+type SintesiScope = 'commesse' | 'prodotti'
 
 type FilterOption = {
   value: string
@@ -55,6 +64,140 @@ type CommesseSintesiFiltersResponse = {
   businessUnits: FilterOption[]
   rcc: FilterOption[]
   pm: FilterOption[]
+}
+
+type CommesseOptionsResponse = {
+  profile: string
+  count: number
+  items: Array<{
+    commessa: string
+  }>
+}
+
+type AnalisiRccMensileValue = {
+  mese: number
+  valore: number
+}
+
+type AnalisiRccRisultatoMensileRow = {
+  aggregazione: string
+  budget?: number | null
+  valoriMensili: AnalisiRccMensileValue[]
+}
+
+type AnalisiRccRisultatoMensileGrid = {
+  titolo: string
+  mesi: number[]
+  valoriPercentuali: boolean
+  righe: AnalisiRccRisultatoMensileRow[]
+}
+
+type AnalisiRccRisultatoMensileResponse = {
+  profile: string
+  anno: number
+  vediTutto: boolean
+  rccFiltro?: string | null
+  risultatoPesato: AnalisiRccRisultatoMensileGrid
+  percentualePesata: AnalisiRccRisultatoMensileGrid
+}
+
+type AnalisiRccPivotFatturatoRow = {
+  anno: number
+  rcc: string
+  fatturatoAnno: number
+  fatturatoFuturoAnno: number
+  totaleFatturatoCerto: number
+  budgetPrevisto: number
+  margineColBudget: number
+  percentualeCertaRaggiunta: number
+  totaleRicavoIpotetico: number
+  totaleRicavoIpoteticoPesato: number
+  totaleIpotetico: number
+  percentualeCompresoRicavoIpotetico: number
+}
+
+type AnalisiRccPivotFatturatoTotaleAnno = {
+  anno: number
+  fatturatoAnno: number
+  fatturatoFuturoAnno: number
+  totaleFatturatoCerto: number
+  budgetPrevisto: number
+  margineColBudget: number
+  percentualeCertaRaggiunta: number
+  totaleRicavoIpotetico: number
+  totaleRicavoIpoteticoPesato: number
+  totaleIpotetico: number
+  percentualeCompresoRicavoIpotetico: number
+}
+
+type AnalisiRccPivotFatturatoResponse = {
+  profile: string
+  anni: number[]
+  vediTutto: boolean
+  rccFiltro?: string | null
+  rccDisponibili: string[]
+  righe: AnalisiRccPivotFatturatoRow[]
+  totaliPerAnno: AnalisiRccPivotFatturatoTotaleAnno[]
+}
+
+type DatiContabiliVenditaRow = {
+  annoFattura?: number | null
+  dataMovimento?: string | null
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  statoCommessa: string
+  macroTipologia: string
+  controparteCommessa: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  numeroDocumento: string
+  descrizioneMovimento: string
+  controparteMovimento: string
+  provenienza: string
+  importo: number
+  fatturato: number
+  fatturatoFuturo: number
+  ricavoIpotetico: number
+  isFuture: boolean
+  isScaduta: boolean
+  statoTemporale: string
+}
+
+type DatiContabiliVenditaResponse = {
+  profile: string
+  count: number
+  items: DatiContabiliVenditaRow[]
+}
+
+type DatiContabiliAcquistoRow = {
+  annoFattura?: number | null
+  dataDocumento?: string | null
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  statoCommessa: string
+  macroTipologia: string
+  controparteCommessa: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  codiceSocieta: string
+  descrizioneFattura: string
+  controparteMovimento: string
+  provenienza: string
+  importoComplessivo: number
+  importoContabilitaDettaglio: number
+  isFuture: boolean
+  isScaduta: boolean
+  statoTemporale: string
+}
+
+type DatiContabiliAcquistoResponse = {
+  profile: string
+  count: number
+  items: DatiContabiliAcquistoRow[]
 }
 
 type SintesiMode = 'dettaglio' | 'aggregato'
@@ -89,6 +232,8 @@ type SintesiFiltersForm = {
   businessUnit: string
   rcc: string
   pm: string
+  provenienza: string
+  soloScadute: boolean
   escludiProdotti: boolean
 }
 
@@ -257,11 +402,41 @@ type CommessaFatturatoPivotRow = {
   percentualeRaggiungimento: string
 }
 
+type ProdottiGroupSummaryRow = {
+  prodotto: string
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  utileSpecifico: number
+  ricaviFuturi: number
+  costiFuturi: number
+}
+
+type ProdottoGroup = {
+  productKey: string
+  summary: ProdottiGroupSummaryRow
+  rows: CommessaSintesiRow[]
+}
+
+type SintesiTableRow =
+  | { kind: 'commessa'; row: CommessaSintesiRow; key: string }
+  | {
+    kind: 'prodotto-summary'
+    row: ProdottiGroupSummaryRow
+    key: string
+    productKey: string
+    isCollapsed: boolean
+    commesseCount: number
+  }
+
 const tokenStorageKey = 'produzione.jwt'
 const redirectGuardKey = 'produzione.sso.redirecting'
 const impersonationStorageKey = 'produzione.sso.actas'
 const impersonationHeaderName = 'X-Act-As-Username'
 const sintesiStateStorageKey = 'produzione.sintesi.state'
+const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa']
+const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale']
 
 type SintesiPersistedState = {
   profile: string
@@ -286,6 +461,8 @@ const emptySintesiFiltersForm: SintesiFiltersForm = {
   businessUnit: '',
   rcc: '',
   pm: '',
+  provenienza: '',
+  soloScadute: false,
   escludiProdotti: false,
 }
 
@@ -341,6 +518,20 @@ const normalizePercentTo100 = (value: number) => {
   return Math.min(100, Math.max(0, scaledValue))
 }
 
+const isValidProductValue = (value: string) => {
+  const normalized = value.trim()
+  if (!normalized) {
+    return false
+  }
+
+  const upper = normalized.toUpperCase()
+  return upper !== 'NON DEFINITO' && upper !== 'NON DEFINTO'
+}
+
+const pageToScope = (page: AppPage): SintesiScope => (
+  page === 'prodotti-sintesi' ? 'prodotti' : 'commesse'
+)
+
 function App() {
   const [token, setToken] = useState('')
   const [apiHealth, setApiHealth] = useState('n/d')
@@ -353,6 +544,7 @@ function App() {
   const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const [activePage, setActivePage] = useState<AppPage>('none')
+  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
   const [activeImpersonation, setActiveImpersonation] = useState('')
   const [impersonationInput, setImpersonationInput] = useState('')
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -363,6 +555,7 @@ function App() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [sintesiFiltersForm, setSintesiFiltersForm] = useState<SintesiFiltersForm>(emptySintesiFiltersForm)
   const [sintesiFiltersCatalog, setSintesiFiltersCatalog] = useState<CommesseSintesiFiltersResponse>(emptyFiltersCatalog)
+  const [sintesiCommesseOptions, setSintesiCommesseOptions] = useState<FilterOption[]>([])
   const [sintesiRows, setSintesiRows] = useState<CommessaSintesiRow[]>([])
   const [sintesiSearched, setSintesiSearched] = useState(false)
   const [sintesiLoadingFilters, setSintesiLoadingFilters] = useState(false)
@@ -376,6 +569,19 @@ function App() {
   const [detailRouteProcessed, setDetailRouteProcessed] = useState(false)
   const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
   const [selectedRequisitoId, setSelectedRequisitoId] = useState<number | null>(null)
+  const [collapsedProductKeys, setCollapsedProductKeys] = useState<string[]>([])
+  const [analisiRccAnno, setAnalisiRccAnno] = useState(new Date().getFullYear().toString())
+  const [analisiRccLoading, setAnalisiRccLoading] = useState(false)
+  const [analisiRccData, setAnalisiRccData] = useState<AnalisiRccRisultatoMensileResponse | null>(null)
+  const [analisiRccPivotData, setAnalisiRccPivotData] = useState<AnalisiRccPivotFatturatoResponse | null>(null)
+  const [analisiRccPivotAnni, setAnalisiRccPivotAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [analisiRccPivotRcc, setAnalisiRccPivotRcc] = useState('')
+  const [datiContabiliVenditaRows, setDatiContabiliVenditaRows] = useState<DatiContabiliVenditaRow[]>([])
+  const [datiContabiliVenditaLoading, setDatiContabiliVenditaLoading] = useState(false)
+  const [datiContabiliVenditaSearched, setDatiContabiliVenditaSearched] = useState(false)
+  const [datiContabiliAcquistoRows, setDatiContabiliAcquistoRows] = useState<DatiContabiliAcquistoRow[]>([])
+  const [datiContabiliAcquistoLoading, setDatiContabiliAcquistoLoading] = useState(false)
+  const [datiContabiliAcquistoSearched, setDatiContabiliAcquistoSearched] = useState(false)
 
   const backendBaseUrl = (import.meta.env.VITE_BACKEND_BASE_URL ?? '').replace(/\/$/, '')
   const authPortalBaseUrl = (import.meta.env.VITE_AUTH_PORTAL_URL ?? 'https://localhost:5043').replace(/\/$/, '')
@@ -389,7 +595,23 @@ function App() {
     }
   }, [])
   const toBackendUrl = (path: string) => `${backendBaseUrl}${path}`
+  const isProdottiSintesiPage = activePage === 'prodotti-sintesi'
+  const isDatiContabiliVenditaPage = activePage === 'dati-contabili-vendita'
+  const isDatiContabiliAcquistiPage = activePage === 'dati-contabili-acquisti'
+  const isDatiContabiliPage = isDatiContabiliVenditaPage || isDatiContabiliAcquistiPage
+  const sintesiScope = pageToScope(activePage)
+  const sintesiTitle = isDatiContabiliVenditaPage
+    ? 'Dati Contabili - Vendite'
+    : (isDatiContabiliAcquistiPage
+      ? 'Dati Contabili - Acquisti'
+      : (isProdottiSintesiPage ? 'Prodotti - Sintesi' : 'Commesse - Sintesi'))
   const currentProfile = selectedProfile || profiles[0] || ''
+  const canAccessAnalisiRccPage = analisiRccAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectAnalisiRccPivotRcc = analisiRccPivotRccSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
   const authenticatedRoles = user?.authenticatedRoles ?? user?.roles ?? []
   const canImpersonate = user?.canImpersonate ?? false
   const isImpersonating = user?.isImpersonating ?? false
@@ -414,12 +636,14 @@ function App() {
     setOuScopes([])
     setActiveImpersonation('')
     setActivePage('none')
+    setLastSintesiPage('commesse-sintesi')
     setSintesiMode('dettaglio')
     setCommessaSearch('')
     setSortColumn('commessa')
     setSortDirection('asc')
     setSintesiFiltersForm(emptySintesiFiltersForm)
     setSintesiFiltersCatalog(emptyFiltersCatalog)
+    setSintesiCommesseOptions([])
     setSintesiRows([])
     setSintesiSearched(false)
     setSintesiFilterLoadingDetail('')
@@ -430,6 +654,19 @@ function App() {
     setDetailRouteProcessed(false)
     setDetailPercentRaggiuntoInput('')
     setSelectedRequisitoId(null)
+    setCollapsedProductKeys([])
+    setAnalisiRccAnno(new Date().getFullYear().toString())
+    setAnalisiRccLoading(false)
+    setAnalisiRccData(null)
+    setAnalisiRccPivotData(null)
+    setAnalisiRccPivotAnni([new Date().getFullYear().toString()])
+    setAnalisiRccPivotRcc('')
+    setDatiContabiliVenditaRows([])
+    setDatiContabiliVenditaLoading(false)
+    setDatiContabiliVenditaSearched(false)
+    setDatiContabiliAcquistoRows([])
+    setDatiContabiliAcquistoLoading(false)
+    setDatiContabiliAcquistoSearched(false)
     sessionStorage.removeItem(impersonationStorageKey)
     sessionStorage.removeItem(sintesiStateStorageKey)
   }
@@ -677,11 +914,64 @@ function App() {
     }
   }
 
+  const loadSintesiCommesseOptions = async (
+    jwt: string,
+    impersonationUsername: string,
+    profile: string,
+    searchValue: string,
+    scope: SintesiScope,
+  ) => {
+    if (!jwt.trim() || !profile.trim()) {
+      setSintesiCommesseOptions([])
+      return false
+    }
+
+    const params = new URLSearchParams()
+    params.set('profile', profile)
+    params.set('take', '500')
+    const normalizedSearch = searchValue.trim()
+    if (normalizedSearch) {
+      params.set('search', normalizedSearch)
+    }
+
+    const response = await fetch(toBackendUrl(`/api/${scope}/options?${params.toString()}`), {
+      headers: authHeaders(jwt, impersonationUsername),
+    })
+
+    if (response.status === 401) {
+      clearSession()
+      redirectToCentralAuth('stale_token')
+      return false
+    }
+
+    if (response.status === 403) {
+      setSintesiCommesseOptions([])
+      return false
+    }
+
+    if (!response.ok) {
+      return false
+    }
+
+    const payload = (await response.json()) as CommesseOptionsResponse
+    const commesse = payload.items
+      .map((item) => item.commessa?.trim() ?? '')
+      .filter((value) => value.length > 0)
+      .map((value) => ({ value, label: value }))
+      .filter((option, index, options) => (
+        options.findIndex((candidate) => candidate.value === option.value) === index
+      ))
+
+    setSintesiCommesseOptions(commesse)
+    return true
+  }
+
   const loadSintesiFilters = async (
     jwt: string,
     impersonationUsername: string,
     profile: string,
     anni: string[],
+    scope: SintesiScope,
   ) => {
     if (!jwt.trim() || !profile.trim()) {
       return false
@@ -700,7 +990,7 @@ function App() {
         params.set('anno', normalizedAnni[0])
       }
 
-      const response = await fetch(toBackendUrl(`/api/commesse/sintesi/filters?${params.toString()}`), {
+      const response = await fetch(toBackendUrl(`/api/${scope}/sintesi/filters?${params.toString()}`), {
         headers: authHeaders(jwt, impersonationUsername),
       })
 
@@ -715,7 +1005,7 @@ function App() {
         setSintesiFiltersCatalog(emptyFiltersCatalog)
         setSintesiRows([])
         setSintesiSearched(false)
-        setStatusMessage(message || 'Profilo non autorizzato per i filtri commesse.')
+        setStatusMessage(message || `Profilo non autorizzato per i filtri ${scope}.`)
         return false
       }
 
@@ -730,6 +1020,7 @@ function App() {
       setSintesiFiltersCatalog(payload)
       const allowedAnni = new Set(payload.anni.map((option) => option.value))
       setSintesiFiltersForm((current) => ({
+        ...current,
         anni: current.anni.filter((value) => allowedAnni.has(value)),
         commessa: keepIfPresent(current.commessa, payload.commesse),
         tipologiaCommessa: keepIfPresent(current.tipologiaCommessa, payload.tipologieCommessa),
@@ -739,7 +1030,6 @@ function App() {
         businessUnit: keepIfPresent(current.businessUnit, payload.businessUnits),
         rcc: keepIfPresent(current.rcc, payload.rcc),
         pm: keepIfPresent(current.pm, payload.pm),
-        escludiProdotti: current.escludiProdotti,
       }))
       setStatusMessage(`Filtri caricati per il profilo "${profile}".`)
       return true
@@ -749,19 +1039,21 @@ function App() {
     }
   }
 
-  const executeSintesiSearch = async () => {
+  const executeSintesiSearch = async (scopeOverride?: SintesiScope) => {
     if (!token.trim() || !currentProfile) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
       return
     }
 
+    const scope = scopeOverride ?? sintesiScope
     const isAggregated = sintesiMode === 'aggregato'
 
     setSintesiLoadingData(true)
     try {
       const params = new URLSearchParams()
       params.set('profile', currentProfile)
-      params.set('take', '250')
+      const take = scope === 'prodotti' ? 5000 : 250
+      params.set('take', take.toString())
       params.set('aggrega', isAggregated ? 'true' : 'false')
 
       const selectedAnni = sintesiFiltersForm.anni
@@ -802,8 +1094,14 @@ function App() {
       if (sintesiFiltersForm.pm) {
         params.set('pm', sintesiFiltersForm.pm)
       }
+      if (sintesiFiltersForm.provenienza) {
+        params.set('provenienza', sintesiFiltersForm.provenienza)
+      }
+      if (sintesiFiltersForm.soloScadute) {
+        params.set('soloScadute', 'true')
+      }
 
-      const response = await fetch(toBackendUrl(`/api/commesse/sintesi?${params.toString()}`), {
+      const response = await fetch(toBackendUrl(`/api/${scope}/sintesi?${params.toString()}`), {
         headers: authHeaders(token, activeImpersonation),
       })
 
@@ -817,7 +1115,7 @@ function App() {
         const message = await readApiMessage(response)
         setSintesiRows([])
         setSintesiSearched(true)
-        setStatusMessage(message || 'Profilo non autorizzato sulla ricerca commesse.')
+        setStatusMessage(message || `Profilo non autorizzato sulla ricerca ${scope}.`)
         return
       }
 
@@ -862,6 +1160,315 @@ function App() {
       setStatusMessage(`Ricerca completata (${modeLabel}${yearLabel}): ${payload.count} righe.`)
     } finally {
       setSintesiLoadingData(false)
+    }
+  }
+
+  const executeDatiContabiliVenditaSearch = async () => {
+    if (!token.trim() || !currentProfile) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    setDatiContabiliVenditaLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('take', '5000')
+
+      const selectedAnni = sintesiFiltersForm.anni
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isFinite(value) && value > 0)
+
+      if (selectedAnni.length > 0) {
+        selectedAnni.forEach((value) => params.append('anni', value.toString()))
+      }
+
+      if (sintesiFiltersForm.commessa) {
+        params.set('commessa', sintesiFiltersForm.commessa)
+      }
+      if (sintesiFiltersForm.tipologiaCommessa) {
+        params.set('tipologiaCommessa', sintesiFiltersForm.tipologiaCommessa)
+      }
+      if (sintesiFiltersForm.stato) {
+        params.set('stato', sintesiFiltersForm.stato)
+      }
+      if (sintesiFiltersForm.macroTipologia) {
+        params.set('macroTipologia', sintesiFiltersForm.macroTipologia)
+      }
+      if (sintesiFiltersForm.prodotto) {
+        params.set('prodotto', sintesiFiltersForm.prodotto)
+      }
+      if (sintesiFiltersForm.businessUnit) {
+        params.set('businessUnit', sintesiFiltersForm.businessUnit)
+      }
+      if (sintesiFiltersForm.rcc) {
+        params.set('rcc', sintesiFiltersForm.rcc)
+      }
+      if (sintesiFiltersForm.pm) {
+        params.set('pm', sintesiFiltersForm.pm)
+      }
+      if (sintesiFiltersForm.provenienza) {
+        params.set('provenienza', sintesiFiltersForm.provenienza)
+      }
+      if (sintesiFiltersForm.soloScadute) {
+        params.set('soloScadute', 'true')
+      }
+
+      const response = await fetch(toBackendUrl(`/api/dati-contabili/vendite?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setDatiContabiliVenditaRows([])
+        setDatiContabiliVenditaSearched(true)
+        setStatusMessage(message || 'Profilo non autorizzato sulla ricerca vendite.')
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setDatiContabiliVenditaRows([])
+        setDatiContabiliVenditaSearched(true)
+        setStatusMessage(message || `Errore ricerca vendite (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as DatiContabiliVenditaResponse
+      setDatiContabiliVenditaRows(payload.items)
+      setDatiContabiliVenditaSearched(true)
+      setStatusMessage(`Ricerca vendite completata: ${payload.count} righe.`)
+    } finally {
+      setDatiContabiliVenditaLoading(false)
+    }
+  }
+
+  const executeDatiContabiliAcquistiSearch = async () => {
+    if (!token.trim() || !currentProfile) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    setDatiContabiliAcquistoLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('take', '5000')
+
+      const selectedAnni = sintesiFiltersForm.anni
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isFinite(value) && value > 0)
+
+      if (selectedAnni.length > 0) {
+        selectedAnni.forEach((value) => params.append('anni', value.toString()))
+      }
+
+      if (sintesiFiltersForm.commessa) {
+        params.set('commessa', sintesiFiltersForm.commessa)
+      }
+      if (sintesiFiltersForm.tipologiaCommessa) {
+        params.set('tipologiaCommessa', sintesiFiltersForm.tipologiaCommessa)
+      }
+      if (sintesiFiltersForm.stato) {
+        params.set('stato', sintesiFiltersForm.stato)
+      }
+      if (sintesiFiltersForm.macroTipologia) {
+        params.set('macroTipologia', sintesiFiltersForm.macroTipologia)
+      }
+      if (sintesiFiltersForm.prodotto) {
+        params.set('prodotto', sintesiFiltersForm.prodotto)
+      }
+      if (sintesiFiltersForm.businessUnit) {
+        params.set('businessUnit', sintesiFiltersForm.businessUnit)
+      }
+      if (sintesiFiltersForm.rcc) {
+        params.set('rcc', sintesiFiltersForm.rcc)
+      }
+      if (sintesiFiltersForm.pm) {
+        params.set('pm', sintesiFiltersForm.pm)
+      }
+      if (sintesiFiltersForm.provenienza) {
+        params.set('provenienza', sintesiFiltersForm.provenienza)
+      }
+      if (sintesiFiltersForm.soloScadute) {
+        params.set('soloScadute', 'true')
+      }
+
+      const response = await fetch(toBackendUrl(`/api/dati-contabili/acquisti?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setDatiContabiliAcquistoRows([])
+        setDatiContabiliAcquistoSearched(true)
+        setStatusMessage(message || 'Profilo non autorizzato sulla ricerca acquisti.')
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setDatiContabiliAcquistoRows([])
+        setDatiContabiliAcquistoSearched(true)
+        setStatusMessage(message || `Errore ricerca acquisti (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as DatiContabiliAcquistoResponse
+      setDatiContabiliAcquistoRows(payload.items)
+      setDatiContabiliAcquistoSearched(true)
+      setStatusMessage(`Ricerca acquisti completata: ${payload.count} righe.`)
+    } finally {
+      setDatiContabiliAcquistoLoading(false)
+    }
+  }
+
+  const loadAnalisiRccRisultatoMensile = async (requestedYear?: string) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiRccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato ad Analisi RCC.`)
+      setAnalisiRccData(null)
+      return
+    }
+
+    const normalizedYear = (requestedYear ?? analisiRccAnno).trim()
+    const parsedYear = Number.parseInt(normalizedYear, 10)
+    const annoValue = Number.isFinite(parsedYear) && parsedYear > 0
+      ? parsedYear
+      : new Date().getFullYear()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', annoValue.toString())
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/risultato-mensile?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiRccData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Analisi RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiRccData(null)
+        setStatusMessage(message || `Errore caricamento Analisi RCC (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccRisultatoMensileResponse
+      setAnalisiRccAnno(payload.anno.toString())
+      setAnalisiRccData(payload)
+      const righeCount = payload.risultatoPesato?.righe?.length ?? 0
+      setStatusMessage(`Analisi RCC caricata per anno ${payload.anno}: ${righeCount} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadAnalisiRccPivotFatturato = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiRccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato ad Analisi RCC.`)
+      setAnalisiRccPivotData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      analisiRccPivotAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      if (canSelectAnalisiRccPivotRcc && analisiRccPivotRcc.trim()) {
+        params.set('rcc', analisiRccPivotRcc.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-fatturato?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiRccPivotData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Analisi RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiRccPivotData(null)
+        setStatusMessage(message || `Errore caricamento PivotFatturato (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccPivotFatturatoResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setAnalisiRccPivotAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      if (canSelectAnalisiRccPivotRcc) {
+        const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
+        if (normalizedRccFiltro.length > 0) {
+          setAnalisiRccPivotRcc(normalizedRccFiltro)
+        } else if (!payload.vediTutto) {
+          setAnalisiRccPivotRcc((payload.rccDisponibili?.[0] ?? '').trim())
+        } else if (!analisiRccPivotRcc.trim()) {
+          setAnalisiRccPivotRcc('')
+        }
+      }
+
+      setAnalisiRccPivotData(payload)
+      const yearsLabel = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .sort((left, right) => left - right)
+        .join(', ')
+      setStatusMessage(`PivotFatturato RCC caricato (anni: ${yearsLabel || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
     }
   }
 
@@ -955,6 +1562,9 @@ function App() {
     }
 
     window.history.replaceState({}, document.title, url.toString())
+    if (activePage === 'commesse-sintesi' || activePage === 'prodotti-sintesi' || activePage === 'dati-contabili-vendita' || activePage === 'dati-contabili-acquisti') {
+      setLastSintesiPage(activePage)
+    }
     setActivePage('commessa-dettaglio')
     void loadCommessaDetail(normalizedCommessa)
   }
@@ -965,10 +1575,24 @@ function App() {
     url.searchParams.delete('commessa')
     window.history.replaceState({}, document.title, url.toString())
 
-    setActivePage('commesse-sintesi')
+    setActivePage(lastSintesiPage)
+
+    if (lastSintesiPage === 'dati-contabili-vendita') {
+      if (datiContabiliVenditaRows.length === 0 && !datiContabiliVenditaLoading) {
+        void executeDatiContabiliVenditaSearch()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'dati-contabili-acquisti') {
+      if (datiContabiliAcquistoRows.length === 0 && !datiContabiliAcquistoLoading) {
+        void executeDatiContabiliAcquistiSearch()
+      }
+      return
+    }
 
     if (sintesiRows.length === 0 && !sintesiLoadingData) {
-      void executeSintesiSearch()
+      void executeSintesiSearch(pageToScope(lastSintesiPage))
     }
   }
 
@@ -977,38 +1601,122 @@ function App() {
       return
     }
 
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni)
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, sintesiScope)
   }
 
   const resetSintesi = () => {
     setSintesiMode('dettaglio')
     setCommessaSearch('')
-    setSortColumn('commessa')
+    setSortColumn(isProdottiSintesiPage ? 'prodotto' : 'commessa')
     setSortDirection('asc')
+    setCollapsedProductKeys([])
     setSintesiFiltersForm(emptySintesiFiltersForm)
     setSintesiRows([])
     setSintesiSearched(false)
+    setDatiContabiliVenditaRows([])
+    setDatiContabiliVenditaSearched(false)
+    setDatiContabiliAcquistoRows([])
+    setDatiContabiliAcquistoSearched(false)
 
     if (!token.trim() || !currentProfile) {
       return
     }
 
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, [])
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, [], sintesiScope)
   }
 
   const activateSintesiPage = () => {
     setOpenMenu(null)
+    setLastSintesiPage('commesse-sintesi')
+    setSortColumn('commessa')
+    setSortDirection('asc')
+    setCollapsedProductKeys([])
     setActivePage('commesse-sintesi')
     if (!token.trim() || !currentProfile) {
       return
     }
 
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni)
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
+  }
+
+  const activateProdottiPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('prodotti-sintesi')
+    setSortColumn('prodotto')
+    setSortDirection('asc')
+    setCollapsedProductKeys([])
+    setActivePage('prodotti-sintesi')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'prodotti')
+  }
+
+  const activateAnalisiRccRisultatoMensilePage = () => {
+    setOpenMenu(null)
+    setActivePage('analisi-rcc-risultato-mensile')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadAnalisiRccRisultatoMensile()
+  }
+
+  const activateAnalisiRccPivotFatturatoPage = () => {
+    setOpenMenu(null)
+    setActivePage('analisi-rcc-pivot-fatturato')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadAnalisiRccPivotFatturato()
+  }
+
+  const activateDatiContabiliVenditaPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('dati-contabili-vendita')
+    setActivePage('dati-contabili-vendita')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
+  }
+
+  const activateDatiContabiliAcquistiPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('dati-contabili-acquisti')
+    setActivePage('dati-contabili-acquisti')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
   }
 
   const handleSintesiSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (activePage === 'dati-contabili-vendita') {
+      void executeDatiContabiliVenditaSearch()
+      return
+    }
+    if (activePage === 'dati-contabili-acquisti') {
+      void executeDatiContabiliAcquistiSearch()
+      return
+    }
+
     void executeSintesiSearch()
+  }
+
+  const handleAnalisiRccSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (activePage === 'analisi-rcc-pivot-fatturato') {
+      void loadAnalisiRccPivotFatturato()
+      return
+    }
+
+    void loadAnalisiRccRisultatoMensile()
   }
 
   const applyImpersonation = async (event: FormEvent<HTMLFormElement>) => {
@@ -1168,6 +1876,8 @@ function App() {
         businessUnit: persisted.filters.businessUnit ?? '',
         rcc: persisted.filters.rcc ?? '',
         pm: persisted.filters.pm ?? '',
+        provenienza: persisted.filters.provenienza ?? '',
+        soloScadute: Boolean(persisted.filters.soloScadute),
         escludiProdotti: Boolean(persisted.filters.escludiProdotti),
       }
 
@@ -1181,7 +1891,7 @@ function App() {
       setSintesiFiltersForm(restoredFilters)
       setSintesiRows(Array.isArray(persisted.rows) ? persisted.rows : [])
       setSintesiSearched(Boolean(persisted.searched))
-      void loadSintesiFilters(token, activeImpersonation, currentProfile, restoredFilters.anni)
+      void loadSintesiFilters(token, activeImpersonation, currentProfile, restoredFilters.anni, 'commesse')
       setStatusMessage('Lista commesse ripristinata dalla sessione.')
       return
     }
@@ -1192,8 +1902,34 @@ function App() {
     setSortColumn('commessa')
     setSortDirection('asc')
     setSintesiFiltersForm(emptySintesiFiltersForm)
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, [])
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, [], 'commesse')
   }, [token, activeImpersonation, currentProfile])
+
+  useEffect(() => {
+    if (
+      !token.trim() ||
+      !currentProfile ||
+      (activePage !== 'commesse-sintesi' && activePage !== 'prodotti-sintesi' && activePage !== 'dati-contabili-vendita' && activePage !== 'dati-contabili-acquisti') ||
+      sintesiLoadingFilters
+    ) {
+      return
+    }
+
+    const debounceHandle = window.setTimeout(() => {
+      void loadSintesiCommesseOptions(token, activeImpersonation, currentProfile, commessaSearch, pageToScope(activePage))
+    }, 250)
+
+    return () => {
+      window.clearTimeout(debounceHandle)
+    }
+  }, [
+    token,
+    activeImpersonation,
+    currentProfile,
+    activePage,
+    commessaSearch,
+    sintesiLoadingFilters,
+  ])
 
   useEffect(() => {
     if (!token.trim() || !currentProfile || detailRouteProcessed) {
@@ -1270,13 +2006,18 @@ function App() {
   const sintesiSelects: Array<{
     id: string
     label: string
-    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti'>
+    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
     options: FilterOption[]
   }> = [
     { id: 'sintesi-tipologia', label: 'Tipologia Commessa', key: 'tipologiaCommessa', options: sintesiFiltersCatalog.tipologieCommessa },
     { id: 'sintesi-stato', label: 'Stato', key: 'stato', options: sintesiFiltersCatalog.stati },
     { id: 'sintesi-macro', label: 'Macrotipologia', key: 'macroTipologia', options: sintesiFiltersCatalog.macroTipologie },
-    { id: 'sintesi-controparte', label: 'Controparte', key: 'prodotto', options: sintesiFiltersCatalog.prodotti },
+    {
+      id: isProdottiSintesiPage ? 'sintesi-prodotto' : 'sintesi-controparte',
+      label: isProdottiSintesiPage ? 'Prodotto' : 'Controparte',
+      key: 'prodotto',
+      options: sintesiFiltersCatalog.prodotti,
+    },
     { id: 'sintesi-business-unit', label: 'Business Unit', key: 'businessUnit', options: sintesiFiltersCatalog.businessUnits },
     { id: 'sintesi-rcc', label: 'RCC', key: 'rcc', options: sintesiFiltersCatalog.rcc },
     { id: 'sintesi-pm', label: 'PM', key: 'pm', options: sintesiFiltersCatalog.pm },
@@ -1287,9 +2028,36 @@ function App() {
     [...sintesiFiltersCatalog.anni]
       .sort((left, right) => Number(right.value) - Number(left.value))
   ), [sintesiFiltersCatalog.anni])
+  const datiContabiliProvenienzaOptions = useMemo(() => {
+    const merged = new Set<string>([
+      'Fattura in contabilitÃ ',
+      'Fattura Futura',
+      'Ricavo Ipotetico',
+    ])
+    const sourceRows = isDatiContabiliAcquistiPage
+      ? datiContabiliAcquistoRows
+      : datiContabiliVenditaRows
+    sourceRows.forEach((row) => {
+      const value = row.provenienza?.trim() ?? ''
+      if (value) {
+        merged.add(value)
+      }
+    })
+
+    return [...merged]
+      .sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+      .map((value) => ({ value, label: value }))
+  }, [datiContabiliAcquistoRows, datiContabiliVenditaRows, isDatiContabiliAcquistiPage])
+  const allCommesseOptions = useMemo(() => {
+    if (sintesiCommesseOptions.length > 0) {
+      return sintesiCommesseOptions
+    }
+
+    return sintesiFiltersCatalog.commesse
+  }, [sintesiCommesseOptions, sintesiFiltersCatalog.commesse])
   const normalizedCommessaSearch = commessaSearch.trim().toLowerCase()
   const filteredCommesse = useMemo(() => {
-    const allOptions = sintesiFiltersCatalog.commesse
+    const allOptions = allCommesseOptions
     if (!normalizedCommessaSearch) {
       return allOptions.slice(0, 500)
     }
@@ -1300,10 +2068,10 @@ function App() {
         option.value.toLowerCase().includes(normalizedCommessaSearch)
       ))
       .slice(0, 500)
-  }, [normalizedCommessaSearch, sintesiFiltersCatalog.commesse])
+  }, [allCommesseOptions, normalizedCommessaSearch])
 
   const commessaOptions = useMemo(() => {
-    const selected = sintesiFiltersCatalog.commesse.find((option) => option.value === sintesiFiltersForm.commessa)
+    const selected = allCommesseOptions.find((option) => option.value === sintesiFiltersForm.commessa)
     if (!selected) {
       return filteredCommesse
     }
@@ -1313,7 +2081,7 @@ function App() {
     }
 
     return [selected, ...filteredCommesse]
-  }, [filteredCommesse, sintesiFiltersCatalog.commesse, sintesiFiltersForm.commessa])
+  }, [allCommesseOptions, filteredCommesse, sintesiFiltersForm.commessa])
   const totalFilterOptions = useMemo(() => (
     sintesiFiltersCatalog.anni.length +
     sintesiFiltersCatalog.commesse.length +
@@ -1365,7 +2133,7 @@ function App() {
       case 'controparte':
         return row.controparte
       case 'prodotto':
-        return row.controparte
+        return row.prodotto
       case 'businessUnit':
         return row.businessUnit
       case 'rcc':
@@ -1392,6 +2160,10 @@ function App() {
   }
 
   const displayRows = useMemo(() => {
+    if (isProdottiSintesiPage) {
+      return sintesiRows.filter((row) => isValidProductValue(row.prodotto))
+    }
+
     if (!sintesiFiltersForm.escludiProdotti) {
       return sintesiRows
     }
@@ -1405,7 +2177,7 @@ function App() {
       const normalized = prodotto.toUpperCase()
       return normalized === 'NON DEFINITO' || normalized === 'NON DEFINTO'
     })
-  }, [sintesiRows, sintesiFiltersForm.escludiProdotti])
+  }, [isProdottiSintesiPage, sintesiRows, sintesiFiltersForm.escludiProdotti])
 
   const sortedRows = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -1422,6 +2194,186 @@ function App() {
       return leftText.localeCompare(rightText, 'it', { sensitivity: 'base', numeric: true }) * direction
     })
   }, [displayRows, sortColumn, sortDirection])
+
+  const productOrCounterpartColumn: SortColumn = isProdottiSintesiPage ? 'prodotto' : 'controparte'
+  const productOrCounterpartLabel = isProdottiSintesiPage ? 'Prodotto' : 'Controparte'
+
+  const productGroups = useMemo<ProdottoGroup[]>(() => {
+    if (!isProdottiSintesiPage) {
+      return []
+    }
+
+    const groups = new Map<string, ProdottoGroup>()
+    for (const row of displayRows) {
+      if (!isValidProductValue(row.prodotto)) {
+        continue
+      }
+
+      const productKey = row.prodotto.trim()
+      if (!groups.has(productKey)) {
+        groups.set(productKey, {
+          productKey,
+          summary: {
+            prodotto: productKey,
+            oreLavorate: 0,
+            costoPersonale: 0,
+            ricavi: 0,
+            costi: 0,
+            utileSpecifico: 0,
+            ricaviFuturi: 0,
+            costiFuturi: 0,
+          },
+          rows: [],
+        })
+      }
+
+      const current = groups.get(productKey)!
+      current.summary.oreLavorate += row.oreLavorate
+      current.summary.costoPersonale += row.costoPersonale
+      current.summary.ricavi += row.ricavi
+      current.summary.costi += row.costi
+      current.summary.utileSpecifico += row.utileSpecifico
+      current.summary.ricaviFuturi += row.ricaviFuturi
+      current.summary.costiFuturi += row.costiFuturi
+      current.rows.push(row)
+    }
+
+    const direction = sortDirection === 'asc' ? 1 : -1
+    const sortedGroups = [...groups.values()]
+      .map((group) => ({
+        ...group,
+        rows: [...group.rows].sort((left, right) => {
+          const commessaCompare = left.commessa.localeCompare(right.commessa, 'it', {
+            sensitivity: 'base',
+            numeric: true,
+          })
+
+          if (commessaCompare !== 0) {
+            return commessaCompare
+          }
+
+          return (left.anno ?? 0) - (right.anno ?? 0)
+        }),
+      }))
+      .sort((leftGroup, rightGroup) => {
+        const resolveGroupSortValue = (group: ProdottoGroup): number | string => {
+          switch (sortColumn) {
+            case 'oreLavorate':
+              return group.summary.oreLavorate
+            case 'costoPersonale':
+              return group.summary.costoPersonale
+            case 'ricavi':
+              return group.summary.ricavi
+            case 'costi':
+              return group.summary.costi
+            case 'utileSpecifico':
+              return group.summary.utileSpecifico
+            case 'ricaviFuturi':
+              return group.summary.ricaviFuturi
+            case 'costiFuturi':
+              return group.summary.costiFuturi
+            case 'prodotto':
+              return group.summary.prodotto
+            default:
+              return group.summary.prodotto
+          }
+        }
+
+        const left = resolveGroupSortValue(leftGroup)
+        const right = resolveGroupSortValue(rightGroup)
+
+        if (typeof left === 'number' && typeof right === 'number') {
+          return (left - right) * direction
+        }
+
+        const leftText = String(left ?? '').toLowerCase()
+        const rightText = String(right ?? '').toLowerCase()
+        return leftText.localeCompare(rightText, 'it', { sensitivity: 'base', numeric: true }) * direction
+      })
+
+    return sortedGroups
+  }, [displayRows, isProdottiSintesiPage, sortColumn, sortDirection])
+
+  const productGroupKeys = useMemo(
+    () => productGroups.map((group) => group.productKey),
+    [productGroups],
+  )
+
+  useEffect(() => {
+    if (!isProdottiSintesiPage) {
+      setCollapsedProductKeys([])
+      return
+    }
+
+    setCollapsedProductKeys((current) => {
+      const allowed = new Set(productGroupKeys)
+      const next = current.filter((key) => allowed.has(key))
+      return next.length === current.length ? current : next
+    })
+  }, [isProdottiSintesiPage, productGroupKeys])
+
+  const collapsedProductsSet = useMemo(
+    () => new Set(collapsedProductKeys),
+    [collapsedProductKeys],
+  )
+
+  const hasProductGroups = isProdottiSintesiPage && productGroupKeys.length > 0
+  const hasCollapsedProducts = hasProductGroups && collapsedProductKeys.length > 0
+  const areAllProductsCollapsed = hasProductGroups && productGroupKeys.every((key) => collapsedProductsSet.has(key))
+
+  const expandAllProducts = () => {
+    setCollapsedProductKeys([])
+  }
+
+  const collapseAllProducts = () => {
+    setCollapsedProductKeys([...productGroupKeys])
+  }
+
+  const toggleProductCollapse = (productKey: string) => {
+    setCollapsedProductKeys((current) => (
+      current.includes(productKey)
+        ? current.filter((value) => value !== productKey)
+        : [...current, productKey]
+    ))
+  }
+
+  const sintesiTableRows = useMemo<SintesiTableRow[]>(() => {
+    if (!isProdottiSintesiPage) {
+      return sortedRows.map((row, index) => ({
+        kind: 'commessa',
+        row,
+        key: `${row.commessa}-${row.businessUnit}-${index}`,
+      }))
+    }
+
+    const result: SintesiTableRow[] = []
+    for (const group of productGroups) {
+      const isCollapsed = collapsedProductsSet.has(group.productKey)
+      result.push({
+        kind: 'prodotto-summary',
+        row: group.summary,
+        key: `product-summary-${group.productKey}`,
+        productKey: group.productKey,
+        isCollapsed,
+        commesseCount: group.rows.length,
+      })
+
+      if (isCollapsed) {
+        continue
+      }
+
+      for (let index = 0; index < group.rows.length; index += 1) {
+        const row = group.rows[index]
+        result.push({
+          kind: 'commessa',
+          row,
+          key: `product-row-${group.productKey}-${row.commessa}-${row.businessUnit}-${index}`,
+        })
+      }
+    }
+
+    return result
+  }, [collapsedProductsSet, isProdottiSintesiPage, productGroups, sortedRows])
 
   const totals = useMemo(() => (
     sortedRows.reduce((acc, row) => ({
@@ -1442,6 +2394,137 @@ function App() {
       costiFuturi: 0,
     })
   ), [sortedRows])
+
+  const analisiRccGrids = useMemo(() => {
+    if (!analisiRccData) {
+      return []
+    }
+
+    return [analisiRccData.risultatoPesato, analisiRccData.percentualePesata]
+  }, [analisiRccData])
+  const analisiRccPivotRows = analisiRccPivotData?.righe ?? []
+  const analisiRccPivotTotaliPerAnno = analisiRccPivotData?.totaliPerAnno ?? []
+  const analisiRccPivotAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    analisiRccPivotAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(analisiRccPivotData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [analisiRccPivotAnni, analisiRccPivotData?.anni, sintesiFiltersCatalog.anni])
+  const analisiRccPivotRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(analisiRccPivotData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = analisiRccPivotRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (analisiRccPivotData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [analisiRccPivotData?.rccDisponibili, analisiRccPivotData?.rccFiltro, analisiRccPivotRcc])
+  const datiContabiliVenditaSortedRows = useMemo(() => (
+    [...datiContabiliVenditaRows].sort((left, right) => {
+      const leftTime = left.dataMovimento ? new Date(left.dataMovimento).getTime() : Number.MIN_SAFE_INTEGER
+      const rightTime = right.dataMovimento ? new Date(right.dataMovimento).getTime() : Number.MIN_SAFE_INTEGER
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime
+      }
+
+      const commessaCompare = left.commessa.localeCompare(right.commessa, 'it', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+      if (commessaCompare !== 0) {
+        return commessaCompare
+      }
+
+      return left.numeroDocumento.localeCompare(right.numeroDocumento, 'it', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+    })
+  ), [datiContabiliVenditaRows])
+  const datiContabiliAcquistoSortedRows = useMemo(() => (
+    [...datiContabiliAcquistoRows].sort((left, right) => {
+      const leftTime = left.dataDocumento ? new Date(left.dataDocumento).getTime() : Number.MIN_SAFE_INTEGER
+      const rightTime = right.dataDocumento ? new Date(right.dataDocumento).getTime() : Number.MIN_SAFE_INTEGER
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime
+      }
+
+      const commessaCompare = left.commessa.localeCompare(right.commessa, 'it', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+      if (commessaCompare !== 0) {
+        return commessaCompare
+      }
+
+      return left.codiceSocieta.localeCompare(right.codiceSocieta, 'it', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+    })
+  ), [datiContabiliAcquistoRows])
+
+  const toAnalisiRccPercentValue = (value: number) => {
+    const safeValue = Number.isFinite(value) ? value : 0
+    const absValue = Math.abs(safeValue)
+
+    // Compatibilita' con dataset misti: alcuni valori arrivano come rapporto (1.05),
+    // altri gia' in percentuale (105.00).
+    if (absValue <= 3) {
+      return safeValue * 100
+    }
+
+    if (absValue >= 1000) {
+      return safeValue / 100
+    }
+
+    return safeValue
+  }
+
+  const formatAnalisiRccPercent = (value: number) => (
+    `${toAnalisiRccPercentValue(value).toLocaleString('it-IT', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}%`
+  )
+
+  const isAnalisiRccPercentUnderTarget = (value: number) => (
+    toAnalisiRccPercentValue(value) < 100
+  )
+
+  const getAnalisiRccValueForMonth = (row: AnalisiRccRisultatoMensileRow, mese: number) => (
+    row.valoriMensili.find((item) => item.mese === mese)?.valore ?? 0
+  )
 
   const detailAnagrafica = detailData?.anagrafica ?? null
   const detailCurrentYear = detailData?.currentYear ?? 0
@@ -1864,10 +2947,29 @@ function App() {
   const sintesiCountLabel = sintesiLoadingData
     ? 'Caricamento dati...'
     : `${sortedRows.length} righe`
+  const datiContabiliVenditaCountLabel = datiContabiliVenditaLoading
+    ? 'Caricamento dati...'
+    : `${datiContabiliVenditaSortedRows.length} righe`
+  const datiContabiliAcquistoCountLabel = datiContabiliAcquistoLoading
+    ? 'Caricamento dati...'
+    : `${datiContabiliAcquistoSortedRows.length} righe`
+  const datiContabiliCountLabel = isDatiContabiliVenditaPage
+    ? datiContabiliVenditaCountLabel
+    : datiContabiliAcquistoCountLabel
+  const datiContabiliLoading = isDatiContabiliVenditaPage
+    ? datiContabiliVenditaLoading
+    : datiContabiliAcquistoLoading
   const numberFormatter = useMemo(() => (
     new Intl.NumberFormat('it-IT', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
+      useGrouping: true,
+    })
+  ), [])
+  const currencyFormatter = useMemo(() => (
+    new Intl.NumberFormat('it-IT', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
       useGrouping: true,
     })
   ), [])
@@ -1884,6 +2986,12 @@ function App() {
     const safeValue = Number.isFinite(value) ? value : 0
     const sign = safeValue < 0 ? '-' : ''
     return `${sign}${numberFormatter.format(Math.abs(safeValue))}`
+  }
+
+  const formatCurrency = (value: number) => {
+    const safeValue = Number.isFinite(value) ? value : 0
+    const sign = safeValue < 0 ? '-' : ''
+    return `${sign}${currencyFormatter.format(Math.abs(safeValue))} €`
   }
 
   const formatDate = (value?: string | null) => {
@@ -2084,47 +3192,105 @@ function App() {
 
   const sortIndicator = (column: SortColumn) => {
     if (sortColumn !== column) {
-      return 'â†•'
+      return 'Ã¢â€ â€¢'
     }
 
-    return sortDirection === 'asc' ? 'â–²' : 'â–¼'
+    return sortDirection === 'asc' ? 'Ã¢â€“Â²' : 'Ã¢â€“Â¼'
   }
 
   const exportSintesiExcel = () => {
-    if (sortedRows.length === 0) {
+    const hasDataToExport = isProdottiSintesiPage
+      ? sintesiTableRows.length > 0
+      : sortedRows.length > 0
+
+    if (!hasDataToExport) {
       setStatusMessage('Nessun dato disponibile da esportare in Excel.')
       return
     }
 
-    const rows = sortedRows.map((row) => ({
-      Anno: row.anno ?? '',
-      Commessa: row.commessa,
-      Descrizione: row.descrizioneCommessa,
-      Tipologia: row.tipologiaCommessa,
-      Stato: row.stato,
-      Macrotipologia: row.macroTipologia,
-      Controparte: row.controparte,
-      BusinessUnit: row.businessUnit,
-      RCC: row.rcc,
-      PM: row.pm,
-      OreLavorate: row.oreLavorate,
-      CostoPersonale: row.costoPersonale,
-      Ricavi: row.ricavi,
-      Costi: row.costi,
-      UtileSpecifico: row.utileSpecifico,
-      RicaviFuturi: row.ricaviFuturi,
-      CostiFuturi: row.costiFuturi,
-    }))
+    const rows = isProdottiSintesiPage
+      ? sintesiTableRows.map((tableRow) => {
+        if (tableRow.kind === 'prodotto-summary') {
+          const row = tableRow.row
+          return {
+            TipoRiga: 'Prodotto',
+            Anno: '',
+            Commessa: `${tableRow.commesseCount} commesse`,
+            Descrizione: '',
+            Tipologia: '',
+            Stato: '',
+            Macrotipologia: '',
+            [productOrCounterpartLabel]: row.prodotto,
+            BusinessUnit: '',
+            RCC: '',
+            PM: '',
+            OreLavorate: row.oreLavorate,
+            CostoPersonale: row.costoPersonale,
+            Ricavi: row.ricavi,
+            Costi: row.costi,
+            UtileSpecifico: row.utileSpecifico,
+            RicaviFuturi: row.ricaviFuturi,
+            CostiFuturi: row.costiFuturi,
+          }
+        }
+
+        const row = tableRow.row
+        return {
+          TipoRiga: 'Commessa',
+          Anno: row.anno ?? '',
+          Commessa: row.commessa,
+          Descrizione: row.descrizioneCommessa,
+          Tipologia: row.tipologiaCommessa,
+          Stato: row.stato,
+          Macrotipologia: row.macroTipologia,
+          [productOrCounterpartLabel]: row.prodotto,
+          BusinessUnit: row.businessUnit,
+          RCC: row.rcc,
+          PM: row.pm,
+          OreLavorate: row.oreLavorate,
+          CostoPersonale: row.costoPersonale,
+          Ricavi: row.ricavi,
+          Costi: row.costi,
+          UtileSpecifico: row.utileSpecifico,
+          RicaviFuturi: row.ricaviFuturi,
+          CostiFuturi: row.costiFuturi,
+        }
+      })
+      : sortedRows.map((row) => ({
+        Anno: row.anno ?? '',
+        Commessa: row.commessa,
+        Descrizione: row.descrizioneCommessa,
+        Tipologia: row.tipologiaCommessa,
+        Stato: row.stato,
+        Macrotipologia: row.macroTipologia,
+        [productOrCounterpartLabel]: row.controparte,
+        BusinessUnit: row.businessUnit,
+        RCC: row.rcc,
+        PM: row.pm,
+        OreLavorate: row.oreLavorate,
+        CostoPersonale: row.costoPersonale,
+        Ricavi: row.ricavi,
+        Costi: row.costi,
+        UtileSpecifico: row.utileSpecifico,
+        RicaviFuturi: row.ricaviFuturi,
+        CostiFuturi: row.costiFuturi,
+      }))
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
-    worksheet['!cols'] = [
-      { wch: 8 }, { wch: 14 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
-      { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-      { wch: 16 }, { wch: 16 }, { wch: 16 },
-    ]
+    worksheet['!cols'] = isProdottiSintesiPage
+      ? [
+        { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
+        { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 },
+      ]
+      : [
+        { wch: 8 }, { wch: 14 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
+        { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 },
+      ]
 
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'SintesiCommesse')
+    XLSX.utils.book_append_sheet(workbook, worksheet, isProdottiSintesiPage ? 'SintesiProdotti' : 'SintesiCommesse')
 
     const now = new Date()
     const timestamp = [
@@ -2138,7 +3304,8 @@ function App() {
     ].join('')
     const mode = sintesiMode === 'aggregato' ? 'aggregato' : 'dettaglio'
     const anno = selectedAnniLabel
-    const filename = `Produzione_Sintesi_${mode}_${anno}_${timestamp}.xlsx`
+    const scopeLabel = isProdottiSintesiPage ? 'Prodotti' : 'Commesse'
+    const filename = `Produzione_${scopeLabel}_Sintesi_${mode}_${anno}_${timestamp}.xlsx`
 
     XLSX.writeFile(workbook, filename)
     setStatusMessage(`Export Excel completato: ${filename}`)
@@ -2266,18 +3433,59 @@ function App() {
         </div>
 
         <nav className="menu main-nav" aria-label="Menu applicativo">
-          <div className={`menu-dropdown ${openMenu === 'commesse' ? 'is-open' : ''}`}>
+          <div className={`menu-dropdown ${openMenu === 'sintesi' ? 'is-open' : ''}`}>
             <button
               type="button"
               className="menu-trigger"
-              onClick={() => toggleMenu('commesse')}
-              aria-expanded={openMenu === 'commesse'}
+              onClick={() => toggleMenu('sintesi')}
+              aria-expanded={openMenu === 'sintesi'}
             >
-              Commesse
+              Sintesi
             </button>
             <div className="menu-dropdown-panel">
               <button type="button" className="menu-action" onClick={activateSintesiPage}>
-                Sintesi
+                Commesse
+              </button>
+              <button type="button" className="menu-action" onClick={activateProdottiPage}>
+                Prodotti
+              </button>
+            </div>
+          </div>
+          {canAccessAnalisiRccPage && (
+            <div className={`menu-dropdown ${openMenu === 'analisi-rcc' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('analisi-rcc')}
+                aria-expanded={openMenu === 'analisi-rcc'}
+              >
+                Analisi RCC
+              </button>
+              <div className="menu-dropdown-panel">
+                <button type="button" className="menu-action" onClick={activateAnalisiRccRisultatoMensilePage}>
+                  Risultato Mensile
+                </button>
+                <button type="button" className="menu-action" onClick={activateAnalisiRccPivotFatturatoPage}>
+                  PivotFatturato
+                </button>
+              </div>
+            </div>
+          )}
+          <div className={`menu-dropdown ${openMenu === 'dati-contabili' ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className="menu-trigger"
+              onClick={() => toggleMenu('dati-contabili')}
+              aria-expanded={openMenu === 'dati-contabili'}
+            >
+              Dati Contabili
+            </button>
+            <div className="menu-dropdown-panel">
+              <button type="button" className="menu-action" onClick={activateDatiContabiliVenditaPage}>
+                Vendite
+              </button>
+              <button type="button" className="menu-action" onClick={activateDatiContabiliAcquistiPage}>
+                Acquisti
               </button>
             </div>
           </div>
@@ -2351,10 +3559,10 @@ function App() {
           <span className="sr-only" aria-live="polite">{statusMessage}</span>
         )}
 
-        {activePage === 'commesse-sintesi' && (
+        {(activePage === 'commesse-sintesi' || activePage === 'prodotti-sintesi' || activePage === 'dati-contabili-vendita' || activePage === 'dati-contabili-acquisti') && (
           <section className="panel sintesi-page">
             <header className="panel-header">
-              <h2>Commesse - Sintesi</h2>
+              <h2>{sintesiTitle}</h2>
               <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
             </header>
 
@@ -2367,16 +3575,18 @@ function App() {
                 <div className="sintesi-filters-grid">
                   <div className="sintesi-field sintesi-field-anni">
                     <div className="sintesi-field-header-row">
-                      <label htmlFor="sintesi-anni">Anni</label>
-                      <label htmlFor="sintesi-aggrega" className="checkbox-label checkbox-label-inline">
-                        <input
-                          id="sintesi-aggrega"
-                          type="checkbox"
-                          checked={isAggregatedMode}
-                          onChange={(event) => setSintesiMode(event.target.checked ? 'aggregato' : 'dettaglio')}
-                        />
-                        Aggrega
-                      </label>
+                      <label htmlFor="sintesi-anni">{isDatiContabiliPage ? 'Anni Fattura' : 'Anni'}</label>
+                      {!isDatiContabiliPage && (
+                        <label htmlFor="sintesi-aggrega" className="checkbox-label checkbox-label-inline">
+                          <input
+                            id="sintesi-aggrega"
+                            type="checkbox"
+                            checked={isAggregatedMode}
+                            onChange={(event) => setSintesiMode(event.target.checked ? 'aggregato' : 'dettaglio')}
+                          />
+                          Aggrega
+                        </label>
+                      )}
                     </div>
                     <select
                       id="sintesi-anni"
@@ -2455,25 +3665,69 @@ function App() {
                     </div>
                   ))}
 
-                  <div className="sintesi-field sintesi-field-checkbox sintesi-field-escludi-prodotti">
-                    <label htmlFor="sintesi-escludi-prodotti" className="checkbox-label checkbox-label-inline">
-                      <input
-                        id="sintesi-escludi-prodotti"
-                        type="checkbox"
-                        checked={sintesiFiltersForm.escludiProdotti}
+                  {isDatiContabiliPage && (
+                    <div className="sintesi-field">
+                      <label htmlFor="sintesi-provenienza">Provenienza</label>
+                      <select
+                        id="sintesi-provenienza"
+                        value={sintesiFiltersForm.provenienza}
+                        disabled={sintesiLoadingFilters}
                         onChange={(event) => setSintesiFiltersForm((current) => ({
                           ...current,
-                          escludiProdotti: event.target.checked,
+                          provenienza: event.target.value,
                         }))}
-                      />
-                      Escludi prodotti
-                    </label>
-                  </div>
+                      >
+                        <option value="">Tutte</option>
+                        {datiContabiliProvenienzaOptions.map((option) => (
+                          <option key={`sintesi-provenienza-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {isDatiContabiliPage && (
+                    <div className="sintesi-field sintesi-field-checkbox">
+                      <label htmlFor="sintesi-solo-scadute" className="checkbox-label checkbox-label-inline">
+                        <input
+                          id="sintesi-solo-scadute"
+                          type="checkbox"
+                          checked={sintesiFiltersForm.soloScadute}
+                          onChange={(event) => setSintesiFiltersForm((current) => ({
+                            ...current,
+                            soloScadute: event.target.checked,
+                          }))}
+                        />
+                        Solo scadute
+                      </label>
+                    </div>
+                  )}
+
+                  {!isProdottiSintesiPage && !isDatiContabiliPage && (
+                    <div className="sintesi-field sintesi-field-checkbox sintesi-field-escludi-prodotti">
+                      <label htmlFor="sintesi-escludi-prodotti" className="checkbox-label checkbox-label-inline">
+                        <input
+                          id="sintesi-escludi-prodotti"
+                          type="checkbox"
+                          checked={sintesiFiltersForm.escludiProdotti}
+                          onChange={(event) => setSintesiFiltersForm((current) => ({
+                            ...current,
+                            escludiProdotti: event.target.checked,
+                          }))}
+                        />
+                        Escludi prodotti
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 <div className="inline-actions">
-                  <button type="submit" disabled={sintesiLoadingData || sintesiLoadingFilters || sessionLoading}>
-                    {sintesiLoadingData ? 'Ricerca in corso...' : 'Cerca'}
+                  <button
+                    type="submit"
+                    disabled={(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) || sintesiLoadingFilters || sessionLoading}
+                  >
+                    {(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) ? 'Ricerca in corso...' : 'Cerca'}
                   </button>
                   <button
                     type="button"
@@ -2487,18 +3741,40 @@ function App() {
                     type="button"
                     className="ghost-button"
                     onClick={resetSintesi}
-                    disabled={sintesiLoadingData || sintesiLoadingFilters || sessionLoading}
+                    disabled={(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) || sintesiLoadingFilters || sessionLoading}
                   >
                     Reset
                   </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={exportSintesiExcel}
-                    disabled={sintesiLoadingData || sortedRows.length === 0}
-                  >
-                    Export Excel
-                  </button>
+                  {!isDatiContabiliPage && (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={exportSintesiExcel}
+                      disabled={sintesiLoadingData || sortedRows.length === 0}
+                    >
+                      Export Excel
+                    </button>
+                  )}
+                  {isProdottiSintesiPage && !isDatiContabiliPage && (
+                    <>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={expandAllProducts}
+                        disabled={sintesiLoadingData || !hasCollapsedProducts}
+                      >
+                        Espandi tutto
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={collapseAllProducts}
+                        disabled={sintesiLoadingData || !hasProductGroups || areAllProductsCollapsed}
+                      >
+                        Riduci tutto
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div className="sintesi-toolbar-row" role="status" aria-live="polite" aria-atomic="true">
@@ -2507,12 +3783,182 @@ function App() {
                       ? `Aggiornamento filtri in corso. ${sintesiFilterLoadingDetail || 'Attendere...'}`
                       : `${statusMessage} Filtri disponibili: ${populatedFilterBuckets}/9 categorie, ${totalFilterOptions} opzioni.`}
                   </p>
-                  <span className="status-badge neutral">{sintesiCountLabel}</span>
+                  <span className="status-badge neutral">
+                    {isDatiContabiliPage ? datiContabiliCountLabel : sintesiCountLabel}
+                  </span>
                 </div>
               </form>
             </section>
 
             <section className="panel sintesi-data-panel">
+              {isDatiContabiliVenditaPage ? (
+                <>
+                  {!datiContabiliVenditaSearched && (
+                    <p className="empty-state">
+                      Nessun dato visualizzato. Imposta i filtri e premi Cerca.
+                    </p>
+                  )}
+
+                  {datiContabiliVenditaSearched && datiContabiliVenditaSortedRows.length === 0 && (
+                    <p className="empty-state">
+                      Nessuna vendita trovata con i filtri correnti.
+                    </p>
+                  )}
+
+                  {datiContabiliVenditaSortedRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno Fattura</th>
+                            <th>Data</th>
+                            <th>Commessa</th>
+                            <th>Descrizione Commessa</th>
+                            <th>Tipologia</th>
+                            <th>Stato</th>
+                            <th>Macrotipologia</th>
+                            <th>Controparte</th>
+                            <th>Business Unit</th>
+                            <th>RCC</th>
+                            <th>PM</th>
+                            <th>Numero</th>
+                            <th>Descrizione Movimento</th>
+                            <th>Controparte Movimento</th>
+                            <th>Provenienza</th>
+                            <th>Temporale</th>
+                            <th>Scaduta</th>
+                            <th className="num">Fatturato</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Ricavo Ipotetico</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datiContabiliVenditaSortedRows.map((row, index) => (
+                            <tr key={`vendita-${row.commessa}-${row.numeroDocumento}-${index}`}>
+                              <td>{row.annoFattura ?? ''}</td>
+                              <td>{formatDate(row.dataMovimento)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="inline-link-button"
+                                  onClick={() => openCommessaDetail(row.commessa)}
+                                  title={`Apri dettaglio commessa ${row.commessa}`}
+                                >
+                                  {row.commessa}
+                                </button>
+                              </td>
+                              <td>{row.descrizioneCommessa}</td>
+                              <td>{row.tipologiaCommessa}</td>
+                              <td>{row.statoCommessa}</td>
+                              <td>{row.macroTipologia}</td>
+                              <td>{row.controparteCommessa}</td>
+                              <td>{row.businessUnit}</td>
+                              <td>{row.rcc}</td>
+                              <td>{row.pm}</td>
+                              <td>{row.numeroDocumento}</td>
+                              <td>{row.descrizioneMovimento}</td>
+                              <td>{row.controparteMovimento}</td>
+                              <td>{row.provenienza}</td>
+                              <td>{row.statoTemporale}</td>
+                              <td>
+                                <span className={`status-badge ${row.isScaduta ? 'ko' : 'neutral'}`}>
+                                  {row.isScaduta ? 'Si' : 'No'}
+                                </span>
+                              </td>
+                              <td className={`num ${row.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturato)}</td>
+                              <td className={`num ${row.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturo)}</td>
+                              <td className={`num ${row.ricavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoIpotetico)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : isDatiContabiliAcquistiPage ? (
+                <>
+                  {!datiContabiliAcquistoSearched && (
+                    <p className="empty-state">
+                      Nessun dato visualizzato. Imposta i filtri e premi Cerca.
+                    </p>
+                  )}
+
+                  {datiContabiliAcquistoSearched && datiContabiliAcquistoSortedRows.length === 0 && (
+                    <p className="empty-state">
+                      Nessun acquisto trovato con i filtri correnti.
+                    </p>
+                  )}
+
+                  {datiContabiliAcquistoSortedRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno Fattura</th>
+                            <th>Data Documento</th>
+                            <th>Commessa</th>
+                            <th>Descrizione Commessa</th>
+                            <th>Tipologia</th>
+                            <th>Stato</th>
+                            <th>Macrotipologia</th>
+                            <th>Controparte</th>
+                            <th>Business Unit</th>
+                            <th>RCC</th>
+                            <th>PM</th>
+                            <th>Codice SocietÃ </th>
+                            <th>Descrizione Fattura</th>
+                            <th>Controparte Movimento</th>
+                            <th>Provenienza</th>
+                            <th>Temporale</th>
+                            <th>Scaduta</th>
+                            <th className="num">Importo Complessivo</th>
+                            <th className="num">Importo ContabilitÃ </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datiContabiliAcquistoSortedRows.map((row, index) => (
+                            <tr key={`acquisto-${row.commessa}-${row.codiceSocieta}-${index}`}>
+                              <td>{row.annoFattura ?? ''}</td>
+                              <td>{formatDate(row.dataDocumento)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="inline-link-button"
+                                  onClick={() => openCommessaDetail(row.commessa)}
+                                  title={`Apri dettaglio commessa ${row.commessa}`}
+                                >
+                                  {row.commessa}
+                                </button>
+                              </td>
+                              <td>{row.descrizioneCommessa}</td>
+                              <td>{row.tipologiaCommessa}</td>
+                              <td>{row.statoCommessa}</td>
+                              <td>{row.macroTipologia}</td>
+                              <td>{row.controparteCommessa}</td>
+                              <td>{row.businessUnit}</td>
+                              <td>{row.rcc}</td>
+                              <td>{row.pm}</td>
+                              <td>{row.codiceSocieta}</td>
+                              <td>{row.descrizioneFattura}</td>
+                              <td>{row.controparteMovimento}</td>
+                              <td>{row.provenienza}</td>
+                              <td>{row.statoTemporale}</td>
+                              <td>
+                                <span className={`status-badge ${row.isScaduta ? 'ko' : 'neutral'}`}>
+                                  {row.isScaduta ? 'Si' : 'No'}
+                                </span>
+                              </td>
+                              <td className={`num ${row.importoComplessivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoComplessivo)}</td>
+                              <td className={`num ${row.importoContabilitaDettaglio < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoContabilitaDettaglio)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
               {!sintesiSearched && (
                 <p className="empty-state">
                   Nessun dato visualizzato. Imposta i filtri e premi Cerca.
@@ -2521,7 +3967,7 @@ function App() {
 
               {sintesiSearched && sortedRows.length === 0 && (
                 <p className="empty-state">
-                  Nessuna commessa trovata con i filtri correnti.
+                  Nessun dato trovato con i filtri correnti.
                 </p>
               )}
 
@@ -2561,8 +4007,8 @@ function App() {
                           </button>
                         </th>
                         <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('controparte')}>
-                            Controparte <span className="sort-indicator">{sortIndicator('controparte')}</span>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort(productOrCounterpartColumn)}>
+                            {productOrCounterpartLabel} <span className="sort-indicator">{sortIndicator(productOrCounterpartColumn)}</span>
                           </button>
                         </th>
                         <th>
@@ -2618,38 +4064,74 @@ function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedRows.map((row, index) => (
-                        <tr key={`${row.commessa}-${row.businessUnit}-${index}`}>
-                          <td>{row.anno ?? ''}</td>
-                          <td>
-                                <button
-                                  type="button"
-                                  className="inline-link-button"
-                                  onClick={() => openCommessaDetail(row.commessa)}
-                                  title={`Apri dettaglio commessa ${row.commessa}`}
-                                >
-                                  {row.commessa}
-                                </button>
-                          </td>
-                          <td>{row.descrizioneCommessa}</td>
-                          <td>{row.tipologiaCommessa}</td>
-                          <td>{row.stato}</td>
-                          <td>{row.macroTipologia}</td>
-                          <td>{row.controparte}</td>
-                          <td>{row.businessUnit}</td>
-                          <td>{row.rcc}</td>
-                          <td>{row.pm}</td>
-                          <td className="num">{formatNumber(row.oreLavorate)}</td>
-                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                            {formatNumber(row.utileSpecifico)}
-                          </td>
-                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
-                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
-                        </tr>
-                      ))}
+                      {sintesiTableRows.map((tableRow) => {
+                        if (tableRow.kind === 'prodotto-summary') {
+                          const row = tableRow.row
+                          return (
+                            <tr
+                              key={tableRow.key}
+                              className={`table-group-summary-row ${tableRow.isCollapsed ? 'is-collapsed' : ''}`}
+                            >
+                              <td colSpan={10} className="table-group-summary-label">
+                                <div className="table-group-summary-label-content">
+                                  <button
+                                    type="button"
+                                    className="group-toggle-button"
+                                    onClick={() => toggleProductCollapse(tableRow.productKey)}
+                                    aria-expanded={!tableRow.isCollapsed}
+                                    title={tableRow.isCollapsed ? `Espandi prodotto ${row.prodotto}` : `Riduci prodotto ${row.prodotto}`}
+                                  >
+                                    {tableRow.isCollapsed ? 'â–¸' : 'â–¾'}
+                                  </button>
+                                  <span>Prodotto: {row.prodotto}</span>
+                                  <span className="table-group-summary-count">({tableRow.commesseCount} commesse)</span>
+                                </div>
+                              </td>
+                              <td className="num">{formatNumber(row.oreLavorate)}</td>
+                              <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                              <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                              <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                              <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
+                              <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                              <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                            </tr>
+                          )
+                        }
+
+                        const row = tableRow.row
+                        return (
+                          <tr key={tableRow.key}>
+                            <td>{row.anno ?? ''}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="inline-link-button"
+                                onClick={() => openCommessaDetail(row.commessa)}
+                                title={`Apri dettaglio commessa ${row.commessa}`}
+                              >
+                                {row.commessa}
+                              </button>
+                            </td>
+                            <td>{row.descrizioneCommessa}</td>
+                            <td>{row.tipologiaCommessa}</td>
+                            <td>{row.stato}</td>
+                            <td>{row.macroTipologia}</td>
+                            <td>{isProdottiSintesiPage ? row.prodotto : row.controparte}</td>
+                            <td>{row.businessUnit}</td>
+                            <td>{row.rcc}</td>
+                            <td>{row.pm}</td>
+                            <td className="num">{formatNumber(row.oreLavorate)}</td>
+                            <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                            <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                            <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                            <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
+                              {formatNumber(row.utileSpecifico)}
+                            </td>
+                            <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                            <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="table-totals-row">
@@ -2668,7 +4150,308 @@ function App() {
                   </table>
                 </div>
               )}
+                </>
+              )}
             </section>
+          </section>
+        )}
+
+        {activePage === 'analisi-rcc-risultato-mensile' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi RCC - Risultato Mensile</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessAnalisiRccPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessAnalisiRccPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiRccSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-anno">
+                      <span>Anno Snapshot</span>
+                      <input
+                        id="analisi-rcc-anno"
+                        type="number"
+                        min={2000}
+                        max={2100}
+                        step={1}
+                        value={analisiRccAnno}
+                        onChange={(event) => setAnalisiRccAnno(event.target.value)}
+                      />
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {analisiRccData
+                        ? `Anno ${analisiRccData.anno}. Visibilita: ${analisiRccData.vediTutto ? 'tutti gli RCC' : `solo ${analisiRccData.rccFiltro || 'RCC corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {analisiRccData ? `${analisiRccData.risultatoPesato.righe.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="analisi-rcc-grids">
+                  {analisiRccData && analisiRccGrids.length > 0 && analisiRccGrids.map((grid) => (
+                    <section key={grid.titolo} className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>{grid.titolo}</h3>
+                      </header>
+                      {grid.righe.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                      )}
+                      {grid.righe.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main analisi-rcc-table-wrap">
+                          <table className="bonifici-table analisi-rcc-table">
+                            <thead>
+                              <tr>
+                                <th>Aggregazione</th>
+                                {!grid.valoriPercentuali && <th className="num">Budget</th>}
+                                {grid.mesi.map((mese) => (
+                                  <th key={`${grid.titolo}-mese-${mese}`} className="num">{mese.toString().padStart(2, '0')}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {grid.righe.map((row) => {
+                                const isTotalRow = row.aggregazione.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
+                                const budgetValue = Number(row.budget ?? 0)
+                                return (
+                                  <tr key={`${grid.titolo}-${row.aggregazione}`} className={isTotalRow ? 'table-totals-row' : ''}>
+                                    <td>{row.aggregazione}</td>
+                                    {!grid.valoriPercentuali && (
+                                      <td className={`num ${Number(row.budget ?? 0) < 0 ? 'num-negative' : ''}`}>
+                                        {row.budget === null || row.budget === undefined
+                                          ? ''
+                                          : formatCurrency(row.budget)}
+                                      </td>
+                                    )}
+                                    {grid.mesi.map((mese) => {
+                                      const value = getAnalisiRccValueForMonth(row, mese)
+                                      const isUnderBudget = !grid.valoriPercentuali &&
+                                        !isTotalRow &&
+                                        row.budget !== null &&
+                                        row.budget !== undefined &&
+                                        value < budgetValue
+                                      return (
+                                        <td
+                                          key={`${grid.titolo}-${row.aggregazione}-${mese}`}
+                                          className={`num ${grid.valoriPercentuali
+                                            ? (isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : '')
+                                            : (isUnderBudget ? 'num-under-target' : (value < 0 ? 'num-negative' : ''))}`}
+                                        >
+                                          {grid.valoriPercentuali ? formatAnalisiRccPercent(value) : formatCurrency(value)}
+                                        </td>
+                                      )
+                                    })}
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                  {!analisiRccLoading && (!analisiRccData || analisiRccGrids.every((grid) => grid.righe.length === 0)) && (
+                    <section className="panel">
+                      <p className="empty-state">Nessun dato disponibile. Imposta l'anno e premi Aggiorna.</p>
+                    </section>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'analisi-rcc-pivot-fatturato' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi RCC - PivotFatturato</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessAnalisiRccPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessAnalisiRccPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiRccSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-pivot-anni">
+                      <span>Anni confronto</span>
+                      <select
+                        id="analisi-rcc-pivot-anni"
+                        multiple
+                        size={4}
+                        value={analisiRccPivotAnni}
+                        onChange={(event) => setAnalisiRccPivotAnni(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {analisiRccPivotAnnoOptions.map((year) => (
+                          <option key={`analisi-rcc-pivot-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canSelectAnalisiRccPivotRcc && (
+                      <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-pivot-rcc">
+                        <span>RCC</span>
+                        <select
+                          id="analisi-rcc-pivot-rcc"
+                          value={analisiRccPivotRcc}
+                          onChange={(event) => setAnalisiRccPivotRcc(event.target.value)}
+                        >
+                          <option value="">Tutti</option>
+                          {analisiRccPivotRccOptions.map((value) => (
+                            <option key={`analisi-rcc-pivot-rcc-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {analisiRccPivotData
+                        ? `Anni ${analisiRccPivotData.anni.join(', ') || '-'}. Visibilita: ${analisiRccPivotData.vediTutto ? 'tutti gli RCC' : `solo ${analisiRccPivotData.rccFiltro || 'RCC corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {analisiRccPivotData ? `${analisiRccPivotRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>PivotFatturatoBIPivot</h3>
+                  </header>
+
+                  {analisiRccPivotRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {analisiRccPivotRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>RCC</th>
+                            <th className="num">Fatturato anno</th>
+                            <th className="num">Fatturato futuro anno</th>
+                            <th className="num">Totale fatturato certo</th>
+                            <th className="num">Budget Previsto</th>
+                            <th className="num">Margine col budget</th>
+                            <th className="num">% Certa Raggiunta</th>
+                            <th className="num">Ricavo ipotetico</th>
+                            <th className="num">Ricavo ipotetico pesato</th>
+                            <th className="num">Totale ipotetico</th>
+                            <th className="num">% Compreso ricavo ipotetico</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiRccPivotRows.map((row) => {
+                            const isTotalRow = row.rcc.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
+                            return (
+                              <tr key={`analisi-rcc-pivot-${row.anno}-${row.rcc}`} className={isTotalRow ? 'table-totals-row' : ''}>
+                                <td>{row.anno}</td>
+                                <td>{row.rcc}</td>
+                                <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
+                                <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
+                                <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
+                                <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
+                                <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
+                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
+                                  {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
+                                </td>
+                                <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
+                                <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
+                                <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
+                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
+                                  {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Totali per anno</h3>
+                  </header>
+                  {analisiRccPivotTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {analisiRccPivotTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Fatturato anno</th>
+                            <th className="num">Fatturato futuro anno</th>
+                            <th className="num">Totale fatturato certo</th>
+                            <th className="num">Budget Previsto</th>
+                            <th className="num">Margine col budget</th>
+                            <th className="num">% Certa Raggiunta</th>
+                            <th className="num">Ricavo ipotetico</th>
+                            <th className="num">Ricavo ipotetico pesato</th>
+                            <th className="num">Totale ipotetico</th>
+                            <th className="num">% Compreso ricavo ipotetico</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiRccPivotTotaliPerAnno.map((row) => (
+                            <tr key={`analisi-rcc-pivot-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
+                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
+                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
+                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
+                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
+                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
+                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
+                              </td>
+                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
+                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
+                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
+                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
+                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </section>
         )}
 
@@ -3031,11 +4814,11 @@ function App() {
                           <th>Stato</th>
                           <th>Posizione</th>
                           <th>Descrizione</th>
-                          <th className="num">Quantità</th>
+                          <th className="num">QuantitÃ </th>
                           <th className="num">Prezzo Unit.</th>
                           <th className="num">Importo Ordine</th>
-                          <th className="num">Qtà originale</th>
-                          <th className="num">Qtà fatture</th>
+                          <th className="num">QtÃ  originale</th>
+                          <th className="num">QtÃ  fatture</th>
                           <th className="num">% raggiung.</th>
                         </tr>
                       </thead>
@@ -3168,7 +4951,7 @@ function App() {
                 </header>
                 <div className="detail-card-body">
                   <p className="detail-kpi-caption">
-                    Speso attivitÃ  fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
+                    Speso attivitÃƒÂ  fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
                   </p>
 
                   {detailRequisitiOreRows.length === 0 && (

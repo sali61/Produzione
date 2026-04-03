@@ -1,0 +1,25 @@
+namespace Produzione.Application.Models;
+
+public sealed record ContabilitaVenditaRow(
+    int? AnnoFattura,
+    DateTime? DataMovimento,
+    string Commessa,
+    string DescrizioneCommessa,
+    string TipologiaCommessa,
+    string StatoCommessa,
+    string MacroTipologia,
+    string ControparteCommessa,
+    string BusinessUnit,
+    string Rcc,
+    string Pm,
+    string NumeroDocumento,
+    string DescrizioneMovimento,
+    string ControparteMovimento,
+    string Provenienza,
+    decimal Importo,
+    decimal Fatturato,
+    decimal FatturatoFuturo,
+    decimal RicavoIpotetico,
+    bool IsFuture,
+    bool IsScaduta,
+    string StatoTemporale);

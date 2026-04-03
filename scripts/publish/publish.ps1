@@ -2,6 +2,7 @@ param(
     [string]$SettingsFile = "scripts/publish/publish.settings.local.json",
     [string]$Configuration = "",
     [string]$FrontendApiBaseUrl = "",
+    [string]$FrontendAuthPortalUrl = "",
     [string]$BackendAppSettingsPath = "",
     [string]$Runtime = "",
     [string]$OutputDir = "",
@@ -181,6 +182,17 @@ if ([string]::IsNullOrWhiteSpace($effectiveFrontendApiBaseUrl)) {
     $effectiveFrontendApiBaseUrl = "https://localhost:7643"
 }
 
+$effectiveFrontendAuthPortalUrl = $FrontendAuthPortalUrl
+if ([string]::IsNullOrWhiteSpace($effectiveFrontendAuthPortalUrl)) {
+    $effectiveFrontendAuthPortalUrl = Get-OptionalSettingValue -Settings $settings -PropertyName "frontendAuthPortalUrl"
+}
+if ([string]::IsNullOrWhiteSpace($effectiveFrontendAuthPortalUrl)) {
+    $effectiveFrontendAuthPortalUrl = Get-EnvValueFromFile -FilePath $frontendProductionEnvPath -Key "VITE_AUTH_PORTAL_URL"
+}
+if ([string]::IsNullOrWhiteSpace($effectiveFrontendAuthPortalUrl)) {
+    $effectiveFrontendAuthPortalUrl = "https://localhost:5043"
+}
+
 $configuredBackendSettingsPath = $BackendAppSettingsPath
 if ([string]::IsNullOrWhiteSpace($configuredBackendSettingsPath)) {
     $configuredBackendSettingsPath = Get-OptionalSettingValue -Settings $settings -PropertyName "backendAppSettingsPath"
@@ -224,6 +236,7 @@ Write-Host "Output dir:                 $OutputDir"
 Write-Host "Configuration:              $effectiveConfiguration"
 Write-Host "Runtime:                    $(if ([string]::IsNullOrWhiteSpace($effectiveRuntime)) { '(default framework-dependent)' } else { $effectiveRuntime })"
 Write-Host "Frontend API base URL:      $effectiveFrontendApiBaseUrl"
+Write-Host "Frontend Auth portal URL:   $effectiveFrontendAuthPortalUrl"
 Write-Host "Backend appsettings source: $resolvedBackendAppSettingsPath"
 Write-Host "Skip npm ci:                $SkipNpmCi"
 
@@ -269,8 +282,10 @@ if (-not $SkipNpmCi) {
 }
 
 $previousFrontendBackendBaseUrl = $env:VITE_BACKEND_BASE_URL
+$previousFrontendAuthPortalUrl = $env:VITE_AUTH_PORTAL_URL
 try {
     $env:VITE_BACKEND_BASE_URL = $effectiveFrontendApiBaseUrl
+    $env:VITE_AUTH_PORTAL_URL = $effectiveFrontendAuthPortalUrl
     Invoke-NativeCommand -WorkingDirectory $frontendDirectory -Executable "npm.cmd" -Arguments @("run", "build")
 }
 finally {
@@ -279,6 +294,13 @@ finally {
     }
     else {
         $env:VITE_BACKEND_BASE_URL = $previousFrontendBackendBaseUrl
+    }
+
+    if ($null -eq $previousFrontendAuthPortalUrl) {
+        Remove-Item Env:VITE_AUTH_PORTAL_URL -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:VITE_AUTH_PORTAL_URL = $previousFrontendAuthPortalUrl
     }
 }
 
@@ -294,6 +316,7 @@ $resolvedSettingsSnapshot = [PSCustomObject]@{
     configuration           = $effectiveConfiguration
     runtime                 = $effectiveRuntime
     frontendApiBaseUrl      = $effectiveFrontendApiBaseUrl
+    frontendAuthPortalUrl   = $effectiveFrontendAuthPortalUrl
     backendAppSettingsPath  = $resolvedBackendAppSettingsPath
     outputDir               = $OutputDir
     skipNpmCi               = [bool]$SkipNpmCi
@@ -323,6 +346,7 @@ Frontend:
 1) Pubblicare la cartella frontend sul web server (IIS/Nginx/Apache).
 2) La build e stata prodotta con:
    VITE_BACKEND_BASE_URL=$effectiveFrontendApiBaseUrl
+   VITE_AUTH_PORTAL_URL=$effectiveFrontendAuthPortalUrl
 
 Nota:
 - Per non impazzire con la configurazione, salva una volta sola

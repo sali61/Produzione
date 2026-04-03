@@ -53,6 +53,26 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         order by Commessa
         """;
 
+    private const string ProdottiCommesseBaseQuery = """
+        select distinct top (@Take) cast(c.COMMESSA as nvarchar(128)) as Commessa
+        from cdg_qryComessaPmRcc c
+        where (@Search is null or c.COMMESSA like '%' + @Search + '%')
+          and isnull(ltrim(rtrim(c.Nomeprodotto)), '') <> ''
+          and upper(ltrim(rtrim(c.Nomeprodotto))) not in ('NON DEFINITO', 'NON DEFINTO')
+          and (
+                @IsGlobal = 1
+                or (@IsPm = 1 and (c.idpm = @IdRisorsa or upper(isnull(c.NetUserNamePM, '')) = @UsernameUpper))
+                or (@IsRcc = 1 and (c.idRCC = @IdRisorsa or upper(isnull(c.NetUserNameRCC, '')) = @UsernameUpper))
+                or (@IsResponsabileOu = 1 and exists (
+                        select 1
+                        from [orga].[vw_OU_OrganigrammaAncestor] ou
+                        where ou.id_responsabile_ou_ancestor = @IdRisorsa
+                          and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
+                    ))
+              )
+        order by Commessa
+        """;
+
     private const string CommessaExistsQuery = """
         select top (1) 1
         from cdg_qryComessaPmRcc c
@@ -454,6 +474,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         ORDER BY id DESC;
         """;
     private const int AnalisiCommesseIdRisorsa = 3;
+    private const string VenditeProvenienzaFatturaContabilita = "Fattura in contabilità";
+    private const string VenditeProvenienzaFatturaFutura = "Fattura Futura";
+    private const string VenditeProvenienzaRicavoIpotetico = "Ricavo Ipotetico";
 
     private static readonly CommesseSintesiFilters EmptySintesiFilters = new(
         Array.Empty<CommesseSintesiFilterOption>(),
@@ -674,21 +697,42 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         int take,
         CancellationToken cancellationToken = default)
     {
+        var visibility = ResolveVisibility(profile);
+        return await SearchCommesseByQueryAsync(CommesseBaseQuery, user, visibility, search, take, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<string>> SearchProdottiCommesseAsync(
+        UserContext user,
+        string profile,
+        string? search,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var visibility = ResolveVisibility(profile);
+        return await SearchCommesseByQueryAsync(ProdottiCommesseBaseQuery, user, visibility, search, take, cancellationToken);
+    }
+
+    private async Task<IReadOnlyCollection<string>> SearchCommesseByQueryAsync(
+        string query,
+        UserContext user,
+        VisibilityFlags visibility,
+        string? search,
+        int take,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             return [];
         }
-
-        var visibility = ResolveVisibility(profile);
 
         try
         {
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            await using var command = new SqlCommand(CommesseBaseQuery, connection);
+            await using var command = new SqlCommand(query, connection);
             command.CommandType = CommandType.Text;
-            command.Parameters.AddWithValue("@Take", Math.Clamp(take, 1, 300));
+            command.Parameters.AddWithValue("@Take", Math.Clamp(take, 1, 500));
             command.Parameters.AddWithValue("@Search", NormalizeForSql(search));
             ApplyVisibilityParameters(command, user, visibility);
 
@@ -777,6 +821,81 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
     }
 
+    public async Task<CommesseSintesiFilters> GetProdottiSintesiFiltersAsync(
+        UserContext user,
+        string profile,
+        int? anno,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return EmptySintesiFilters;
+        }
+
+        var selectedAnni = anno.HasValue && anno.Value > 0
+            ? [anno.Value]
+            : Array.Empty<int>();
+
+        var request = new CommesseSintesiSearchRequest(
+            selectedAnni,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            5000,
+            false);
+
+        var rows = await SearchProdottiSintesiAsync(user, profile, request, cancellationToken);
+
+        var anniOptions = rows
+            .Where(row => row.Anno.HasValue && row.Anno.Value > 0)
+            .Select(row => row.Anno!.Value.ToString())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(value => int.TryParse(value, out var parsed) ? parsed : int.MinValue)
+            .Select(value => new CommesseSintesiFilterOption(value, value))
+            .ToArray();
+
+        var commessaOptions = rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.Commessa))
+            .Select(row =>
+            {
+                var commessa = row.Commessa.Trim();
+                var descrizione = row.DescrizioneCommessa.Trim();
+                return new CommesseSintesiFilterOption(
+                    commessa,
+                    string.IsNullOrWhiteSpace(descrizione) ? commessa : $"{commessa} - {descrizione}");
+            })
+            .GroupBy(option => option.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var tipologiaOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.TipologiaCommessa));
+        var statoOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Stato));
+        var macroOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.MacroTipologia));
+        var prodottoOptions = BuildDistinctOptionsFromRows(rows
+            .Select(row => row.Prodotto)
+            .Where(IsValidProductValue));
+        var businessUnitOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.BusinessUnit));
+        var rccOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Rcc));
+        var pmOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Pm));
+
+        return new CommesseSintesiFilters(
+            anniOptions,
+            commessaOptions,
+            tipologiaOptions,
+            statoOptions,
+            macroOptions,
+            prodottoOptions,
+            businessUnitOptions,
+            rccOptions,
+            pmOptions);
+    }
+
     public async Task<IReadOnlyCollection<CommessaSintesiRow>> SearchSintesiAsync(
         UserContext user,
         string profile,
@@ -840,6 +959,453 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 .OrderBy(item => item.Commessa)
                 .ThenBy(item => item.Anno)
                 .Take(Math.Clamp(request.Take, 1, 500))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaSintesiRow>> SearchProdottiSintesiAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            var selectedAnni = request.Anni
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+            var filterClause = BuildAnalisiProdottiFilterClause(user, visibility, request);
+
+            await using var command = new SqlCommand(SintesiCommesseStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdRisorsa", user.IdRisorsa);
+            command.Parameters.AddWithValue("@Anno", selectedAnni.Length == 1 ? selectedAnni[0] : DBNull.Value);
+            command.Parameters.AddWithValue("@Aggrega", request.Aggrega ? 1 : 0);
+            command.Parameters.AddWithValue("@FiltroDaApplicare",
+                string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
+            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 5000));
+
+            var rows = new List<CommessaSintesiRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var prodotto = ReadString(reader, "Nomeprodotto");
+                if (!IsValidProductValue(prodotto))
+                {
+                    continue;
+                }
+
+                rows.Add(new CommessaSintesiRow(
+                    ReadNullableInt(reader, "anno_competenza"),
+                    ReadString(reader, "commessa"),
+                    ReadString(reader, "descrizione"),
+                    ReadString(reader, "tipo_commessa"),
+                    ReadString(reader, "stato"),
+                    ReadString(reader, "macrotipologia"),
+                    prodotto,
+                    ReadString(reader, "controparte"),
+                    ReadString(reader, "idbusinessunit"),
+                    ReadString(reader, "RCC"),
+                    ReadString(reader, "PM"),
+                    ReadDecimal(reader, "ore_lavorate"),
+                    ReadDecimal(reader, "costo_personale"),
+                    ReadDecimal(reader, "ricavi"),
+                    ReadDecimal(reader, "costi"),
+                    ReadDecimal(reader, "utile_specifico"),
+                    ReadDecimal(reader, "ricavi_futuri"),
+                    ReadDecimal(reader, "costi_futuri")));
+            }
+
+            return rows
+                .OrderBy(row => row.Prodotto, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => row.Anno)
+                .Take(Math.Clamp(request.Take, 1, 5000))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<ContabilitaVenditaRow>> SearchVenditeAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var normalizedTake = Math.Clamp(request.Take, 1, 5000);
+        var selectedInvoiceYears = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .ToHashSet();
+        var normalizedProvenienzaFilter = NormalizeVenditeProvenienzaFilter(request.Provenienza);
+        var includeOnlyScadute = request.SoloScadute == true;
+
+        var lookupRequest = request with
+        {
+            Anni = Array.Empty<int>(),
+            Take = normalizedTake,
+            Aggrega = false,
+            SoloScadute = null,
+            Provenienza = null
+        };
+
+        var commesseRows = await SearchSintesiAsync(user, profile, lookupRequest, cancellationToken);
+        if (commesseRows.Count == 0)
+        {
+            return [];
+        }
+
+        var commesseLookup = commesseRows
+            .Where(item => !string.IsNullOrWhiteSpace(item.Commessa))
+            .GroupBy(item => NormalizeCommessaKey(item.Commessa), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var first = group.First();
+                    return new VenditaCommessaLookupRow(
+                        first.Commessa,
+                        first.DescrizioneCommessa,
+                        first.TipologiaCommessa,
+                        first.Stato,
+                        first.MacroTipologia,
+                        first.Controparte,
+                        first.BusinessUnit,
+                        first.Rcc,
+                        first.Pm);
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        if (commesseLookup.Count == 0)
+        {
+            return [];
+        }
+
+        var commesseInClause = string.Join(", ", commesseLookup.Keys.Select(SqlQuote));
+        if (string.IsNullOrWhiteSpace(commesseInClause))
+        {
+            return [];
+        }
+
+        var venditaQuery = $"""
+            SELECT
+                CAST(CASE WHEN a.[data] IS NULL THEN NULL ELSE YEAR(CAST(a.[data] AS DATE)) END AS INT) AS AnnoFattura,
+                CAST(a.[data] AS DATE) AS DataMovimento,
+                CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), 64) AS NVARCHAR(64)) AS NumeroDocumento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneMovimento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(a.[codice_cliente] AS NVARCHAR(64)), N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
+                CAST(ABS(COALESCE(
+                    CONVERT(DECIMAL(18, 2), a.[importocomplessivo]),
+                    CONVERT(DECIMAL(18, 2), a.[impcomplessivodettaglio]),
+                    CONVERT(DECIMAL(18, 2), a.[ImportoImponibileEuro]),
+                    0
+                )) AS DECIMAL(18, 2)) AS Importo,
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) AS NVARCHAR(128)) AS CommessaIntranetUpper,
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) AS NVARCHAR(128)) AS ContCommessaUpper
+            FROM [CDG].[CdgFattureAttive] a
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) IN ({commesseInClause})
+               OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) IN ({commesseInClause})
+            ORDER BY
+                CAST(a.[data] AS DATE),
+                NumeroDocumento;
+            """;
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(venditaQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var today = DateTime.Today;
+            var vendite = new List<ContabilitaVenditaRow>();
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var commessaIntranetUpper = ReadString(reader, "CommessaIntranetUpper");
+                var contCommessaUpper = ReadString(reader, "ContCommessaUpper");
+
+                var matchedKey =
+                    (!string.IsNullOrWhiteSpace(commessaIntranetUpper) && commesseLookup.ContainsKey(commessaIntranetUpper))
+                        ? commessaIntranetUpper
+                        : (!string.IsNullOrWhiteSpace(contCommessaUpper) && commesseLookup.ContainsKey(contCommessaUpper)
+                            ? contCommessaUpper
+                            : null);
+                if (string.IsNullOrWhiteSpace(matchedKey) || !commesseLookup.TryGetValue(matchedKey, out var commessaInfo))
+                {
+                    continue;
+                }
+
+                var dataMovimento = ReadNullableDate(reader, "DataMovimento");
+                var annoFattura = ReadNullableInt(reader, "AnnoFattura");
+                var provenienzaRaw = ReadString(reader, "Provenienza");
+                var isFutureByDate = dataMovimento.HasValue && dataMovimento.Value.Date > today;
+                var isFutureBySource = provenienzaRaw.Equals("intranet", StringComparison.OrdinalIgnoreCase);
+                var isFuture = isFutureByDate || isFutureBySource;
+                var isScaduta = isFutureBySource && dataMovimento.HasValue && dataMovimento.Value.Date < today;
+                var statoTemporale = isFutureByDate ? "Futuro" : "Passato";
+                var provenienza = MapVenditeProvenienzaLabel(provenienzaRaw, isFuture);
+                var importo = ReadDecimal(reader, "Importo");
+                var fatturato = provenienza.Equals(VenditeProvenienzaFatturaContabilita, StringComparison.OrdinalIgnoreCase)
+                    ? importo
+                    : 0m;
+                var fatturatoFuturo = provenienza.Equals(VenditeProvenienzaFatturaFutura, StringComparison.OrdinalIgnoreCase)
+                    ? importo
+                    : 0m;
+                var ricavoIpotetico = provenienza.Equals(VenditeProvenienzaRicavoIpotetico, StringComparison.OrdinalIgnoreCase)
+                    ? importo
+                    : 0m;
+
+                if (selectedInvoiceYears.Count > 0 &&
+                    (!annoFattura.HasValue || !selectedInvoiceYears.Contains(annoFattura.Value)))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(normalizedProvenienzaFilter) &&
+                    !provenienza.Equals(normalizedProvenienzaFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (includeOnlyScadute && !isScaduta)
+                {
+                    continue;
+                }
+
+                vendite.Add(new ContabilitaVenditaRow(
+                    annoFattura,
+                    dataMovimento,
+                    commessaInfo.Commessa,
+                    commessaInfo.DescrizioneCommessa,
+                    commessaInfo.TipologiaCommessa,
+                    commessaInfo.StatoCommessa,
+                    commessaInfo.MacroTipologia,
+                    commessaInfo.ControparteCommessa,
+                    commessaInfo.BusinessUnit,
+                    commessaInfo.Rcc,
+                    commessaInfo.Pm,
+                    ReadString(reader, "NumeroDocumento"),
+                    ReadString(reader, "DescrizioneMovimento"),
+                    ReadString(reader, "ControparteMovimento"),
+                    provenienza,
+                    importo,
+                    fatturato,
+                    fatturatoFuturo,
+                    ricavoIpotetico,
+                    isFuture,
+                    isScaduta,
+                    statoTemporale));
+            }
+
+            return vendite
+                .OrderBy(item => item.DataMovimento)
+                .ThenBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.NumeroDocumento, StringComparer.OrdinalIgnoreCase)
+                .Take(normalizedTake)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<ContabilitaAcquistoRow>> SearchAcquistiAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var normalizedTake = Math.Clamp(request.Take, 1, 5000);
+        var selectedInvoiceYears = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .ToHashSet();
+        var normalizedProvenienzaFilter = NormalizeVenditeProvenienzaFilter(request.Provenienza);
+        var includeOnlyScadute = request.SoloScadute == true;
+
+        var lookupRequest = request with
+        {
+            Anni = Array.Empty<int>(),
+            Take = normalizedTake,
+            Aggrega = false,
+            SoloScadute = null,
+            Provenienza = null
+        };
+
+        var commesseRows = await SearchSintesiAsync(user, profile, lookupRequest, cancellationToken);
+        if (commesseRows.Count == 0)
+        {
+            return [];
+        }
+
+        var commesseLookup = commesseRows
+            .Where(item => !string.IsNullOrWhiteSpace(item.Commessa))
+            .GroupBy(item => NormalizeCommessaKey(item.Commessa), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var first = group.First();
+                    return new VenditaCommessaLookupRow(
+                        first.Commessa,
+                        first.DescrizioneCommessa,
+                        first.TipologiaCommessa,
+                        first.Stato,
+                        first.MacroTipologia,
+                        first.Controparte,
+                        first.BusinessUnit,
+                        first.Rcc,
+                        first.Pm);
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        if (commesseLookup.Count == 0)
+        {
+            return [];
+        }
+
+        var commesseInClause = string.Join(", ", commesseLookup.Keys.Select(SqlQuote));
+        if (string.IsNullOrWhiteSpace(commesseInClause))
+        {
+            return [];
+        }
+
+        var acquistiQuery = $"""
+            SELECT
+                CAST(CASE WHEN p.[anno] IS NULL THEN NULL ELSE p.[anno] END AS INT) AS AnnoFattura,
+                CAST(p.[Data Documento] AS DATE) AS DataDocumento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(p.[codicesocieta] AS NVARCHAR(64)), N''))), 64) AS NVARCHAR(64)) AS CodiceSocieta,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneFattura,
+                CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0)) AS DECIMAL(18, 2)) AS ImportoComplessivo,
+                CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0)) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[controparte], N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[commessa], N''))), 128) AS NVARCHAR(128)) AS Commessa,
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) AS NVARCHAR(128)) AS CommessaUpper
+            FROM [CDG].[CdgFatturePassive] p
+            INNER JOIN cdg_qryComessaPmRcc c
+                ON p.idcommessa = c.idcommessa
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) IN ({commesseInClause})
+            ORDER BY
+                CAST(p.[Data Documento] AS DATE),
+                Commessa,
+                CodiceSocieta;
+            """;
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(acquistiQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var today = DateTime.Today;
+            var acquisti = new List<ContabilitaAcquistoRow>();
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var commessaUpper = ReadString(reader, "CommessaUpper");
+                if (string.IsNullOrWhiteSpace(commessaUpper))
+                {
+                    commessaUpper = NormalizeCommessaKey(ReadString(reader, "Commessa"));
+                }
+
+                if (string.IsNullOrWhiteSpace(commessaUpper) || !commesseLookup.TryGetValue(commessaUpper, out var commessaInfo))
+                {
+                    continue;
+                }
+
+                var dataDocumento = ReadNullableDate(reader, "DataDocumento");
+                var annoFattura = ReadNullableInt(reader, "AnnoFattura");
+                var provenienzaRaw = ReadString(reader, "Provenienza");
+                var isFutureByDate = dataDocumento.HasValue && dataDocumento.Value.Date > today;
+                var isFutureBySource = provenienzaRaw.Equals("intranet", StringComparison.OrdinalIgnoreCase);
+                var isFuture = isFutureByDate || isFutureBySource;
+                var isScaduta = isFutureBySource && dataDocumento.HasValue && dataDocumento.Value.Date < today;
+                var statoTemporale = isFutureByDate ? "Futuro" : "Passato";
+                var provenienza = MapVenditeProvenienzaLabel(provenienzaRaw, isFuture);
+
+                if (selectedInvoiceYears.Count > 0 &&
+                    (!annoFattura.HasValue || !selectedInvoiceYears.Contains(annoFattura.Value)))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(normalizedProvenienzaFilter) &&
+                    !provenienza.Equals(normalizedProvenienzaFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (includeOnlyScadute && !isScaduta)
+                {
+                    continue;
+                }
+
+                acquisti.Add(new ContabilitaAcquistoRow(
+                    annoFattura,
+                    dataDocumento,
+                    commessaInfo.Commessa,
+                    commessaInfo.DescrizioneCommessa,
+                    commessaInfo.TipologiaCommessa,
+                    commessaInfo.StatoCommessa,
+                    commessaInfo.MacroTipologia,
+                    commessaInfo.ControparteCommessa,
+                    commessaInfo.BusinessUnit,
+                    commessaInfo.Rcc,
+                    commessaInfo.Pm,
+                    ReadString(reader, "CodiceSocieta"),
+                    ReadString(reader, "DescrizioneFattura"),
+                    ReadString(reader, "ControparteMovimento"),
+                    provenienza,
+                    ReadDecimal(reader, "ImportoComplessivo"),
+                    ReadDecimal(reader, "ImportoContabilitaDettaglio"),
+                    isFuture,
+                    isScaduta,
+                    statoTemporale));
+            }
+
+            return acquisti
+                .OrderBy(item => item.DataDocumento)
+                .ThenBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.CodiceSocieta, StringComparer.OrdinalIgnoreCase)
+                .Take(normalizedTake)
                 .ToArray();
         }
         catch
@@ -1528,6 +2094,65 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return value.Trim();
     }
 
+    private static string? NormalizeVenditeProvenienzaFilter(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Equals(VenditeProvenienzaFatturaContabilita, StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("contabilita", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("contabilità", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("entrambe", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaFatturaContabilita;
+        }
+
+        if (normalized.Equals(VenditeProvenienzaFatturaFutura, StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("intranet", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaFatturaFutura;
+        }
+
+        if (normalized.Equals(VenditeProvenienzaRicavoIpotetico, StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("ipotet", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaRicavoIpotetico;
+        }
+
+        return normalized;
+    }
+
+    private static string MapVenditeProvenienzaLabel(string? provenienzaRaw, bool isFuture)
+    {
+        var normalized = provenienzaRaw?.Trim() ?? string.Empty;
+        if (normalized.Contains("ipotet", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaRicavoIpotetico;
+        }
+
+        if (normalized.Equals("intranet", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaFatturaFutura;
+        }
+
+        if (normalized.Equals("contabilita", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("contabilità", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("entrambe", StringComparison.OrdinalIgnoreCase))
+        {
+            return VenditeProvenienzaFatturaContabilita;
+        }
+
+        if (isFuture)
+        {
+            return VenditeProvenienzaFatturaFutura;
+        }
+
+        return VenditeProvenienzaFatturaContabilita;
+    }
+
     private static string BuildAnalisiCommesseFilterClause(
         UserContext user,
         VisibilityFlags visibility,
@@ -1561,6 +2186,66 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
 
         return string.Join(" AND ", clauses);
+    }
+
+    private static string BuildAnalisiProdottiFilterClause(
+        UserContext user,
+        VisibilityFlags visibility,
+        CommesseSintesiSearchRequest request)
+    {
+        var clauses = new List<string>();
+        var selectedAnni = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .OrderByDescending(value => value)
+            .ToArray();
+
+        if (selectedAnni.Length > 1)
+        {
+            clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
+        }
+
+        AddStringClause(clauses, "commessa", request.Commessa);
+        AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
+        AddStringClause(clauses, "stato", request.Stato);
+        AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
+        AddStringClause(clauses, "Nomeprodotto", request.Prodotto);
+        AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
+        AddStringClause(clauses, "RCC", request.Rcc);
+        AddStringClause(clauses, "PM", request.Pm);
+
+        clauses.Add("ISNULL(LTRIM(RTRIM(Nomeprodotto)), '') <> ''");
+        clauses.Add("UPPER(LTRIM(RTRIM(Nomeprodotto))) NOT IN ('NON DEFINITO', 'NON DEFINTO')");
+
+        var visibilityClause = BuildVisibilityClause(user, visibility);
+        if (!string.IsNullOrWhiteSpace(visibilityClause))
+        {
+            clauses.Add(visibilityClause);
+        }
+
+        return string.Join(" AND ", clauses);
+    }
+
+    private static IReadOnlyCollection<CommesseSintesiFilterOption> BuildDistinctOptionsFromRows(IEnumerable<string> values)
+    {
+        return values
+            .Select(value => value?.Trim() ?? string.Empty)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .Select(value => new CommesseSintesiFilterOption(value, value))
+            .ToArray();
+    }
+
+    private static bool IsValidProductValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value.Trim().ToUpperInvariant();
+        return normalized is not "NON DEFINITO" and not "NON DEFINTO";
     }
 
     private static string BuildVisibilityClause(UserContext user, VisibilityFlags visibility)
@@ -1599,6 +2284,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
     private static string SqlQuote(string value)
     {
         return $"'{value.Trim().Replace("'", "''")}'";
+    }
+
+    private static string NormalizeCommessaKey(string value)
+    {
+        return value.Trim().ToUpperInvariant();
     }
 
     private static int? ReadNullableInt(SqlDataReader reader, string columnName)
@@ -1661,5 +2351,16 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         bool IsPm,
         bool IsRcc,
         bool IsResponsabileOu);
+
+    private sealed record VenditaCommessaLookupRow(
+        string Commessa,
+        string DescrizioneCommessa,
+        string TipologiaCommessa,
+        string StatoCommessa,
+        string MacroTipologia,
+        string ControparteCommessa,
+        string BusinessUnit,
+        string Rcc,
+        string Pm);
 }
 
