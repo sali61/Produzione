@@ -35,13 +35,29 @@ type SessionProbeResult =
   | { state: 'forbidden'; message: string }
   | { state: 'error'; message: string }
 
-type MenuKey = 'sintesi' | 'analisi-rcc' | 'dati-contabili' | 'user'
+type MenuKey = 'sintesi' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
 type AppPage =
   | 'none'
   | 'commesse-sintesi'
+  | 'commesse-andamento-mensile'
+  | 'commesse-dati-annuali-aggregati'
   | 'prodotti-sintesi'
   | 'analisi-rcc-risultato-mensile'
   | 'analisi-rcc-pivot-fatturato'
+  | 'analisi-bu-risultato-mensile'
+  | 'analisi-bu-pivot-fatturato'
+  | 'previsioni-funnel'
+  | 'previsioni-report-funnel-rcc'
+  | 'previsioni-report-funnel-bu'
+  | 'previsioni-utile-mensile-rcc'
+  | 'previsioni-utile-mensile-bu'
+  | 'processo-offerta-offerte'
+  | 'processo-offerta-sintesi-rcc'
+  | 'processo-offerta-sintesi-bu'
+  | 'processo-offerta-percentuale-successo-rcc'
+  | 'processo-offerta-percentuale-successo-bu'
+  | 'processo-offerta-incidenza-rcc'
+  | 'processo-offerta-incidenza-bu'
   | 'dati-contabili-vendita'
   | 'dati-contabili-acquisti'
   | 'commessa-dettaglio'
@@ -138,6 +154,183 @@ type AnalisiRccPivotFatturatoResponse = {
   rccDisponibili: string[]
   righe: AnalisiRccPivotFatturatoRow[]
   totaliPerAnno: AnalisiRccPivotFatturatoTotaleAnno[]
+}
+
+type AnalisiRccUtileMensileRow = {
+  anno: number
+  aggregazione: string
+  totaleRicavi: number
+  totaleCosti: number
+  totaleCostoPersonale: number
+  totaleUtileSpecifico: number
+  totaleOreLavorate: number
+  totaleCostoGeneraleRibaltato: number
+  percentualeMargineSuRicavi: number
+  percentualeMarkupSuCosti: number
+  percentualeCostIncome: number
+}
+
+type AnalisiRccUtileMensileTotaleAnno = {
+  anno: number
+  totaleRicavi: number
+  totaleCosti: number
+  totaleCostoPersonale: number
+  totaleUtileSpecifico: number
+  totaleOreLavorate: number
+  totaleCostoGeneraleRibaltato: number
+  percentualeMargineSuRicavi: number
+  percentualeMarkupSuCosti: number
+  percentualeCostIncome: number
+}
+
+type AnalisiRccUtileMensileResponse = {
+  profile: string
+  anni: number[]
+  meseRiferimento: number
+  vediTutto: boolean
+  aggregazioneFiltro?: string | null
+  aggregazioniDisponibili: string[]
+  produzione?: number | null
+  righe: AnalisiRccUtileMensileRow[]
+  totaliPerAnno: AnalisiRccUtileMensileTotaleAnno[]
+}
+
+type ProcessoOffertaDettaglioRow = {
+  id: number
+  businessUnit: string
+  nomeProdotto: string
+  codiceSocieta: string
+  rcc: string
+  idRcc?: number | null
+  anno: number
+  annoLavoro?: number | null
+  commessa: string
+  esito: string
+  protocollo: string
+  data?: string | null
+  tipo: string
+  oggetto: string
+  statoDocumento: string
+  percentualeSuccesso: number
+  soluzione: string
+  macroTipologia: string
+  tipoCommessa: string
+  controparte: string
+  esitoPositivo?: boolean | null
+  esitoPositivoTesto: string
+  importoPrevedibile: number
+  costoPrevedibile: number
+  costoPrevisto: boolean
+}
+
+type ProcessoOffertaOfferteResponse = {
+  profile: string
+  anni: number[]
+  vediTutto: boolean
+  ambitoFiltro?: string | null
+  esitiDisponibili: string[]
+  items: ProcessoOffertaDettaglioRow[]
+}
+
+type ProcessoOffertaSintesiRow = {
+  anno: number
+  aggregazione: string
+  tipo: string
+  esitoPositivoTesto: string
+  numero: number
+  importoPrevedibile: number
+  costoPrevedibile: number
+  percentualeRicarico: number
+}
+
+type ProcessoOffertaSintesiResponse = {
+  profile: string
+  anni: number[]
+  vediTutto: boolean
+  ambitoFiltro?: string | null
+  esitiDisponibili: string[]
+  aggregazioniDisponibili: string[]
+  righe: ProcessoOffertaSintesiRow[]
+}
+
+type AnalisiRccFunnelRow = {
+  businessUnit: string
+  nomeProdotto: string
+  codiceSocieta: string
+  rcc: string
+  idRcc?: number | null
+  anno: number
+  commessa: string
+  esito: string
+  protocollo: string
+  data?: string | null
+  tipo: string
+  oggetto: string
+  statoDocumento: string
+  esitoProtocollo: string
+  percentualeSuccesso: number
+  budgetRicavo: number
+  budgetPersonale: number
+  budgetCosti: number
+  ricavoAtteso: number
+  fatturatoEmesso: number
+  fatturatoFuturo: number
+  futuraAnno: number
+  emessaAnno: number
+  totaleAnno: number
+  infragruppo: boolean
+  soluzione: string
+  macroTipologia: string
+  controparte: string
+}
+
+type AnalisiRccFunnelResponse = {
+  profile: string
+  anni: number[]
+  vediTutto: boolean
+  rccFiltro?: string | null
+  rccDisponibili: string[]
+  tipiDisponibili: string[]
+  statiDocumentoDisponibili: string[]
+  items: AnalisiRccFunnelRow[]
+}
+
+type AnalisiRccPivotFunnelRow = {
+  anno: number
+  aggregazione: string
+  tipo: string
+  percentualeSuccesso: number
+  numeroProtocolli: number
+  totaleBudgetRicavo: number
+  totaleBudgetCosti: number
+  totaleFatturatoFuturo: number
+  totaleEmessaAnno: number
+  totaleFuturaAnno: number
+  totaleRicaviComplessivi: number
+}
+
+type AnalisiRccPivotFunnelTotaleAnno = {
+  anno: number
+  numeroProtocolli: number
+  percentualeSuccesso: number
+  totaleBudgetRicavo: number
+  totaleBudgetCosti: number
+  totaleFatturatoFuturo: number
+  totaleEmessaAnno: number
+  totaleFuturaAnno: number
+  totaleRicaviComplessivi: number
+}
+
+type AnalisiRccPivotFunnelResponse = {
+  profile: string
+  anni: number[]
+  vediTutto: boolean
+  aggregazioneFiltro?: string | null
+  rccFiltro?: string | null
+  aggregazioniDisponibili: string[]
+  rccDisponibili: string[]
+  righe: AnalisiRccPivotFunnelRow[]
+  totaliPerAnno: AnalisiRccPivotFunnelTotaleAnno[]
 }
 
 type DatiContabiliVenditaRow = {
@@ -262,6 +455,67 @@ type CommesseSintesiResponse = {
   profile: string
   count: number
   items: CommessaSintesiRow[]
+}
+
+type CommessaAndamentoMensileRow = {
+  annoCompetenza: number
+  meseCompetenza: number
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  stato: string
+  macroTipologia: string
+  prodotto: string
+  controparte: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  produzione: boolean
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  costoGeneraleRibaltato: number
+  utileSpecifico: number
+}
+
+type CommesseAndamentoMensileResponse = {
+  profile: string
+  count: number
+  items: CommessaAndamentoMensileRow[]
+}
+
+type CommesseDatiAnnualiAggregatiRow = {
+  anno: number
+  aggregazione: string
+  numeroCommesse: number
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  utileSpecifico: number
+  ricaviFuturi: number
+  costiFuturi: number
+}
+
+type CommesseDatiAnnualiAggregatiTotaleAnno = {
+  anno: number
+  numeroCommesse: number
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  utileSpecifico: number
+  ricaviFuturi: number
+  costiFuturi: number
+}
+
+type CommesseDatiAnnualiAggregatiResponse = {
+  profile: string
+  aggregazioneSelezionata: string
+  anni: number[]
+  items: CommesseDatiAnnualiAggregatiRow[]
+  totaliPerAnno: CommesseDatiAnnualiAggregatiTotaleAnno[]
 }
 
 type CommessaDettaglioAnagrafica = {
@@ -437,6 +691,17 @@ const impersonationHeaderName = 'X-Act-As-Username'
 const sintesiStateStorageKey = 'produzione.sintesi.state'
 const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa']
 const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale']
+const analisiBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
+const analisiBuPivotBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
+const previsioniFunnelRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
+const previsioniFunnelRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
+const previsioniFunnelBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
+const previsioniFunnelBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
+const previsioniUtileMensileRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
+const previsioniUtileMensileRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
+const previsioniUtileMensileBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
+const previsioniUtileMensileBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
+const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 
 type SintesiPersistedState = {
   profile: string
@@ -518,6 +783,70 @@ const normalizePercentTo100 = (value: number) => {
   return Math.min(100, Math.max(0, scaledValue))
 }
 
+const mesiItaliani = [
+  'Gennaio',
+  'Febbraio',
+  'Marzo',
+  'Aprile',
+  'Maggio',
+  'Giugno',
+  'Luglio',
+  'Agosto',
+  'Settembre',
+  'Ottobre',
+  'Novembre',
+  'Dicembre',
+] as const
+
+const getDefaultReferenceMonth = () => {
+  const currentMonth = new Date().getMonth() + 1
+  return currentMonth <= 1 ? 12 : currentMonth - 1
+}
+
+const parseReferenceMonthStrict = (value?: string | number | null) => {
+  const numericValue = typeof value === 'number'
+    ? value
+    : Number.parseInt((value ?? '').toString().trim(), 10)
+  return numericValue >= 1 && numericValue <= 12
+    ? numericValue
+    : null
+}
+
+const parseReferenceMonth = (value?: string | number | null) => {
+  return parseReferenceMonthStrict(value) ?? getDefaultReferenceMonth()
+}
+
+const formatReferenceMonthLabel = (month: number) => {
+  const normalizedMonth = parseReferenceMonth(month)
+  return `${normalizedMonth.toString().padStart(2, '0')} - ${mesiItaliani[normalizedMonth - 1]}`
+}
+
+const normalizeTextForMatch = (value: string) => (
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+)
+
+const isProcessoOffertaEsitoPositivo = (value: string) => {
+  const normalized = normalizeTextForMatch(value)
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    normalized === 'si' ||
+    normalized === 'true' ||
+    normalized === 'vero' ||
+    normalized === '1' ||
+    normalized === 'ok' ||
+    normalized.startsWith('positiv') ||
+    normalized.includes('success') ||
+    normalized.includes('vint')
+  )
+}
+
 const isValidProductValue = (value: string) => {
   const normalized = value.trim()
   if (!normalized) {
@@ -526,6 +855,65 @@ const isValidProductValue = (value: string) => {
 
   const upper = normalized.toUpperCase()
   return upper !== 'NON DEFINITO' && upper !== 'NON DEFINTO'
+}
+
+const toSafeNumber = (value: unknown) => {
+  const numericValue = typeof value === 'number'
+    ? value
+    : Number.parseFloat((value ?? '').toString())
+  return Number.isFinite(numericValue) ? numericValue : 0
+}
+
+const normalizePivotFunnelResponse = (raw: unknown): AnalisiRccPivotFunnelResponse => {
+  const source = (raw ?? {}) as Partial<AnalisiRccPivotFunnelResponse> & { [key: string]: unknown }
+  const righeRaw = Array.isArray(source.righe) ? source.righe : []
+  const totaliRaw = Array.isArray(source.totaliPerAnno) ? source.totaliPerAnno : []
+
+  return {
+    profile: (source.profile ?? '').toString(),
+    anni: (Array.isArray(source.anni) ? source.anni : [])
+      .map((value) => Number.parseInt((value ?? '').toString(), 10))
+      .filter((value) => Number.isFinite(value) && value > 0),
+    vediTutto: Boolean(source.vediTutto),
+    aggregazioneFiltro: source.aggregazioneFiltro == null ? null : source.aggregazioneFiltro.toString(),
+    rccFiltro: source.rccFiltro == null ? null : source.rccFiltro.toString(),
+    aggregazioniDisponibili: (Array.isArray(source.aggregazioniDisponibili) ? source.aggregazioniDisponibili : [])
+      .map((value) => (value ?? '').toString())
+      .filter((value) => value.trim().length > 0),
+    rccDisponibili: (Array.isArray(source.rccDisponibili) ? source.rccDisponibili : [])
+      .map((value) => (value ?? '').toString())
+      .filter((value) => value.trim().length > 0),
+    righe: righeRaw.map((row): AnalisiRccPivotFunnelRow => {
+      const item = (row ?? {}) as Partial<AnalisiRccPivotFunnelRow> & { [key: string]: unknown }
+      return {
+        anno: Number.parseInt((item.anno ?? '').toString(), 10) || 0,
+        aggregazione: (item.aggregazione ?? '').toString(),
+        tipo: (item.tipo ?? '').toString(),
+        percentualeSuccesso: toSafeNumber(item.percentualeSuccesso),
+        numeroProtocolli: Math.trunc(toSafeNumber(item.numeroProtocolli)),
+        totaleBudgetRicavo: toSafeNumber(item.totaleBudgetRicavo),
+        totaleBudgetCosti: toSafeNumber(item.totaleBudgetCosti),
+        totaleFatturatoFuturo: toSafeNumber(item.totaleFatturatoFuturo),
+        totaleEmessaAnno: toSafeNumber(item.totaleEmessaAnno),
+        totaleFuturaAnno: toSafeNumber(item.totaleFuturaAnno),
+        totaleRicaviComplessivi: toSafeNumber(item.totaleRicaviComplessivi),
+      }
+    }),
+    totaliPerAnno: totaliRaw.map((row): AnalisiRccPivotFunnelTotaleAnno => {
+      const item = (row ?? {}) as Partial<AnalisiRccPivotFunnelTotaleAnno> & { [key: string]: unknown }
+      return {
+        anno: Number.parseInt((item.anno ?? '').toString(), 10) || 0,
+        numeroProtocolli: Math.trunc(toSafeNumber(item.numeroProtocolli)),
+        percentualeSuccesso: toSafeNumber(item.percentualeSuccesso),
+        totaleBudgetRicavo: toSafeNumber(item.totaleBudgetRicavo),
+        totaleBudgetCosti: toSafeNumber(item.totaleBudgetCosti),
+        totaleFatturatoFuturo: toSafeNumber(item.totaleFatturatoFuturo),
+        totaleEmessaAnno: toSafeNumber(item.totaleEmessaAnno),
+        totaleFuturaAnno: toSafeNumber(item.totaleFuturaAnno),
+        totaleRicaviComplessivi: toSafeNumber(item.totaleRicaviComplessivi),
+      }
+    }),
+  }
 }
 
 const pageToScope = (page: AppPage): SintesiScope => (
@@ -544,7 +932,7 @@ function App() {
   const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const [activePage, setActivePage] = useState<AppPage>('none')
-  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
+  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
   const [activeImpersonation, setActiveImpersonation] = useState('')
   const [impersonationInput, setImpersonationInput] = useState('')
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -576,6 +964,43 @@ function App() {
   const [analisiRccPivotData, setAnalisiRccPivotData] = useState<AnalisiRccPivotFatturatoResponse | null>(null)
   const [analisiRccPivotAnni, setAnalisiRccPivotAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [analisiRccPivotRcc, setAnalisiRccPivotRcc] = useState('')
+  const [analisiBuAnno, setAnalisiBuAnno] = useState(new Date().getFullYear().toString())
+  const [analisiBuData, setAnalisiBuData] = useState<AnalisiRccRisultatoMensileResponse | null>(null)
+  const [analisiBuPivotData, setAnalisiBuPivotData] = useState<AnalisiRccPivotFatturatoResponse | null>(null)
+  const [analisiBuPivotAnni, setAnalisiBuPivotAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [analisiBuPivotBusinessUnit, setAnalisiBuPivotBusinessUnit] = useState('')
+  const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [commesseAndamentoMensileData, setCommesseAndamentoMensileData] = useState<CommesseAndamentoMensileResponse | null>(null)
+  const [commesseDatiAnnualiAnni, setCommesseDatiAnnualiAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [commesseDatiAnnualiAggregazione, setCommesseDatiAnnualiAggregazione] = useState('cliente')
+  const [commesseDatiAnnualiData, setCommesseDatiAnnualiData] = useState<CommesseDatiAnnualiAggregatiResponse | null>(null)
+  const [previsioniUtileMensileRccAnno, setPrevisioniUtileMensileRccAnno] = useState(new Date().getFullYear().toString())
+  const [previsioniUtileMensileRccMeseRiferimento, setPrevisioniUtileMensileRccMeseRiferimento] = useState(getDefaultReferenceMonth().toString())
+  const [previsioniUtileMensileRcc, setPrevisioniUtileMensileRcc] = useState('')
+  const [previsioniUtileMensileRccProduzione, setPrevisioniUtileMensileRccProduzione] = useState('')
+  const [previsioniUtileMensileRccData, setPrevisioniUtileMensileRccData] = useState<AnalisiRccUtileMensileResponse | null>(null)
+  const [previsioniUtileMensileBuAnno, setPrevisioniUtileMensileBuAnno] = useState(new Date().getFullYear().toString())
+  const [previsioniUtileMensileBuMeseRiferimento, setPrevisioniUtileMensileBuMeseRiferimento] = useState(getDefaultReferenceMonth().toString())
+  const [previsioniUtileMensileBu, setPrevisioniUtileMensileBu] = useState('')
+  const [previsioniUtileMensileBuProduzione, setPrevisioniUtileMensileBuProduzione] = useState('')
+  const [previsioniUtileMensileBuData, setPrevisioniUtileMensileBuData] = useState<AnalisiRccUtileMensileResponse | null>(null)
+  const [previsioniFunnelAnni, setPrevisioniFunnelAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [previsioniFunnelRcc, setPrevisioniFunnelRcc] = useState('')
+  const [previsioniFunnelTipo, setPrevisioniFunnelTipo] = useState('')
+  const [previsioniFunnelStatoDocumento, setPrevisioniFunnelStatoDocumento] = useState('')
+  const [previsioniFunnelData, setPrevisioniFunnelData] = useState<AnalisiRccFunnelResponse | null>(null)
+  const [previsioniReportFunnelRccAnni, setPrevisioniReportFunnelRccAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [previsioniReportFunnelRcc, setPrevisioniReportFunnelRcc] = useState('')
+  const [previsioniReportFunnelRccData, setPrevisioniReportFunnelRccData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
+  const [previsioniReportFunnelBuAnni, setPrevisioniReportFunnelBuAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [previsioniReportFunnelBu, setPrevisioniReportFunnelBu] = useState('')
+  const [previsioniReportFunnelBuRcc, setPrevisioniReportFunnelBuRcc] = useState('')
+  const [previsioniReportFunnelBuData, setPrevisioniReportFunnelBuData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
+  const [processoOffertaAnni, setProcessoOffertaAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [processoOffertaEsiti, setProcessoOffertaEsiti] = useState<string[]>([])
+  const [processoOffertaOfferteData, setProcessoOffertaOfferteData] = useState<ProcessoOffertaOfferteResponse | null>(null)
+  const [processoOffertaSintesiRccData, setProcessoOffertaSintesiRccData] = useState<ProcessoOffertaSintesiResponse | null>(null)
+  const [processoOffertaSintesiBuData, setProcessoOffertaSintesiBuData] = useState<ProcessoOffertaSintesiResponse | null>(null)
   const [datiContabiliVenditaRows, setDatiContabiliVenditaRows] = useState<DatiContabiliVenditaRow[]>([])
   const [datiContabiliVenditaLoading, setDatiContabiliVenditaLoading] = useState(false)
   const [datiContabiliVenditaSearched, setDatiContabiliVenditaSearched] = useState(false)
@@ -599,6 +1024,22 @@ function App() {
   const isDatiContabiliVenditaPage = activePage === 'dati-contabili-vendita'
   const isDatiContabiliAcquistiPage = activePage === 'dati-contabili-acquisti'
   const isDatiContabiliPage = isDatiContabiliVenditaPage || isDatiContabiliAcquistiPage
+  const isProcessoOffertaOffertePage = activePage === 'processo-offerta-offerte'
+  const isProcessoOffertaSintesiRccPage = activePage === 'processo-offerta-sintesi-rcc'
+  const isProcessoOffertaSintesiBuPage = activePage === 'processo-offerta-sintesi-bu'
+  const isProcessoOffertaPercentualeSuccessoRccPage = activePage === 'processo-offerta-percentuale-successo-rcc'
+  const isProcessoOffertaPercentualeSuccessoBuPage = activePage === 'processo-offerta-percentuale-successo-bu'
+  const isProcessoOffertaIncidenzaRccPage = activePage === 'processo-offerta-incidenza-rcc'
+  const isProcessoOffertaIncidenzaBuPage = activePage === 'processo-offerta-incidenza-bu'
+  const isProcessoOffertaPage = (
+    isProcessoOffertaOffertePage ||
+    isProcessoOffertaSintesiRccPage ||
+    isProcessoOffertaSintesiBuPage ||
+    isProcessoOffertaPercentualeSuccessoRccPage ||
+    isProcessoOffertaPercentualeSuccessoBuPage ||
+    isProcessoOffertaIncidenzaRccPage ||
+    isProcessoOffertaIncidenzaBuPage
+  )
   const sintesiScope = pageToScope(activePage)
   const sintesiTitle = isDatiContabiliVenditaPage
     ? 'Dati Contabili - Vendite'
@@ -610,6 +1051,42 @@ function App() {
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
   const canSelectAnalisiRccPivotRcc = analisiRccPivotRccSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessAnalisiBuPage = analisiBuAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectAnalisiBuPivotBusinessUnit = analisiBuPivotBuSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessPrevisioniFunnelRccPage = previsioniFunnelRccAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectPrevisioniFunnelRcc = previsioniFunnelRccSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessPrevisioniFunnelBuPage = previsioniFunnelBuAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectPrevisioniFunnelBu = previsioniFunnelBuSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessPrevisioniUtileMensileRccPage = previsioniUtileMensileRccAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectPrevisioniUtileMensileRcc = previsioniUtileMensileRccSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessPrevisioniUtileMensileBuPage = previsioniUtileMensileBuAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectPrevisioniUtileMensileBu = previsioniUtileMensileBuSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessAnalisiProiezioniMenu = canAccessAnalisiRccPage || canAccessAnalisiBuPage
+  const canAccessPrevisioniMenu = canAccessPrevisioniFunnelRccPage ||
+    canAccessPrevisioniFunnelBuPage
+  const canAccessProcessoOffertaPage = processoOffertaAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
   const authenticatedRoles = user?.authenticatedRoles ?? user?.roles ?? []
@@ -661,6 +1138,43 @@ function App() {
     setAnalisiRccPivotData(null)
     setAnalisiRccPivotAnni([new Date().getFullYear().toString()])
     setAnalisiRccPivotRcc('')
+    setAnalisiBuAnno(new Date().getFullYear().toString())
+    setAnalisiBuData(null)
+    setAnalisiBuPivotData(null)
+    setAnalisiBuPivotAnni([new Date().getFullYear().toString()])
+    setAnalisiBuPivotBusinessUnit('')
+    setCommesseAndamentoMensileAnni([new Date().getFullYear().toString()])
+    setCommesseAndamentoMensileData(null)
+    setCommesseDatiAnnualiAnni([new Date().getFullYear().toString()])
+    setCommesseDatiAnnualiAggregazione('cliente')
+    setCommesseDatiAnnualiData(null)
+    setPrevisioniUtileMensileRccAnno(new Date().getFullYear().toString())
+    setPrevisioniUtileMensileRccMeseRiferimento(getDefaultReferenceMonth().toString())
+    setPrevisioniUtileMensileRcc('')
+    setPrevisioniUtileMensileRccProduzione('')
+    setPrevisioniUtileMensileRccData(null)
+    setPrevisioniUtileMensileBuAnno(new Date().getFullYear().toString())
+    setPrevisioniUtileMensileBuMeseRiferimento(getDefaultReferenceMonth().toString())
+    setPrevisioniUtileMensileBu('')
+    setPrevisioniUtileMensileBuProduzione('')
+    setPrevisioniUtileMensileBuData(null)
+    setPrevisioniFunnelAnni([new Date().getFullYear().toString()])
+    setPrevisioniFunnelRcc('')
+    setPrevisioniFunnelTipo('')
+    setPrevisioniFunnelStatoDocumento('')
+    setPrevisioniFunnelData(null)
+    setPrevisioniReportFunnelRccAnni([new Date().getFullYear().toString()])
+    setPrevisioniReportFunnelRcc('')
+    setPrevisioniReportFunnelRccData(null)
+    setPrevisioniReportFunnelBuAnni([new Date().getFullYear().toString()])
+    setPrevisioniReportFunnelBu('')
+    setPrevisioniReportFunnelBuRcc('')
+    setPrevisioniReportFunnelBuData(null)
+    setProcessoOffertaAnni([new Date().getFullYear().toString()])
+    setProcessoOffertaEsiti([])
+    setProcessoOffertaOfferteData(null)
+    setProcessoOffertaSintesiRccData(null)
+    setProcessoOffertaSintesiBuData(null)
     setDatiContabiliVenditaRows([])
     setDatiContabiliVenditaLoading(false)
     setDatiContabiliVenditaSearched(false)
@@ -1342,7 +1856,7 @@ function App() {
     }
 
     if (!canAccessAnalisiRccPage) {
-      setStatusMessage(`Profilo "${currentProfile}" non abilitato ad Analisi RCC.`)
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Proiezione Mensile RCC.`)
       setAnalisiRccData(null)
       return
     }
@@ -1372,14 +1886,14 @@ function App() {
       if (response.status === 403) {
         const message = await readApiMessage(response)
         setAnalisiRccData(null)
-        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Analisi RCC.`)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Proiezione Mensile RCC.`)
         return
       }
 
       if (!response.ok) {
         const message = await readApiMessage(response)
         setAnalisiRccData(null)
-        setStatusMessage(message || `Errore caricamento Analisi RCC (${response.status}).`)
+        setStatusMessage(message || `Errore caricamento Proiezione Mensile RCC (${response.status}).`)
         return
       }
 
@@ -1387,7 +1901,7 @@ function App() {
       setAnalisiRccAnno(payload.anno.toString())
       setAnalisiRccData(payload)
       const righeCount = payload.risultatoPesato?.righe?.length ?? 0
-      setStatusMessage(`Analisi RCC caricata per anno ${payload.anno}: ${righeCount} righe.`)
+      setStatusMessage(`Proiezione Mensile RCC caricata per anno ${payload.anno}: ${righeCount} righe.`)
     } finally {
       setAnalisiRccLoading(false)
     }
@@ -1400,7 +1914,7 @@ function App() {
     }
 
     if (!canAccessAnalisiRccPage) {
-      setStatusMessage(`Profilo "${currentProfile}" non abilitato ad Analisi RCC.`)
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Report Annuale RCC.`)
       setAnalisiRccPivotData(null)
       return
     }
@@ -1434,14 +1948,14 @@ function App() {
       if (response.status === 403) {
         const message = await readApiMessage(response)
         setAnalisiRccPivotData(null)
-        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Analisi RCC.`)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Report Annuale RCC.`)
         return
       }
 
       if (!response.ok) {
         const message = await readApiMessage(response)
         setAnalisiRccPivotData(null)
-        setStatusMessage(message || `Errore caricamento PivotFatturato (${response.status}).`)
+        setStatusMessage(message || `Errore caricamento Report Annuale RCC (${response.status}).`)
         return
       }
 
@@ -1466,7 +1980,908 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0)
         .sort((left, right) => left - right)
         .join(', ')
-      setStatusMessage(`PivotFatturato RCC caricato (anni: ${yearsLabel || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
+      setStatusMessage(`Report Annuale RCC caricato (anni: ${yearsLabel || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadAnalisiBuRisultatoMensile = async (requestedYear?: string) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiBuPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Proiezione Mensile BU.`)
+      setAnalisiBuData(null)
+      return
+    }
+
+    const normalizedYear = (requestedYear ?? analisiBuAnno).trim()
+    const parsedYear = Number.parseInt(normalizedYear, 10)
+    const annoValue = Number.isFinite(parsedYear) && parsedYear > 0
+      ? parsedYear
+      : new Date().getFullYear()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', annoValue.toString())
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/risultato-mensile-bu?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiBuData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Proiezione Mensile BU.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiBuData(null)
+        setStatusMessage(message || `Errore caricamento Proiezione Mensile BU (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccRisultatoMensileResponse
+      setAnalisiBuAnno(payload.anno.toString())
+      setAnalisiBuData(payload)
+      const righeCount = payload.risultatoPesato?.righe?.length ?? 0
+      setStatusMessage(`Proiezione Mensile BU caricata per anno ${payload.anno}: ${righeCount} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadAnalisiBuPivotFatturato = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiBuPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Report Annuale BU.`)
+      setAnalisiBuPivotData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      analisiBuPivotAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      if (canSelectAnalisiBuPivotBusinessUnit && analisiBuPivotBusinessUnit.trim()) {
+        params.set('businessUnit', analisiBuPivotBusinessUnit.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-fatturato-bu?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiBuPivotData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Report Annuale BU.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiBuPivotData(null)
+        setStatusMessage(message || `Errore caricamento Report Annuale BU (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccPivotFatturatoResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setAnalisiBuPivotAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      if (canSelectAnalisiBuPivotBusinessUnit) {
+        const normalizedBuFiltro = (payload.rccFiltro ?? '').trim()
+        if (normalizedBuFiltro.length > 0) {
+          setAnalisiBuPivotBusinessUnit(normalizedBuFiltro)
+        } else if (!payload.vediTutto) {
+          setAnalisiBuPivotBusinessUnit((payload.rccDisponibili?.[0] ?? '').trim())
+        } else if (!analisiBuPivotBusinessUnit.trim()) {
+          setAnalisiBuPivotBusinessUnit('')
+        }
+      }
+
+      setAnalisiBuPivotData(payload)
+      const yearsLabel = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .sort((left, right) => left - right)
+        .join(', ')
+      setStatusMessage(`Report Annuale BU caricato (anni: ${yearsLabel || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadCommesseAndamentoMensile = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    const selectedYears = [...new Set(
+      commesseAndamentoMensileAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      params.set('take', '5000')
+
+      const response = await fetch(toBackendUrl(`/api/commesse/andamento-mensile?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setCommesseAndamentoMensileData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Andamento Mensile.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setCommesseAndamentoMensileData(null)
+        setStatusMessage(message || `Errore caricamento Andamento Mensile (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseAndamentoMensileResponse
+      setCommesseAndamentoMensileData(payload)
+      setCommesseAndamentoMensileAnni(yearsToQuery.map((value) => value.toString()))
+      setStatusMessage(`Andamento Mensile caricato: ${payload.count} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadCommesseDatiAnnualiAggregati = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    const selectedYears = [...new Set(
+      commesseDatiAnnualiAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+
+    const normalizedAggregazione = commesseDatiAnnualiAggregazione.trim()
+    const aggregazioneToQuery = normalizedAggregazione || 'cliente'
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      params.set('aggregazione', aggregazioneToQuery)
+      params.set('take', '100000')
+
+      const response = await fetch(toBackendUrl(`/api/commesse/dati-annuali-aggregati?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setCommesseDatiAnnualiData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Dati Annuali Aggregati.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setCommesseDatiAnnualiData(null)
+        setStatusMessage(message || `Errore caricamento Dati Annuali Aggregati (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseDatiAnnualiAggregatiResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setCommesseDatiAnnualiAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      setCommesseDatiAnnualiAggregazione((payload.aggregazioneSelezionata ?? aggregazioneToQuery).trim() || 'cliente')
+      setCommesseDatiAnnualiData(payload)
+      setStatusMessage(`Dati Annuali Aggregati caricati: ${payload.items.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniUtileMensileRcc = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniUtileMensileRccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Utile Mensile RCC.`)
+      setPrevisioniUtileMensileRccData(null)
+      return
+    }
+
+    const selectedYear = Number.parseInt(previsioniUtileMensileRccAnno.trim(), 10)
+    const yearToQuery = Number.isFinite(selectedYear) && selectedYear > 0
+      ? selectedYear
+      : new Date().getFullYear()
+    const meseRiferimentoToQuery = parseReferenceMonthStrict(previsioniUtileMensileRccMeseRiferimento)
+    if (meseRiferimentoToQuery === null) {
+      setStatusMessage('Seleziona un mese di riferimento valido (01-12).')
+      return
+    }
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', yearToQuery.toString())
+      params.set('meseRiferimento', meseRiferimentoToQuery.toString())
+      if (canSelectPrevisioniUtileMensileRcc && previsioniUtileMensileRcc.trim()) {
+        params.set('rcc', previsioniUtileMensileRcc.trim())
+      }
+
+      if (previsioniUtileMensileRccProduzione === '0' || previsioniUtileMensileRccProduzione === '1') {
+        params.set('produzione', previsioniUtileMensileRccProduzione)
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/utile-mensile-rcc?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+        cache: 'no-store',
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniUtileMensileRccData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Utile Mensile RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniUtileMensileRccData(null)
+        setStatusMessage(message || `Errore caricamento Utile Mensile RCC (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccUtileMensileResponse
+      setPrevisioniUtileMensileRccAnno(yearToQuery.toString())
+      const meseRiferimentoServer = parseReferenceMonth(payload.meseRiferimento)
+      setPrevisioniUtileMensileRccMeseRiferimento(meseRiferimentoServer.toString())
+      if (canSelectPrevisioniUtileMensileRcc) {
+        const normalizedFilter = (payload.aggregazioneFiltro ?? '').trim()
+        if (normalizedFilter) {
+          setPrevisioniUtileMensileRcc(normalizedFilter)
+        } else if (!payload.vediTutto) {
+          setPrevisioniUtileMensileRcc((payload.aggregazioniDisponibili?.[0] ?? '').trim())
+        } else if (!previsioniUtileMensileRcc.trim()) {
+          setPrevisioniUtileMensileRcc('')
+        }
+      }
+      setPrevisioniUtileMensileRccProduzione(
+        payload.produzione === 0 || payload.produzione === 1
+          ? payload.produzione.toString()
+          : previsioniUtileMensileRccProduzione,
+      )
+      setPrevisioniUtileMensileRccData(payload)
+      setStatusMessage(`Utile Mensile RCC caricato (anno: ${yearToQuery}, mese rif.: ${formatReferenceMonthLabel(meseRiferimentoServer)}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniUtileMensileBu = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniUtileMensileBuPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Utile Mensile BU.`)
+      setPrevisioniUtileMensileBuData(null)
+      return
+    }
+
+    const selectedYear = Number.parseInt(previsioniUtileMensileBuAnno.trim(), 10)
+    const yearToQuery = Number.isFinite(selectedYear) && selectedYear > 0
+      ? selectedYear
+      : new Date().getFullYear()
+    const meseRiferimentoToQuery = parseReferenceMonthStrict(previsioniUtileMensileBuMeseRiferimento)
+    if (meseRiferimentoToQuery === null) {
+      setStatusMessage('Seleziona un mese di riferimento valido (01-12).')
+      return
+    }
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', yearToQuery.toString())
+      params.set('meseRiferimento', meseRiferimentoToQuery.toString())
+      if (canSelectPrevisioniUtileMensileBu && previsioniUtileMensileBu.trim()) {
+        params.set('businessUnit', previsioniUtileMensileBu.trim())
+      }
+
+      if (previsioniUtileMensileBuProduzione === '0' || previsioniUtileMensileBuProduzione === '1') {
+        params.set('produzione', previsioniUtileMensileBuProduzione)
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/utile-mensile-bu?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+        cache: 'no-store',
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniUtileMensileBuData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Utile Mensile BU.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniUtileMensileBuData(null)
+        setStatusMessage(message || `Errore caricamento Utile Mensile BU (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccUtileMensileResponse
+      setPrevisioniUtileMensileBuAnno(yearToQuery.toString())
+      const meseRiferimentoServer = parseReferenceMonth(payload.meseRiferimento)
+      setPrevisioniUtileMensileBuMeseRiferimento(meseRiferimentoServer.toString())
+      if (canSelectPrevisioniUtileMensileBu) {
+        const normalizedFilter = (payload.aggregazioneFiltro ?? '').trim()
+        if (normalizedFilter) {
+          setPrevisioniUtileMensileBu(normalizedFilter)
+        } else if (!payload.vediTutto) {
+          setPrevisioniUtileMensileBu((payload.aggregazioniDisponibili?.[0] ?? '').trim())
+        } else if (!previsioniUtileMensileBu.trim()) {
+          setPrevisioniUtileMensileBu('')
+        }
+      }
+      setPrevisioniUtileMensileBuProduzione(
+        payload.produzione === 0 || payload.produzione === 1
+          ? payload.produzione.toString()
+          : previsioniUtileMensileBuProduzione,
+      )
+      setPrevisioniUtileMensileBuData(payload)
+      setStatusMessage(`Utile Mensile BU caricato (anno: ${yearToQuery}, mese rif.: ${formatReferenceMonthLabel(meseRiferimentoServer)}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniFunnel = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniFunnelRccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Funnel.`)
+      setPrevisioniFunnelData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      previsioniFunnelAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      if (canSelectPrevisioniFunnelRcc && previsioniFunnelRcc.trim()) {
+        params.set('rcc', previsioniFunnelRcc.trim())
+      }
+      if (previsioniFunnelTipo.trim()) {
+        params.set('tipo', previsioniFunnelTipo.trim())
+      }
+      if (previsioniFunnelStatoDocumento.trim()) {
+        params.set('statoDocumento', previsioniFunnelStatoDocumento.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/funnel?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniFunnelData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Funnel.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniFunnelData(null)
+        setStatusMessage(message || `Errore caricamento Funnel (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccFunnelResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setPrevisioniFunnelAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      if (canSelectPrevisioniFunnelRcc) {
+        const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
+        if (normalizedRccFiltro.length > 0) {
+          setPrevisioniFunnelRcc(normalizedRccFiltro)
+        } else if (!payload.vediTutto) {
+          setPrevisioniFunnelRcc((payload.rccDisponibili?.[0] ?? '').trim())
+        }
+      }
+
+      const normalizedTipo = previsioniFunnelTipo.trim()
+      if (
+        normalizedTipo &&
+        !(payload.tipiDisponibili ?? []).some((value) => value.localeCompare(normalizedTipo, 'it', { sensitivity: 'base' }) === 0)
+      ) {
+        setPrevisioniFunnelTipo('')
+      }
+
+      const normalizedStato = previsioniFunnelStatoDocumento.trim()
+      if (
+        normalizedStato &&
+        !(payload.statiDocumentoDisponibili ?? []).some((value) => value.localeCompare(normalizedStato, 'it', { sensitivity: 'base' }) === 0)
+      ) {
+        setPrevisioniFunnelStatoDocumento('')
+      }
+
+      setPrevisioniFunnelData(payload)
+      setStatusMessage(`Funnel caricato (anni: ${payload.anni.join(', ') || yearsToQuery.join(', ')}): ${payload.items.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniReportFunnelRcc = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniFunnelRccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Report Funnel RCC.`)
+      setPrevisioniReportFunnelRccData(null)
+      return
+    }
+
+    const selectedYear = Number.parseInt((previsioniReportFunnelRccAnni[0] ?? '').trim(), 10)
+    const yearToQuery = Number.isFinite(selectedYear) && selectedYear > 0
+      ? selectedYear
+      : new Date().getFullYear()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', yearToQuery.toString())
+      if (canSelectPrevisioniFunnelRcc && previsioniReportFunnelRcc.trim()) {
+        params.set('rcc', previsioniReportFunnelRcc.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelRccData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Report Funnel RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelRccData(null)
+        setStatusMessage(message || `Errore caricamento Report Funnel RCC (${response.status}).`)
+        return
+      }
+
+      const payload = normalizePivotFunnelResponse(await response.json())
+      const payloadYear = (payload.anni ?? [])
+        .find((value) => Number.isFinite(value) && value > 0) ?? yearToQuery
+      setPrevisioniReportFunnelRccAnni([payloadYear.toString()])
+      if (canSelectPrevisioniFunnelRcc) {
+        const normalizedFilter = (payload.aggregazioneFiltro ?? '').trim()
+        if (normalizedFilter.length > 0) {
+          setPrevisioniReportFunnelRcc(normalizedFilter)
+        } else if (!payload.vediTutto) {
+          setPrevisioniReportFunnelRcc((payload.aggregazioniDisponibili?.[0] ?? '').trim())
+        } else if (!previsioniReportFunnelRcc.trim()) {
+          setPrevisioniReportFunnelRcc('')
+        }
+      }
+
+      setPrevisioniReportFunnelRccData(payload)
+      setStatusMessage(`Report Funnel RCC caricato (anno: ${payloadYear}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniReportFunnelBu = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniFunnelBuPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Report Funnel BU.`)
+      setPrevisioniReportFunnelBuData(null)
+      return
+    }
+
+    const selectedYear = Number.parseInt((previsioniReportFunnelBuAnni[0] ?? '').trim(), 10)
+    const yearToQuery = Number.isFinite(selectedYear) && selectedYear > 0
+      ? selectedYear
+      : new Date().getFullYear()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', yearToQuery.toString())
+      if (canSelectPrevisioniFunnelBu && previsioniReportFunnelBu.trim()) {
+        params.set('businessUnit', previsioniReportFunnelBu.trim())
+      }
+      if (previsioniReportFunnelBuRcc.trim()) {
+        params.set('rcc', previsioniReportFunnelBuRcc.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel-bu?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelBuData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Report Funnel BU.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelBuData(null)
+        setStatusMessage(message || `Errore caricamento Report Funnel BU (${response.status}).`)
+        return
+      }
+
+      const payload = normalizePivotFunnelResponse(await response.json())
+      const payloadYear = (payload.anni ?? [])
+        .find((value) => Number.isFinite(value) && value > 0) ?? yearToQuery
+      setPrevisioniReportFunnelBuAnni([payloadYear.toString()])
+      if (canSelectPrevisioniFunnelBu) {
+        const normalizedFilter = (payload.aggregazioneFiltro ?? '').trim()
+        if (normalizedFilter.length > 0) {
+          setPrevisioniReportFunnelBu(normalizedFilter)
+        } else if (!payload.vediTutto) {
+          setPrevisioniReportFunnelBu((payload.aggregazioniDisponibili?.[0] ?? '').trim())
+        } else if (!previsioniReportFunnelBu.trim()) {
+          setPrevisioniReportFunnelBu('')
+        }
+      }
+
+      const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
+      if (normalizedRccFiltro.length > 0) {
+        setPrevisioniReportFunnelBuRcc(normalizedRccFiltro)
+      } else {
+        const currentRccFilter = previsioniReportFunnelBuRcc.trim()
+        if (currentRccFilter.length > 0) {
+          const hasCurrent = (payload.rccDisponibili ?? []).some((value) => (
+            value.localeCompare(currentRccFilter, 'it', { sensitivity: 'base' }) === 0
+          ))
+          if (!hasCurrent) {
+            setPrevisioniReportFunnelBuRcc('')
+          }
+        }
+      }
+
+      setPrevisioniReportFunnelBuData(payload)
+      setStatusMessage(`Report Funnel BU caricato (anno: ${payloadYear}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadProcessoOffertaOfferte = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessProcessoOffertaPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Processo Offerta.`)
+      setProcessoOffertaOfferteData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      processoOffertaAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+    const selectedEsiti = [...new Set(
+      processoOffertaEsiti
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    )]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      selectedEsiti.forEach((value) => params.append('esiti', value))
+
+      const response = await fetch(toBackendUrl(`/api/processo-offerta/offerte?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaOfferteData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Processo Offerta - Offerte.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaOfferteData(null)
+        setStatusMessage(message || `Errore caricamento Processo Offerta - Offerte (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as ProcessoOffertaOfferteResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setProcessoOffertaAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      const validEsiti = selectedEsiti.filter((esito) => (
+        (payload.esitiDisponibili ?? []).some((option) => option.localeCompare(esito, 'it', { sensitivity: 'base' }) === 0)
+      ))
+      if (validEsiti.length !== selectedEsiti.length) {
+        setProcessoOffertaEsiti(validEsiti)
+      }
+      setProcessoOffertaOfferteData(payload)
+      setStatusMessage(`Processo Offerta - Offerte caricato (anni: ${payload.anni.join(', ') || yearsToQuery.join(', ')}): ${payload.items.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadProcessoOffertaSintesiRcc = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessProcessoOffertaPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Processo Offerta.`)
+      setProcessoOffertaSintesiRccData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      processoOffertaAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+    const selectedEsiti = [...new Set(
+      processoOffertaEsiti
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    )]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      selectedEsiti.forEach((value) => params.append('esiti', value))
+
+      const response = await fetch(toBackendUrl(`/api/processo-offerta/sintesi-rcc?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaSintesiRccData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Processo Offerta - Sintesi RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaSintesiRccData(null)
+        setStatusMessage(message || `Errore caricamento Processo Offerta - Sintesi RCC (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as ProcessoOffertaSintesiResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setProcessoOffertaAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      const validEsiti = selectedEsiti.filter((esito) => (
+        (payload.esitiDisponibili ?? []).some((option) => option.localeCompare(esito, 'it', { sensitivity: 'base' }) === 0)
+      ))
+      if (validEsiti.length !== selectedEsiti.length) {
+        setProcessoOffertaEsiti(validEsiti)
+      }
+      setProcessoOffertaSintesiRccData(payload)
+      setStatusMessage(`Processo Offerta - Sintesi RCC caricata (anni: ${payload.anni.join(', ') || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadProcessoOffertaSintesiBu = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessProcessoOffertaPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Processo Offerta.`)
+      setProcessoOffertaSintesiBuData(null)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      processoOffertaAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+    const selectedEsiti = [...new Set(
+      processoOffertaEsiti
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    )]
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      yearsToQuery.forEach((value) => params.append('anni', value.toString()))
+      selectedEsiti.forEach((value) => params.append('esiti', value))
+
+      const response = await fetch(toBackendUrl(`/api/processo-offerta/sintesi-bu?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaSintesiBuData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Processo Offerta - Sintesi BU.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setProcessoOffertaSintesiBuData(null)
+        setStatusMessage(message || `Errore caricamento Processo Offerta - Sintesi BU (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as ProcessoOffertaSintesiResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => value.toString())
+      setProcessoOffertaAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      const validEsiti = selectedEsiti.filter((esito) => (
+        (payload.esitiDisponibili ?? []).some((option) => option.localeCompare(esito, 'it', { sensitivity: 'base' }) === 0)
+      ))
+      if (validEsiti.length !== selectedEsiti.length) {
+        setProcessoOffertaEsiti(validEsiti)
+      }
+      setProcessoOffertaSintesiBuData(payload)
+      setStatusMessage(`Processo Offerta - Sintesi BU caricata (anni: ${payload.anni.join(', ') || yearsToQuery.join(', ')}): ${payload.righe.length} righe.`)
     } finally {
       setAnalisiRccLoading(false)
     }
@@ -1562,7 +2977,14 @@ function App() {
     }
 
     window.history.replaceState({}, document.title, url.toString())
-    if (activePage === 'commesse-sintesi' || activePage === 'prodotti-sintesi' || activePage === 'dati-contabili-vendita' || activePage === 'dati-contabili-acquisti') {
+    if (
+      activePage === 'commesse-sintesi' ||
+      activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-dati-annuali-aggregati' ||
+      activePage === 'prodotti-sintesi' ||
+      activePage === 'dati-contabili-vendita' ||
+      activePage === 'dati-contabili-acquisti'
+    ) {
       setLastSintesiPage(activePage)
     }
     setActivePage('commessa-dettaglio')
@@ -1587,6 +3009,20 @@ function App() {
     if (lastSintesiPage === 'dati-contabili-acquisti') {
       if (datiContabiliAcquistoRows.length === 0 && !datiContabiliAcquistoLoading) {
         void executeDatiContabiliAcquistiSearch()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'commesse-andamento-mensile') {
+      if (!commesseAndamentoMensileData && !analisiRccLoading) {
+        void loadCommesseAndamentoMensile()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'commesse-dati-annuali-aggregati') {
+      if (!commesseDatiAnnualiData && !analisiRccLoading) {
+        void loadCommesseDatiAnnualiAggregati()
       }
       return
     }
@@ -1639,6 +3075,28 @@ function App() {
     void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
   }
 
+  const activateCommesseAndamentoMensilePage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('commesse-andamento-mensile')
+    setActivePage('commesse-andamento-mensile')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadCommesseAndamentoMensile()
+  }
+
+  const activateCommesseDatiAnnualiAggregatiPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('commesse-dati-annuali-aggregati')
+    setActivePage('commesse-dati-annuali-aggregati')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadCommesseDatiAnnualiAggregati()
+  }
+
   const activateProdottiPage = () => {
     setOpenMenu(null)
     setLastSintesiPage('prodotti-sintesi')
@@ -1671,6 +3129,146 @@ function App() {
     }
 
     void loadAnalisiRccPivotFatturato()
+  }
+
+  const activateAnalisiBuRisultatoMensilePage = () => {
+    setOpenMenu(null)
+    setActivePage('analisi-bu-risultato-mensile')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadAnalisiBuRisultatoMensile()
+  }
+
+  const activateAnalisiBuPivotFatturatoPage = () => {
+    setOpenMenu(null)
+    setActivePage('analisi-bu-pivot-fatturato')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadAnalisiBuPivotFatturato()
+  }
+
+  const activatePrevisioniFunnelPage = () => {
+    setOpenMenu(null)
+    setActivePage('previsioni-funnel')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadPrevisioniFunnel()
+  }
+
+  const activatePrevisioniReportFunnelRccPage = () => {
+    setOpenMenu(null)
+    setActivePage('previsioni-report-funnel-rcc')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadPrevisioniReportFunnelRcc()
+  }
+
+  const activatePrevisioniReportFunnelBuPage = () => {
+    setOpenMenu(null)
+    setActivePage('previsioni-report-funnel-bu')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadPrevisioniReportFunnelBu()
+  }
+
+  const activatePrevisioniUtileMensileRccPage = () => {
+    setOpenMenu(null)
+    setActivePage('previsioni-utile-mensile-rcc')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadPrevisioniUtileMensileRcc()
+  }
+
+  const activatePrevisioniUtileMensileBuPage = () => {
+    setOpenMenu(null)
+    setActivePage('previsioni-utile-mensile-bu')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadPrevisioniUtileMensileBu()
+  }
+
+  const activateProcessoOffertaOffertePage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-offerte')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaOfferte()
+  }
+
+  const activateProcessoOffertaSintesiRccPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-sintesi-rcc')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiRcc()
+  }
+
+  const activateProcessoOffertaSintesiBuPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-sintesi-bu')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiBu()
+  }
+
+  const activateProcessoOffertaPercentualeSuccessoRccPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-percentuale-successo-rcc')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiRcc()
+  }
+
+  const activateProcessoOffertaPercentualeSuccessoBuPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-percentuale-successo-bu')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiBu()
+  }
+
+  const activateProcessoOffertaIncidenzaRccPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-incidenza-rcc')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiRcc()
+  }
+
+  const activateProcessoOffertaIncidenzaBuPage = () => {
+    setOpenMenu(null)
+    setActivePage('processo-offerta-incidenza-bu')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadProcessoOffertaSintesiBu()
   }
 
   const activateDatiContabiliVenditaPage = () => {
@@ -1709,10 +3307,78 @@ function App() {
     void executeSintesiSearch()
   }
 
-  const handleAnalisiRccSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleAnalisiSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (activePage === 'commesse-andamento-mensile') {
+      void loadCommesseAndamentoMensile()
+      return
+    }
+
+    if (activePage === 'commesse-dati-annuali-aggregati') {
+      void loadCommesseDatiAnnualiAggregati()
+      return
+    }
+
+    if (activePage === 'processo-offerta-offerte') {
+      void loadProcessoOffertaOfferte()
+      return
+    }
+
+    if (
+      activePage === 'processo-offerta-sintesi-rcc' ||
+      activePage === 'processo-offerta-percentuale-successo-rcc' ||
+      activePage === 'processo-offerta-incidenza-rcc'
+    ) {
+      void loadProcessoOffertaSintesiRcc()
+      return
+    }
+
+    if (
+      activePage === 'processo-offerta-sintesi-bu' ||
+      activePage === 'processo-offerta-percentuale-successo-bu' ||
+      activePage === 'processo-offerta-incidenza-bu'
+    ) {
+      void loadProcessoOffertaSintesiBu()
+      return
+    }
+
+    if (activePage === 'previsioni-report-funnel-rcc') {
+      void loadPrevisioniReportFunnelRcc()
+      return
+    }
+
+    if (activePage === 'previsioni-report-funnel-bu') {
+      void loadPrevisioniReportFunnelBu()
+      return
+    }
+
+    if (activePage === 'previsioni-utile-mensile-rcc') {
+      void loadPrevisioniUtileMensileRcc()
+      return
+    }
+
+    if (activePage === 'previsioni-utile-mensile-bu') {
+      void loadPrevisioniUtileMensileBu()
+      return
+    }
+
+    if (activePage === 'previsioni-funnel') {
+      void loadPrevisioniFunnel()
+      return
+    }
+
     if (activePage === 'analisi-rcc-pivot-fatturato') {
       void loadAnalisiRccPivotFatturato()
+      return
+    }
+
+    if (activePage === 'analisi-bu-pivot-fatturato') {
+      void loadAnalisiBuPivotFatturato()
+      return
+    }
+
+    if (activePage === 'analisi-bu-risultato-mensile') {
+      void loadAnalisiBuRisultatoMensile()
       return
     }
 
@@ -1947,11 +3613,11 @@ function App() {
       }
     }
 
-    if (routeRequest.page === 'commessa-dettaglio' && routeRequest.commessa) {
-      setActivePage('commessa-dettaglio')
-      void loadCommessaDetail(routeRequest.commessa, token, activeImpersonation, currentProfile)
-      setDetailRouteProcessed(true)
-      return
+    if (routeRequest.page || routeRequest.commessa) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('page')
+      url.searchParams.delete('commessa')
+      window.history.replaceState({}, document.title, url.toString())
     }
 
     setDetailRouteProcessed(true)
@@ -2449,6 +4115,1080 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [analisiRccPivotData?.rccDisponibili, analisiRccPivotData?.rccFiltro, analisiRccPivotRcc])
+  const analisiBuGrids = useMemo(() => {
+    if (!analisiBuData) {
+      return []
+    }
+
+    return [analisiBuData.risultatoPesato, analisiBuData.percentualePesata]
+  }, [analisiBuData])
+  const analisiBuPivotRows = analisiBuPivotData?.righe ?? []
+  const analisiBuPivotTotaliPerAnno = analisiBuPivotData?.totaliPerAnno ?? []
+  const analisiBuPivotAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    analisiBuPivotAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(analisiBuPivotData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [analisiBuPivotAnni, analisiBuPivotData?.anni, sintesiFiltersCatalog.anni])
+  const analisiBuPivotBusinessUnitOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(analisiBuPivotData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = analisiBuPivotBusinessUnit.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (analisiBuPivotData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [analisiBuPivotData?.rccDisponibili, analisiBuPivotData?.rccFiltro, analisiBuPivotBusinessUnit])
+  const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
+  const commesseAndamentoMensileTotals = useMemo(() => (
+    commesseAndamentoMensileRows.reduce((acc, row) => ({
+      oreLavorate: acc.oreLavorate + row.oreLavorate,
+      costoPersonale: acc.costoPersonale + row.costoPersonale,
+      ricavi: acc.ricavi + row.ricavi,
+      costi: acc.costi + row.costi,
+      costoGeneraleRibaltato: acc.costoGeneraleRibaltato + row.costoGeneraleRibaltato,
+      utileSpecifico: acc.utileSpecifico + row.utileSpecifico,
+    }), {
+      oreLavorate: 0,
+      costoPersonale: 0,
+      ricavi: 0,
+      costi: 0,
+      costoGeneraleRibaltato: 0,
+      utileSpecifico: 0,
+    })
+  ), [commesseAndamentoMensileRows])
+  const commesseAndamentoMensileAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    commesseAndamentoMensileAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    commesseAndamentoMensileRows.forEach((row) => {
+      if (Number.isFinite(row.annoCompetenza) && row.annoCompetenza > 0) {
+        years.add(row.annoCompetenza.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [commesseAndamentoMensileAnni, commesseAndamentoMensileRows, sintesiFiltersCatalog.anni])
+  const commesseDatiAnnualiRows = commesseDatiAnnualiData?.items ?? []
+  const commesseDatiAnnualiTotaliPerAnno = commesseDatiAnnualiData?.totaliPerAnno ?? []
+  const commesseDatiAnnualiAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    commesseDatiAnnualiAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    commesseDatiAnnualiRows.forEach((row) => {
+      if (Number.isFinite(row.anno) && row.anno > 0) {
+        years.add(row.anno.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [commesseDatiAnnualiAnni, commesseDatiAnnualiRows, sintesiFiltersCatalog.anni])
+  const previsioniUtileMensileRccRows = previsioniUtileMensileRccData?.righe ?? []
+  const previsioniUtileMensileRccTotaliPerAnno = previsioniUtileMensileRccData?.totaliPerAnno ?? []
+  const previsioniUtileMensileRccAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    const selectedYear = previsioniUtileMensileRccAnno.trim()
+    if (selectedYear) {
+      years.add(selectedYear)
+    }
+    ;(previsioniUtileMensileRccData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniUtileMensileRccAnno, previsioniUtileMensileRccData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniUtileMensileRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniUtileMensileRccData?.aggregazioniDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniUtileMensileRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniUtileMensileRccData?.aggregazioneFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniUtileMensileRcc, previsioniUtileMensileRccData?.aggregazioniDisponibili, previsioniUtileMensileRccData?.aggregazioneFiltro])
+  const previsioniUtileMensileRccMeseRiferimentoValue = parseReferenceMonth(previsioniUtileMensileRccMeseRiferimento)
+  const previsioniUtileMensileBuRows = previsioniUtileMensileBuData?.righe ?? []
+  const previsioniUtileMensileBuTotaliPerAnno = previsioniUtileMensileBuData?.totaliPerAnno ?? []
+  const previsioniUtileMensileBuAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    const selectedYear = previsioniUtileMensileBuAnno.trim()
+    if (selectedYear) {
+      years.add(selectedYear)
+    }
+    ;(previsioniUtileMensileBuData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniUtileMensileBuAnno, previsioniUtileMensileBuData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniUtileMensileBuOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniUtileMensileBuData?.aggregazioniDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniUtileMensileBu.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniUtileMensileBuData?.aggregazioneFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniUtileMensileBu, previsioniUtileMensileBuData?.aggregazioniDisponibili, previsioniUtileMensileBuData?.aggregazioneFiltro])
+  const previsioniUtileMensileBuMeseRiferimentoValue = parseReferenceMonth(previsioniUtileMensileBuMeseRiferimento)
+  const previsioniFunnelRows = previsioniFunnelData?.items ?? []
+  const previsioniFunnelTotals = useMemo(() => {
+    const totals = previsioniFunnelRows.reduce((acc, row) => ({
+      budgetRicavo: acc.budgetRicavo + row.budgetRicavo,
+      budgetPersonale: acc.budgetPersonale + row.budgetPersonale,
+      budgetCosti: acc.budgetCosti + row.budgetCosti,
+      ricavoAtteso: acc.ricavoAtteso + row.ricavoAtteso,
+      fatturatoEmesso: acc.fatturatoEmesso + row.fatturatoEmesso,
+      fatturatoFuturo: acc.fatturatoFuturo + row.fatturatoFuturo,
+      emessaAnno: acc.emessaAnno + row.emessaAnno,
+      futuraAnno: acc.futuraAnno + row.futuraAnno,
+      totaleAnno: acc.totaleAnno + row.totaleAnno,
+      weightedPercentNumerator: acc.weightedPercentNumerator + (row.percentualeSuccesso * row.budgetRicavo),
+    }), {
+      budgetRicavo: 0,
+      budgetPersonale: 0,
+      budgetCosti: 0,
+      ricavoAtteso: 0,
+      fatturatoEmesso: 0,
+      fatturatoFuturo: 0,
+      emessaAnno: 0,
+      futuraAnno: 0,
+      totaleAnno: 0,
+      weightedPercentNumerator: 0,
+    })
+
+    return {
+      ...totals,
+      percentualeSuccesso: totals.budgetRicavo === 0
+        ? 0
+        : totals.weightedPercentNumerator / totals.budgetRicavo,
+    }
+  }, [previsioniFunnelRows])
+  const previsioniFunnelAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    previsioniFunnelAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(previsioniFunnelData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniFunnelAnni, previsioniFunnelData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniFunnelRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniFunnelData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniFunnelRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniFunnelData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniFunnelData?.rccDisponibili, previsioniFunnelData?.rccFiltro, previsioniFunnelRcc])
+  const previsioniFunnelTipoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniFunnelData?.tipiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniFunnelTipo.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniFunnelData?.tipiDisponibili, previsioniFunnelTipo])
+  const previsioniFunnelStatoDocumentoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniFunnelData?.statiDocumentoDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniFunnelStatoDocumento.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniFunnelData?.statiDocumentoDisponibili, previsioniFunnelStatoDocumento])
+  const previsioniReportFunnelRccRows = previsioniReportFunnelRccData?.righe ?? []
+  const previsioniReportFunnelRccTotaliPerAnno = previsioniReportFunnelRccData?.totaliPerAnno ?? []
+  const previsioniReportFunnelRccAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    previsioniReportFunnelRccAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(previsioniReportFunnelRccData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniReportFunnelRccAnni, previsioniReportFunnelRccData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniReportFunnelRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelRccData?.aggregazioniDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniReportFunnelRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniReportFunnelRccData?.aggregazioneFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelRccData?.aggregazioniDisponibili, previsioniReportFunnelRccData?.aggregazioneFiltro, previsioniReportFunnelRcc])
+  const previsioniReportFunnelRccAnnoSelezionato = previsioniReportFunnelRccAnni[0]?.trim()
+    || new Date().getFullYear().toString()
+  const previsioniReportFunnelBuRows = previsioniReportFunnelBuData?.righe ?? []
+  const previsioniReportFunnelBuTotaliPerAnno = previsioniReportFunnelBuData?.totaliPerAnno ?? []
+  const previsioniReportFunnelBuAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    previsioniReportFunnelBuAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(previsioniReportFunnelBuData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniReportFunnelBuAnni, previsioniReportFunnelBuData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniReportFunnelBuOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBuData?.aggregazioniDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniReportFunnelBu.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniReportFunnelBuData?.aggregazioneFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelBuData?.aggregazioniDisponibili, previsioniReportFunnelBuData?.aggregazioneFiltro, previsioniReportFunnelBu])
+  const previsioniReportFunnelBuRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBuData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniReportFunnelBuRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniReportFunnelBuData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelBuData?.rccDisponibili, previsioniReportFunnelBuData?.rccFiltro, previsioniReportFunnelBuRcc])
+  const previsioniReportFunnelBuAnnoSelezionato = previsioniReportFunnelBuAnni[0]?.trim()
+    || new Date().getFullYear().toString()
+
+  const buildPrevisioniReportFunnelPivotRows = (rows: AnalisiRccPivotFunnelRow[]) => {
+    type PercentBucket = {
+      percentualeSuccesso: number
+      numeroProtocolli: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleEmessaAnno: number
+      totaleFuturaAnno: number
+      totaleRicaviComplessivi: number
+    }
+    type TipoBucket = {
+      tipo: string
+      numeroProtocolli: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleEmessaAnno: number
+      totaleFuturaAnno: number
+      totaleRicaviComplessivi: number
+      percentuali: Map<string, PercentBucket>
+    }
+    type AggregazioneBucket = {
+      anno: number
+      aggregazione: string
+      numeroProtocolli: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleEmessaAnno: number
+      totaleFuturaAnno: number
+      totaleRicaviComplessivi: number
+      tipi: Map<string, TipoBucket>
+    }
+
+    const keyOf = (value: string) => value.trim().toUpperCase()
+    const percentKeyOf = (value: number) => (
+      Number.isFinite(value) ? value.toFixed(6) : '0.000000'
+    )
+
+    const grouped = new Map<string, AggregazioneBucket>()
+    rows.forEach((row) => {
+      const anno = Number.isFinite(row.anno) ? row.anno : 0
+      const aggregazione = row.aggregazione.trim() || '-'
+      const tipo = row.tipo.trim() || '-'
+      const percentualeSuccesso = Number.isFinite(row.percentualeSuccesso) ? row.percentualeSuccesso : 0
+      const numeroProtocolli = Number.isFinite(row.numeroProtocolli) ? row.numeroProtocolli : 0
+
+      const aggregazioneMapKey = `${anno}|${keyOf(aggregazione)}`
+      let aggregazioneBucket = grouped.get(aggregazioneMapKey)
+      if (!aggregazioneBucket) {
+        aggregazioneBucket = {
+          anno,
+          aggregazione,
+          numeroProtocolli: 0,
+          totaleBudgetRicavo: 0,
+          totaleBudgetCosti: 0,
+          totaleFatturatoFuturo: 0,
+          totaleEmessaAnno: 0,
+          totaleFuturaAnno: 0,
+          totaleRicaviComplessivi: 0,
+          tipi: new Map<string, TipoBucket>(),
+        }
+        grouped.set(aggregazioneMapKey, aggregazioneBucket)
+      }
+
+      aggregazioneBucket.numeroProtocolli += numeroProtocolli
+      aggregazioneBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      aggregazioneBucket.totaleBudgetCosti += row.totaleBudgetCosti
+      aggregazioneBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      aggregazioneBucket.totaleEmessaAnno += row.totaleEmessaAnno
+      aggregazioneBucket.totaleFuturaAnno += row.totaleFuturaAnno
+      aggregazioneBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+
+      const tipoMapKey = keyOf(tipo)
+      let tipoBucket = aggregazioneBucket.tipi.get(tipoMapKey)
+      if (!tipoBucket) {
+        tipoBucket = {
+          tipo,
+          numeroProtocolli: 0,
+          totaleBudgetRicavo: 0,
+          totaleBudgetCosti: 0,
+          totaleFatturatoFuturo: 0,
+          totaleEmessaAnno: 0,
+          totaleFuturaAnno: 0,
+          totaleRicaviComplessivi: 0,
+          percentuali: new Map<string, PercentBucket>(),
+        }
+        aggregazioneBucket.tipi.set(tipoMapKey, tipoBucket)
+      }
+
+      tipoBucket.numeroProtocolli += numeroProtocolli
+      tipoBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      tipoBucket.totaleBudgetCosti += row.totaleBudgetCosti
+      tipoBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      tipoBucket.totaleEmessaAnno += row.totaleEmessaAnno
+      tipoBucket.totaleFuturaAnno += row.totaleFuturaAnno
+      tipoBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+
+      const percentMapKey = percentKeyOf(percentualeSuccesso)
+      let percentBucket = tipoBucket.percentuali.get(percentMapKey)
+      if (!percentBucket) {
+        percentBucket = {
+          percentualeSuccesso,
+          numeroProtocolli: 0,
+          totaleBudgetRicavo: 0,
+          totaleBudgetCosti: 0,
+          totaleFatturatoFuturo: 0,
+          totaleEmessaAnno: 0,
+          totaleFuturaAnno: 0,
+          totaleRicaviComplessivi: 0,
+        }
+        tipoBucket.percentuali.set(percentMapKey, percentBucket)
+      }
+
+      percentBucket.numeroProtocolli += numeroProtocolli
+      percentBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      percentBucket.totaleBudgetCosti += row.totaleBudgetCosti
+      percentBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      percentBucket.totaleEmessaAnno += row.totaleEmessaAnno
+      percentBucket.totaleFuturaAnno += row.totaleFuturaAnno
+      percentBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+    })
+
+    const formatPercentLabel = (value: number) => {
+      if (!Number.isFinite(value)) {
+        return '-'
+      }
+      if (Math.abs(value - Math.round(value)) < 0.0001) {
+        return `${Math.round(value)}`
+      }
+      return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+
+    const result: Array<{
+      key: string
+      anno: number
+      livello: 0 | 1 | 2
+      etichetta: string
+      percentualeSuccesso: number
+      numeroProtocolli: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleEmessaAnno: number
+      totaleFuturaAnno: number
+      totaleRicaviComplessivi: number
+    }> = []
+
+    const sortedAggregazioni = [...grouped.values()].sort((left, right) => (
+      left.anno - right.anno ||
+      left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
+    ))
+    sortedAggregazioni.forEach((aggregazioneBucket) => {
+      result.push({
+        key: `agg-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}`,
+        anno: aggregazioneBucket.anno,
+        livello: 0,
+        etichetta: aggregazioneBucket.aggregazione,
+        percentualeSuccesso: 0,
+        numeroProtocolli: aggregazioneBucket.numeroProtocolli,
+        totaleBudgetRicavo: aggregazioneBucket.totaleBudgetRicavo,
+        totaleBudgetCosti: aggregazioneBucket.totaleBudgetCosti,
+        totaleFatturatoFuturo: aggregazioneBucket.totaleFatturatoFuturo,
+        totaleEmessaAnno: aggregazioneBucket.totaleEmessaAnno,
+        totaleFuturaAnno: aggregazioneBucket.totaleFuturaAnno,
+        totaleRicaviComplessivi: aggregazioneBucket.totaleRicaviComplessivi,
+      })
+
+      const sortedTipi = [...aggregazioneBucket.tipi.values()].sort((left, right) => (
+        left.tipo.localeCompare(right.tipo, 'it', { sensitivity: 'base' })
+      ))
+      sortedTipi.forEach((tipoBucket) => {
+        result.push({
+          key: `tipo-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}-${tipoBucket.tipo}`,
+          anno: aggregazioneBucket.anno,
+          livello: 1,
+          etichetta: tipoBucket.tipo,
+          percentualeSuccesso: 0,
+          numeroProtocolli: tipoBucket.numeroProtocolli,
+          totaleBudgetRicavo: tipoBucket.totaleBudgetRicavo,
+          totaleBudgetCosti: tipoBucket.totaleBudgetCosti,
+          totaleFatturatoFuturo: tipoBucket.totaleFatturatoFuturo,
+          totaleEmessaAnno: tipoBucket.totaleEmessaAnno,
+          totaleFuturaAnno: tipoBucket.totaleFuturaAnno,
+          totaleRicaviComplessivi: tipoBucket.totaleRicaviComplessivi,
+        })
+
+        const sortedPercentuali = [...tipoBucket.percentuali.values()].sort((left, right) => (
+          left.percentualeSuccesso - right.percentualeSuccesso
+        ))
+        sortedPercentuali.forEach((percentBucket) => {
+          result.push({
+            key: `pct-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}-${tipoBucket.tipo}-${percentBucket.percentualeSuccesso}`,
+            anno: aggregazioneBucket.anno,
+            livello: 2,
+            etichetta: formatPercentLabel(percentBucket.percentualeSuccesso),
+            percentualeSuccesso: percentBucket.percentualeSuccesso,
+            numeroProtocolli: percentBucket.numeroProtocolli,
+            totaleBudgetRicavo: percentBucket.totaleBudgetRicavo,
+            totaleBudgetCosti: percentBucket.totaleBudgetCosti,
+            totaleFatturatoFuturo: percentBucket.totaleFatturatoFuturo,
+            totaleEmessaAnno: percentBucket.totaleEmessaAnno,
+            totaleFuturaAnno: percentBucket.totaleFuturaAnno,
+            totaleRicaviComplessivi: percentBucket.totaleRicaviComplessivi,
+          })
+        })
+      })
+    })
+
+    return result
+  }
+
+  const previsioniReportFunnelRccPivotRows = useMemo(
+    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelRccRows),
+    [previsioniReportFunnelRccRows],
+  )
+
+  const previsioniReportFunnelBuPivotRows = useMemo(
+    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelBuRows),
+    [previsioniReportFunnelBuRows],
+  )
+  const buildPrevisioniReportFunnelTotaliDettaglioRows = (rows: AnalisiRccPivotFunnelRow[]) => (
+    buildPrevisioniReportFunnelPivotRows(
+      rows.map((row) => ({
+        ...row,
+        aggregazione: 'Totale complessivo',
+      })),
+    )
+  )
+  const countPrevisioniReportFunnelAggregazioni = (rows: AnalisiRccPivotFunnelRow[]) => (
+    new Set(
+      rows
+        .map((row) => `${row.anno}|${row.aggregazione.trim().toUpperCase()}`)
+        .filter((value) => !value.endsWith('|')),
+    ).size
+  )
+  const previsioniReportFunnelRccHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelRccRows) > 1
+  const previsioniReportFunnelBuHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelBuRows) > 1
+  const previsioniReportFunnelRccTotaliDettaglioRows = useMemo(
+    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelRccRows),
+    [previsioniReportFunnelRccRows],
+  )
+  const previsioniReportFunnelBuTotaliDettaglioRows = useMemo(
+    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelBuRows),
+    [previsioniReportFunnelBuRows],
+  )
+  const processoOffertaOfferteRows = processoOffertaOfferteData?.items ?? []
+  const processoOffertaSintesiRccRows = processoOffertaSintesiRccData?.righe ?? []
+  const processoOffertaSintesiBuRows = processoOffertaSintesiBuData?.righe ?? []
+  const processoOffertaAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    processoOffertaAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(processoOffertaOfferteData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    ;(processoOffertaSintesiRccData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    ;(processoOffertaSintesiBuData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [
+    processoOffertaAnni,
+    processoOffertaOfferteData?.anni,
+    processoOffertaSintesiRccData?.anni,
+    processoOffertaSintesiBuData?.anni,
+    sintesiFiltersCatalog.anni,
+  ])
+  const processoOffertaEsitiOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(processoOffertaOfferteData?.esitiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    ;(processoOffertaSintesiRccData?.esitiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    ;(processoOffertaSintesiBuData?.esitiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    processoOffertaEsiti.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [
+    processoOffertaEsiti,
+    processoOffertaOfferteData?.esitiDisponibili,
+    processoOffertaSintesiRccData?.esitiDisponibili,
+    processoOffertaSintesiBuData?.esitiDisponibili,
+  ])
+  const processoOffertaSuccessoRccRows = useMemo(() => {
+    const grouped = new Map<string, {
+      anno: number
+      aggregazione: string
+      numeroTotale: number
+      numeroPositivo: number
+      importoTotale: number
+      importoPositivo: number
+    }>()
+
+    processoOffertaSintesiRccRows.forEach((row) => {
+      const key = `${row.anno}||${row.aggregazione}`
+      const current = grouped.get(key) ?? {
+        anno: row.anno,
+        aggregazione: row.aggregazione,
+        numeroTotale: 0,
+        numeroPositivo: 0,
+        importoTotale: 0,
+        importoPositivo: 0,
+      }
+      const isPositive = isProcessoOffertaEsitoPositivo(row.esitoPositivoTesto)
+      current.numeroTotale += row.numero
+      current.importoTotale += row.importoPrevedibile
+      if (isPositive) {
+        current.numeroPositivo += row.numero
+        current.importoPositivo += row.importoPrevedibile
+      }
+      grouped.set(key, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => {
+        if (left.anno !== right.anno) {
+          return left.anno - right.anno
+        }
+        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
+      })
+      .map((row) => ({
+        ...row,
+        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
+        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
+      }))
+  }, [processoOffertaSintesiRccRows])
+  const processoOffertaSuccessoBuRows = useMemo(() => {
+    const grouped = new Map<string, {
+      anno: number
+      aggregazione: string
+      numeroTotale: number
+      numeroPositivo: number
+      importoTotale: number
+      importoPositivo: number
+    }>()
+
+    processoOffertaSintesiBuRows.forEach((row) => {
+      const key = `${row.anno}||${row.aggregazione}`
+      const current = grouped.get(key) ?? {
+        anno: row.anno,
+        aggregazione: row.aggregazione,
+        numeroTotale: 0,
+        numeroPositivo: 0,
+        importoTotale: 0,
+        importoPositivo: 0,
+      }
+      const isPositive = isProcessoOffertaEsitoPositivo(row.esitoPositivoTesto)
+      current.numeroTotale += row.numero
+      current.importoTotale += row.importoPrevedibile
+      if (isPositive) {
+        current.numeroPositivo += row.numero
+        current.importoPositivo += row.importoPrevedibile
+      }
+      grouped.set(key, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => {
+        if (left.anno !== right.anno) {
+          return left.anno - right.anno
+        }
+        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
+      })
+      .map((row) => ({
+        ...row,
+        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
+        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
+      }))
+  }, [processoOffertaSintesiBuRows])
+  const processoOffertaIncidenzaRccRows = useMemo(() => {
+    const totalsByYear = new Map<number, number>()
+    processoOffertaSintesiRccRows.forEach((row) => {
+      totalsByYear.set(row.anno, (totalsByYear.get(row.anno) ?? 0) + row.importoPrevedibile)
+    })
+
+    const grouped = new Map<string, { anno: number; aggregazione: string; importoPrevedibile: number; numero: number }>()
+    processoOffertaSintesiRccRows.forEach((row) => {
+      const key = `${row.anno}||${row.aggregazione}`
+      const current = grouped.get(key) ?? {
+        anno: row.anno,
+        aggregazione: row.aggregazione,
+        importoPrevedibile: 0,
+        numero: 0,
+      }
+      current.importoPrevedibile += row.importoPrevedibile
+      current.numero += row.numero
+      grouped.set(key, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => {
+        if (left.anno !== right.anno) {
+          return left.anno - right.anno
+        }
+        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
+      })
+      .map((row) => {
+        const totaleAnno = totalsByYear.get(row.anno) ?? 0
+        return {
+          ...row,
+          totaleAnno,
+          percentualeSuAnno: totaleAnno > 0 ? row.importoPrevedibile / totaleAnno : 0,
+        }
+      })
+  }, [processoOffertaSintesiRccRows])
+  const processoOffertaIncidenzaBuRows = useMemo(() => {
+    const totalsByYear = new Map<number, number>()
+    processoOffertaSintesiBuRows.forEach((row) => {
+      totalsByYear.set(row.anno, (totalsByYear.get(row.anno) ?? 0) + row.importoPrevedibile)
+    })
+
+    const grouped = new Map<string, { anno: number; aggregazione: string; importoPrevedibile: number; numero: number }>()
+    processoOffertaSintesiBuRows.forEach((row) => {
+      const key = `${row.anno}||${row.aggregazione}`
+      const current = grouped.get(key) ?? {
+        anno: row.anno,
+        aggregazione: row.aggregazione,
+        importoPrevedibile: 0,
+        numero: 0,
+      }
+      current.importoPrevedibile += row.importoPrevedibile
+      current.numero += row.numero
+      grouped.set(key, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => {
+        if (left.anno !== right.anno) {
+          return left.anno - right.anno
+        }
+        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
+      })
+      .map((row) => {
+        const totaleAnno = totalsByYear.get(row.anno) ?? 0
+        return {
+          ...row,
+          totaleAnno,
+          percentualeSuAnno: totaleAnno > 0 ? row.importoPrevedibile / totaleAnno : 0,
+        }
+      })
+  }, [processoOffertaSintesiBuRows])
+  const processoOffertaOfferteTotals = useMemo(() => (
+    processoOffertaOfferteRows.reduce((acc, row) => ({
+      importoPrevedibile: acc.importoPrevedibile + row.importoPrevedibile,
+      costoPrevedibile: acc.costoPrevedibile + row.costoPrevedibile,
+    }), {
+      importoPrevedibile: 0,
+      costoPrevedibile: 0,
+    })
+  ), [processoOffertaOfferteRows])
+  const processoOffertaSintesiRccTotals = useMemo(() => (
+    processoOffertaSintesiRccRows.reduce((acc, row) => ({
+      numero: acc.numero + row.numero,
+      importoPrevedibile: acc.importoPrevedibile + row.importoPrevedibile,
+      costoPrevedibile: acc.costoPrevedibile + row.costoPrevedibile,
+    }), {
+      numero: 0,
+      importoPrevedibile: 0,
+      costoPrevedibile: 0,
+    })
+  ), [processoOffertaSintesiRccRows])
+  const processoOffertaSintesiBuTotals = useMemo(() => (
+    processoOffertaSintesiBuRows.reduce((acc, row) => ({
+      numero: acc.numero + row.numero,
+      importoPrevedibile: acc.importoPrevedibile + row.importoPrevedibile,
+      costoPrevedibile: acc.costoPrevedibile + row.costoPrevedibile,
+    }), {
+      numero: 0,
+      importoPrevedibile: 0,
+      costoPrevedibile: 0,
+    })
+  ), [processoOffertaSintesiBuRows])
+  const processoOffertaSuccessoRccTotaliPerAnno = useMemo(() => {
+    const grouped = new Map<number, {
+      anno: number
+      numeroTotale: number
+      numeroPositivo: number
+      importoTotale: number
+      importoPositivo: number
+    }>()
+
+    processoOffertaSuccessoRccRows.forEach((row) => {
+      const current = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numeroTotale: 0,
+        numeroPositivo: 0,
+        importoTotale: 0,
+        importoPositivo: 0,
+      }
+      current.numeroTotale += row.numeroTotale
+      current.numeroPositivo += row.numeroPositivo
+      current.importoTotale += row.importoTotale
+      current.importoPositivo += row.importoPositivo
+      grouped.set(row.anno, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        ...row,
+        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
+        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
+      }))
+  }, [processoOffertaSuccessoRccRows])
+  const processoOffertaSuccessoBuTotaliPerAnno = useMemo(() => {
+    const grouped = new Map<number, {
+      anno: number
+      numeroTotale: number
+      numeroPositivo: number
+      importoTotale: number
+      importoPositivo: number
+    }>()
+
+    processoOffertaSuccessoBuRows.forEach((row) => {
+      const current = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numeroTotale: 0,
+        numeroPositivo: 0,
+        importoTotale: 0,
+        importoPositivo: 0,
+      }
+      current.numeroTotale += row.numeroTotale
+      current.numeroPositivo += row.numeroPositivo
+      current.importoTotale += row.importoTotale
+      current.importoPositivo += row.importoPositivo
+      grouped.set(row.anno, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        ...row,
+        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
+        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
+      }))
+  }, [processoOffertaSuccessoBuRows])
+  const processoOffertaIncidenzaRccTotaliPerAnno = useMemo(() => {
+    const grouped = new Map<number, {
+      anno: number
+      numero: number
+      importoPrevedibile: number
+      totaleAnno: number
+    }>()
+
+    processoOffertaIncidenzaRccRows.forEach((row) => {
+      const current = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numero: 0,
+        importoPrevedibile: 0,
+        totaleAnno: row.totaleAnno,
+      }
+      current.numero += row.numero
+      current.importoPrevedibile += row.importoPrevedibile
+      current.totaleAnno = row.totaleAnno
+      grouped.set(row.anno, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        ...row,
+        percentualeSuAnno: row.totaleAnno > 0 ? row.importoPrevedibile / row.totaleAnno : 0,
+      }))
+  }, [processoOffertaIncidenzaRccRows])
+  const processoOffertaIncidenzaBuTotaliPerAnno = useMemo(() => {
+    const grouped = new Map<number, {
+      anno: number
+      numero: number
+      importoPrevedibile: number
+      totaleAnno: number
+    }>()
+
+    processoOffertaIncidenzaBuRows.forEach((row) => {
+      const current = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numero: 0,
+        importoPrevedibile: 0,
+        totaleAnno: row.totaleAnno,
+      }
+      current.numero += row.numero
+      current.importoPrevedibile += row.importoPrevedibile
+      current.totaleAnno = row.totaleAnno
+      grouped.set(row.anno, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        ...row,
+        percentualeSuAnno: row.totaleAnno > 0 ? row.importoPrevedibile / row.totaleAnno : 0,
+      }))
+  }, [processoOffertaIncidenzaBuRows])
   const datiContabiliVenditaSortedRows = useMemo(() => (
     [...datiContabiliVenditaRows].sort((left, right) => {
       const leftTime = left.dataMovimento ? new Date(left.dataMovimento).getTime() : Number.MIN_SAFE_INTEGER
@@ -2959,6 +5699,101 @@ function App() {
   const datiContabiliLoading = isDatiContabiliVenditaPage
     ? datiContabiliVenditaLoading
     : datiContabiliAcquistoLoading
+  const processoOffertaTitle = isProcessoOffertaOffertePage
+    ? 'Processo Offerta - Offerte'
+    : (
+      isProcessoOffertaSintesiRccPage
+        ? 'Processo Offerta - Sintesi RCC'
+        : (
+          isProcessoOffertaSintesiBuPage
+            ? 'Processo Offerta - Sintesi BU'
+            : (
+              isProcessoOffertaPercentualeSuccessoRccPage
+                ? 'Processo Offerta - Percentuale Successo RCC'
+                : (
+                  isProcessoOffertaPercentualeSuccessoBuPage
+                    ? 'Processo Offerta - Percentuale Successo BU'
+                    : (
+                      isProcessoOffertaIncidenzaRccPage
+                        ? 'Processo Offerta - Incidenza RCC'
+                        : 'Processo Offerta - Incidenza BU'
+                    )
+                )
+            )
+        )
+    )
+  const processoOffertaIsBuPage = (
+    isProcessoOffertaSintesiBuPage ||
+    isProcessoOffertaPercentualeSuccessoBuPage ||
+    isProcessoOffertaIncidenzaBuPage
+  )
+  const processoOffertaCurrentData: ProcessoOffertaOfferteResponse | ProcessoOffertaSintesiResponse | null = (
+    isProcessoOffertaOffertePage
+      ? processoOffertaOfferteData
+      : (
+        isProcessoOffertaSintesiRccPage || isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaIncidenzaRccPage
+          ? processoOffertaSintesiRccData
+          : processoOffertaSintesiBuData
+      )
+  )
+  const processoOffertaRowsCount = isProcessoOffertaOffertePage
+    ? processoOffertaOfferteRows.length
+    : (
+      isProcessoOffertaSintesiRccPage
+        ? processoOffertaSintesiRccRows.length
+        : (
+          isProcessoOffertaSintesiBuPage
+            ? processoOffertaSintesiBuRows.length
+            : (
+              isProcessoOffertaPercentualeSuccessoRccPage
+                ? processoOffertaSuccessoRccRows.length
+                : (
+                  isProcessoOffertaPercentualeSuccessoBuPage
+                    ? processoOffertaSuccessoBuRows.length
+                    : (
+                      isProcessoOffertaIncidenzaRccPage
+                        ? processoOffertaIncidenzaRccRows.length
+                        : processoOffertaIncidenzaBuRows.length
+                    )
+                )
+            )
+        )
+    )
+  const processoOffertaAggregazioneLabel = processoOffertaIsBuPage ? 'Business Unit' : 'RCC'
+  const processoOffertaSintesiRows = isProcessoOffertaSintesiRccPage
+    ? processoOffertaSintesiRccRows
+    : processoOffertaSintesiBuRows
+  const processoOffertaSintesiTotals = isProcessoOffertaSintesiRccPage
+    ? processoOffertaSintesiRccTotals
+    : processoOffertaSintesiBuTotals
+  const processoOffertaSintesiRicaricoTotale = processoOffertaSintesiTotals.costoPrevedibile === 0
+    ? 0
+    : (
+      (processoOffertaSintesiTotals.importoPrevedibile - processoOffertaSintesiTotals.costoPrevedibile)
+      / processoOffertaSintesiTotals.costoPrevedibile
+    )
+  const processoOffertaSuccessoRows = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaSuccessoRccRows
+    : processoOffertaSuccessoBuRows
+  const processoOffertaSuccessoTotaliPerAnno = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaSuccessoRccTotaliPerAnno
+    : processoOffertaSuccessoBuTotaliPerAnno
+  const processoOffertaIncidenzaRows = isProcessoOffertaIncidenzaRccPage
+    ? processoOffertaIncidenzaRccRows
+    : processoOffertaIncidenzaBuRows
+  const processoOffertaIncidenzaTotaliPerAnno = isProcessoOffertaIncidenzaRccPage
+    ? processoOffertaIncidenzaRccTotaliPerAnno
+    : processoOffertaIncidenzaBuTotaliPerAnno
+  const processoOffertaCountLabel = analisiRccLoading
+    ? 'Caricamento dati...'
+    : `${processoOffertaRowsCount} righe`
+  const processoOffertaVisibilityMessage = processoOffertaCurrentData
+    ? (
+      processoOffertaCurrentData.vediTutto
+        ? `visibilita: ${processoOffertaIsBuPage ? 'tutte le BU' : 'tutti gli RCC'}`
+        : `visibilita: solo ${processoOffertaCurrentData.ambitoFiltro || (processoOffertaIsBuPage ? 'BU corrente' : 'RCC corrente')}`
+    )
+    : statusMessage
   const numberFormatter = useMemo(() => (
     new Intl.NumberFormat('it-IT', {
       minimumFractionDigits: 2,
@@ -3440,7 +6275,7 @@ function App() {
               onClick={() => toggleMenu('sintesi')}
               aria-expanded={openMenu === 'sintesi'}
             >
-              Sintesi
+              Analisi Commesse
             </button>
             <div className="menu-dropdown-panel">
               <button type="button" className="menu-action" onClick={activateSintesiPage}>
@@ -3449,24 +6284,118 @@ function App() {
               <button type="button" className="menu-action" onClick={activateProdottiPage}>
                 Prodotti
               </button>
+              <button type="button" className="menu-action" onClick={activateCommesseAndamentoMensilePage}>
+                Andamento Mensile
+              </button>
+              <button type="button" className="menu-action" onClick={activateCommesseDatiAnnualiAggregatiPage}>
+                Dati Annuali Aggregati
+              </button>
+              {canAccessPrevisioniUtileMensileRccPage && (
+                <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileRccPage}>
+                  Utile Mensile RCC
+                </button>
+              )}
+              {canAccessPrevisioniUtileMensileBuPage && (
+                <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileBuPage}>
+                  Utile Mensile BU
+                </button>
+              )}
             </div>
           </div>
-          {canAccessAnalisiRccPage && (
-            <div className={`menu-dropdown ${openMenu === 'analisi-rcc' ? 'is-open' : ''}`}>
+          {canAccessAnalisiProiezioniMenu && (
+            <div className={`menu-dropdown ${openMenu === 'analisi-proiezioni' ? 'is-open' : ''}`}>
               <button
                 type="button"
                 className="menu-trigger"
-                onClick={() => toggleMenu('analisi-rcc')}
-                aria-expanded={openMenu === 'analisi-rcc'}
+                onClick={() => toggleMenu('analisi-proiezioni')}
+                aria-expanded={openMenu === 'analisi-proiezioni'}
               >
-                Analisi RCC
+                Analisi Proiezioni
               </button>
               <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={activateAnalisiRccRisultatoMensilePage}>
-                  Risultato Mensile
+                {canAccessAnalisiRccPage && (
+                  <>
+                    <button type="button" className="menu-action" onClick={activateAnalisiRccRisultatoMensilePage}>
+                      Proiezione Mensile RCC
+                    </button>
+                    <button type="button" className="menu-action" onClick={activateAnalisiRccPivotFatturatoPage}>
+                      Report Annuale RCC
+                    </button>
+                  </>
+                )}
+                {canAccessAnalisiBuPage && (
+                  <>
+                    <button type="button" className="menu-action" onClick={activateAnalisiBuRisultatoMensilePage}>
+                      Proiezione Mensile BU
+                    </button>
+                    <button type="button" className="menu-action" onClick={activateAnalisiBuPivotFatturatoPage}>
+                      Report Annuale BU
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {canAccessPrevisioniMenu && (
+            <div className={`menu-dropdown ${openMenu === 'previsioni' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('previsioni')}
+                aria-expanded={openMenu === 'previsioni'}
+              >
+                Previsioni
+              </button>
+              <div className="menu-dropdown-panel">
+                {canAccessPrevisioniFunnelRccPage && (
+                  <>
+                    <button type="button" className="menu-action" onClick={activatePrevisioniFunnelPage}>
+                      Funnel
+                    </button>
+                    <button type="button" className="menu-action" onClick={activatePrevisioniReportFunnelRccPage}>
+                      Report Funnel RCC
+                    </button>
+                  </>
+                )}
+                {canAccessPrevisioniFunnelBuPage && (
+                  <button type="button" className="menu-action" onClick={activatePrevisioniReportFunnelBuPage}>
+                    Report Funnel BU
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {canAccessProcessoOffertaPage && (
+            <div className={`menu-dropdown ${openMenu === 'processo-offerta' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('processo-offerta')}
+                aria-expanded={openMenu === 'processo-offerta'}
+              >
+                Processo Offerta
+              </button>
+              <div className="menu-dropdown-panel">
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaOffertePage}>
+                  Offerte
                 </button>
-                <button type="button" className="menu-action" onClick={activateAnalisiRccPivotFatturatoPage}>
-                  PivotFatturato
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaSintesiRccPage}>
+                  Sintesi RCC
+                </button>
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaSintesiBuPage}>
+                  Sintesi BU
+                </button>
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaPercentualeSuccessoRccPage}>
+                  Percentuale Successo RCC
+                </button>
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaPercentualeSuccessoBuPage}>
+                  Percentuale Successo BU
+                </button>
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaIncidenzaRccPage}>
+                  Incidenza RCC
+                </button>
+                <button type="button" className="menu-action" onClick={activateProcessoOffertaIncidenzaBuPage}>
+                  Incidenza BU
                 </button>
               </div>
             </div>
@@ -4156,10 +7085,659 @@ function App() {
           </section>
         )}
 
+        {activePage === 'commesse-andamento-mensile' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Commesse - Andamento Mensile</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            <section className="panel sintesi-filter-panel">
+              <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-anni">
+                  <span>Anni</span>
+                  <select
+                    id="commesse-andamento-mensile-anni"
+                    multiple
+                    size={4}
+                    value={commesseAndamentoMensileAnni}
+                    onChange={(event) => setCommesseAndamentoMensileAnni(
+                      Array.from(event.target.selectedOptions).map((option) => option.value),
+                    )}
+                  >
+                    {commesseAndamentoMensileAnnoOptions.map((year) => (
+                      <option key={`commesse-andamento-anno-${year}`} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button type="submit" disabled={analisiRccLoading}>
+                  {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                </button>
+              </form>
+              <div className="sintesi-toolbar-row">
+                <p className="sintesi-toolbar-message">
+                  {commesseAndamentoMensileData
+                    ? `Andamento mensile caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}).`
+                    : statusMessage}
+                </p>
+                <span className="status-badge neutral">
+                  {commesseAndamentoMensileRows.length} righe
+                </span>
+              </div>
+            </section>
+
+            <section className="panel analisi-rcc-grid-card">
+              <header className="panel-header">
+                <h3>AnalisiCommesseMensili</h3>
+              </header>
+
+              {commesseAndamentoMensileRows.length === 0 && !analisiRccLoading && (
+                <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+              )}
+
+              {commesseAndamentoMensileRows.length > 0 && (
+                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                  <table className="bonifici-table">
+                    <thead>
+                      <tr>
+                        <th>Anno</th>
+                        <th>Mese</th>
+                        <th>Commessa</th>
+                        <th>Descrizione</th>
+                        <th>Tipologia</th>
+                        <th>Stato</th>
+                        <th>Macrotipologia</th>
+                        <th>Prodotto</th>
+                        <th>Controparte</th>
+                        <th>BU</th>
+                        <th>RCC</th>
+                        <th>PM</th>
+                        <th>Produzione</th>
+                        <th className="num">Ore Lavorate</th>
+                        <th className="num">Costo Personale</th>
+                        <th className="num">Ricavi</th>
+                        <th className="num">Costi</th>
+                        <th className="num">Costo Generale Ribaltato</th>
+                        <th className="num">Utile Specifico</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commesseAndamentoMensileRows.map((row, index) => (
+                        <tr key={`commesse-andamento-row-${row.annoCompetenza}-${row.meseCompetenza}-${row.commessa}-${index}`}>
+                          <td>{row.annoCompetenza}</td>
+                          <td>{row.meseCompetenza.toString().padStart(2, '0')}</td>
+                          <td>
+                            {row.commessa.trim()
+                              ? (
+                                <button
+                                  type="button"
+                                  className="inline-link-button"
+                                  onClick={() => openCommessaDetail(row.commessa)}
+                                  title={`Apri dettaglio commessa ${row.commessa}`}
+                                >
+                                  {row.commessa}
+                                </button>
+                              )
+                              : ''}
+                          </td>
+                          <td>{row.descrizioneCommessa}</td>
+                          <td>{row.tipologiaCommessa}</td>
+                          <td>{row.stato}</td>
+                          <td>{row.macroTipologia}</td>
+                          <td>{row.prodotto}</td>
+                          <td>{row.controparte}</td>
+                          <td>{row.businessUnit}</td>
+                          <td>{row.rcc}</td>
+                          <td>{row.pm}</td>
+                          <td>{row.produzione ? 'Si' : 'No'}</td>
+                          <td className="num">{formatNumber(row.oreLavorate)}</td>
+                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoGeneraleRibaltato)}</td>
+                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="table-totals-row">
+                        <td colSpan={13} className="table-totals-label">Totale</td>
+                        <td className="num">{formatNumber(commesseAndamentoMensileTotals.oreLavorate)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonale)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricavi)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costi)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoGeneraleRibaltato)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+
+        {activePage === 'commesse-dati-annuali-aggregati' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Commesse - Dati Annuali Aggregati</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            <section className="panel sintesi-filter-panel">
+              <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-anni">
+                  <span>Anni</span>
+                  <select
+                    id="commesse-dati-annuali-anni"
+                    multiple
+                    size={4}
+                    value={commesseDatiAnnualiAnni}
+                    onChange={(event) => setCommesseDatiAnnualiAnni(
+                      Array.from(event.target.selectedOptions).map((option) => option.value),
+                    )}
+                  >
+                    {commesseDatiAnnualiAnnoOptions.map((year) => (
+                      <option key={`commesse-dati-annuali-anno-${year}`} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-aggregazione">
+                  <span>Aggregazione</span>
+                  <select
+                    id="commesse-dati-annuali-aggregazione"
+                    value={commesseDatiAnnualiAggregazione}
+                    onChange={(event) => setCommesseDatiAnnualiAggregazione(event.target.value)}
+                  >
+                    <option value="cliente">Cliente</option>
+                    <option value="tipologia-commessa">Tipologia Commessa</option>
+                    <option value="rcc">RCC</option>
+                  </select>
+                </label>
+                <button type="submit" disabled={analisiRccLoading}>
+                  {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                </button>
+              </form>
+              <div className="sintesi-toolbar-row">
+                <p className="sintesi-toolbar-message">
+                  {commesseDatiAnnualiData
+                    ? `Dati annuali aggregati caricati (anni: ${commesseDatiAnnualiData.anni.join(', ') || '-'}, aggregazione: ${commesseDatiAnnualiData.aggregazioneSelezionata}).`
+                    : statusMessage}
+                </p>
+                <span className="status-badge neutral">
+                  {commesseDatiAnnualiRows.length} righe
+                </span>
+              </div>
+            </section>
+
+            <section className="panel analisi-rcc-grid-card">
+              <header className="panel-header">
+                <h3>Dati Annuali Aggregati</h3>
+              </header>
+
+              {commesseDatiAnnualiRows.length === 0 && !analisiRccLoading && (
+                <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+              )}
+
+              {commesseDatiAnnualiRows.length > 0 && (
+                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                  <table className="bonifici-table">
+                    <thead>
+                      <tr>
+                        <th>Anno</th>
+                        <th>Aggregazione</th>
+                        <th className="num">Numero Commesse</th>
+                        <th className="num">Ore Lavorate</th>
+                        <th className="num">Costo Personale</th>
+                        <th className="num">Ricavi</th>
+                        <th className="num">Costi</th>
+                        <th className="num">Utile Specifico</th>
+                        <th className="num">Ricavi Futuri</th>
+                        <th className="num">Costi Futuri</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commesseDatiAnnualiRows.map((row, index) => (
+                        <tr key={`commesse-dati-annuali-row-${row.anno}-${row.aggregazione}-${index}`}>
+                          <td>{row.anno}</td>
+                          <td>{row.aggregazione}</td>
+                          <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
+                          <td className="num">{formatNumber(row.oreLavorate)}</td>
+                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
+                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="panel analisi-rcc-grid-card">
+              <header className="panel-header">
+                <h3>Totali per anno</h3>
+              </header>
+              {commesseDatiAnnualiTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+              )}
+              {commesseDatiAnnualiTotaliPerAnno.length > 0 && (
+                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                  <table className="bonifici-table">
+                    <thead>
+                      <tr>
+                        <th>Anno</th>
+                        <th className="num">Numero Commesse</th>
+                        <th className="num">Ore Lavorate</th>
+                        <th className="num">Costo Personale</th>
+                        <th className="num">Ricavi</th>
+                        <th className="num">Costi</th>
+                        <th className="num">Utile Specifico</th>
+                        <th className="num">Ricavi Futuri</th>
+                        <th className="num">Costi Futuri</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commesseDatiAnnualiTotaliPerAnno.map((row) => (
+                        <tr key={`commesse-dati-annuali-totale-${row.anno}`} className="table-totals-row">
+                          <td>{row.anno}</td>
+                          <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
+                          <td className="num">{formatNumber(row.oreLavorate)}</td>
+                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
+                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+
+        {isProcessoOffertaPage && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>{processoOffertaTitle}</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessProcessoOffertaPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a Processo Offerta.
+              </p>
+            )}
+
+            {canAccessProcessoOffertaPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="processo-offerta-anni">
+                      <span>Anni</span>
+                      <select
+                        id="processo-offerta-anni"
+                        multiple
+                        size={4}
+                        value={processoOffertaAnni}
+                        onChange={(event) => setProcessoOffertaAnni(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {processoOffertaAnnoOptions.map((year) => (
+                          <option key={`processo-offerta-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="processo-offerta-esiti">
+                      <span>Esito</span>
+                      <select
+                        id="processo-offerta-esiti"
+                        multiple
+                        size={Math.max(3, Math.min(6, processoOffertaEsitiOptions.length || 3))}
+                        value={processoOffertaEsiti}
+                        onChange={(event) => setProcessoOffertaEsiti(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {processoOffertaEsitiOptions.map((value) => (
+                          <option key={`processo-offerta-esito-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {processoOffertaCurrentData
+                        ? `Anni ${processoOffertaCurrentData.anni.join(', ') || '-'}, ${processoOffertaVisibilityMessage}.`
+                        : processoOffertaVisibilityMessage}
+                    </p>
+                    <span className="status-badge neutral">{processoOffertaCountLabel}</span>
+                  </div>
+                </section>
+
+                {isProcessoOffertaOffertePage && (
+                  <section className="panel analisi-rcc-grid-card">
+                    <header className="panel-header">
+                      <h3>Offerte</h3>
+                    </header>
+                    {processoOffertaOfferteRows.length === 0 && !analisiRccLoading && (
+                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                    )}
+                    {processoOffertaOfferteRows.length > 0 && (
+                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                        <table className="bonifici-table">
+                          <thead>
+                            <tr>
+                              <th>Anno</th>
+                              <th>Data</th>
+                              <th>Business Unit</th>
+                              <th>RCC</th>
+                              <th>Commessa</th>
+                              <th>Protocollo</th>
+                              <th>Tipo</th>
+                              <th>Stato Documento</th>
+                              <th>Esito</th>
+                              <th>Esito Positivo</th>
+                              <th>Oggetto</th>
+                              <th>Controparte</th>
+                              <th className="num">% Successo</th>
+                              <th className="num">Importo Prevedibile</th>
+                              <th className="num">Costo Prevedibile</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {processoOffertaOfferteRows.map((row) => (
+                              <tr key={`processo-offerta-offerta-${row.id}`}>
+                                <td>{row.anno}</td>
+                                <td>{formatDate(row.data)}</td>
+                                <td>{row.businessUnit}</td>
+                                <td>{row.rcc}</td>
+                                <td>
+                                  {row.commessa.trim()
+                                    ? (
+                                      <button
+                                        type="button"
+                                        className="inline-link-button"
+                                        onClick={() => openCommessaDetail(row.commessa)}
+                                        title={`Apri dettaglio commessa ${row.commessa}`}
+                                      >
+                                        {row.commessa}
+                                      </button>
+                                    )
+                                    : ''}
+                                </td>
+                                <td>{row.protocollo}</td>
+                                <td>{row.tipo}</td>
+                                <td>{row.statoDocumento}</td>
+                                <td>{row.esito}</td>
+                                <td>{row.esitoPositivoTesto}</td>
+                                <td>{row.oggetto}</td>
+                                <td>{row.controparte}</td>
+                                <td className="num">{formatPercentValue(row.percentualeSuccesso)}</td>
+                                <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
+                                <td className={`num ${row.costoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevedibile)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td colSpan={13} className="table-totals-label">Totale</td>
+                              <td className={`num ${processoOffertaOfferteTotals.importoPrevedibile < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(processoOffertaOfferteTotals.importoPrevedibile)}
+                              </td>
+                              <td className={`num ${processoOffertaOfferteTotals.costoPrevedibile < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(processoOffertaOfferteTotals.costoPrevedibile)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {(isProcessoOffertaSintesiRccPage || isProcessoOffertaSintesiBuPage) && (
+                  <section className="panel analisi-rcc-grid-card">
+                    <header className="panel-header">
+                      <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Sintesi RCC' : 'Sintesi BU'}</h3>
+                    </header>
+                    {processoOffertaSintesiRows.length === 0 && !analisiRccLoading && (
+                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                    )}
+                    {processoOffertaSintesiRows.length > 0 && (
+                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                        <table className="bonifici-table">
+                          <thead>
+                            <tr>
+                              <th>Anno</th>
+                              <th>{processoOffertaAggregazioneLabel}</th>
+                              <th>Tipo</th>
+                              <th>Esito Positivo</th>
+                              <th className="num">Numero</th>
+                              <th className="num">Importo Prevedibile</th>
+                              <th className="num">Costo Prevedibile</th>
+                              <th className="num">% Ricarico</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {processoOffertaSintesiRows.map((row, index) => (
+                              <tr key={`processo-offerta-sintesi-${row.anno}-${row.aggregazione}-${row.tipo}-${row.esitoPositivoTesto}-${index}`}>
+                                <td>{row.anno}</td>
+                                <td>{row.aggregazione}</td>
+                                <td>{row.tipo}</td>
+                                <td>{row.esitoPositivoTesto}</td>
+                                <td className="num">{row.numero.toLocaleString('it-IT')}</td>
+                                <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
+                                <td className={`num ${row.costoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevedibile)}</td>
+                                <td className="num">{formatPercentValue(row.percentualeRicarico)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td colSpan={4} className="table-totals-label">Totale</td>
+                              <td className="num">{processoOffertaSintesiTotals.numero.toLocaleString('it-IT')}</td>
+                              <td className={`num ${processoOffertaSintesiTotals.importoPrevedibile < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(processoOffertaSintesiTotals.importoPrevedibile)}
+                              </td>
+                              <td className={`num ${processoOffertaSintesiTotals.costoPrevedibile < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(processoOffertaSintesiTotals.costoPrevedibile)}
+                              </td>
+                              <td className="num">{formatPercentValue(processoOffertaSintesiRicaricoTotale)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {(isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage) && (
+                  <>
+                    <section className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Percentuale Successo RCC' : 'Percentuale Successo BU'}</h3>
+                      </header>
+                      {processoOffertaSuccessoRows.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                      )}
+                      {processoOffertaSuccessoRows.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                          <table className="bonifici-table">
+                            <thead>
+                              <tr>
+                                <th>Anno</th>
+                                <th>{processoOffertaAggregazioneLabel}</th>
+                                <th className="num">Numero Totale</th>
+                                <th className="num">Numero Positivo</th>
+                                <th className="num">% Successo Numero</th>
+                                <th className="num">Importo Totale</th>
+                                <th className="num">Importo Positivo</th>
+                                <th className="num">% Successo Importo</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {processoOffertaSuccessoRows.map((row) => (
+                                <tr key={`processo-offerta-successo-${row.anno}-${row.aggregazione}`}>
+                                  <td>{row.anno}</td>
+                                  <td>{row.aggregazione}</td>
+                                  <td className="num">{row.numeroTotale.toLocaleString('it-IT')}</td>
+                                  <td className="num">{row.numeroPositivo.toLocaleString('it-IT')}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoNumero)}</td>
+                                  <td className={`num ${row.importoTotale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotale)}</td>
+                                  <td className={`num ${row.importoPositivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPositivo)}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoImporto)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>Totali per anno</h3>
+                      </header>
+                      {processoOffertaSuccessoTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                      )}
+                      {processoOffertaSuccessoTotaliPerAnno.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                          <table className="bonifici-table">
+                            <thead>
+                              <tr>
+                                <th>Anno</th>
+                                <th className="num">Numero Totale</th>
+                                <th className="num">Numero Positivo</th>
+                                <th className="num">% Successo Numero</th>
+                                <th className="num">Importo Totale</th>
+                                <th className="num">Importo Positivo</th>
+                                <th className="num">% Successo Importo</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {processoOffertaSuccessoTotaliPerAnno.map((row) => (
+                                <tr key={`processo-offerta-successo-totale-${row.anno}`} className="table-totals-row">
+                                  <td>{row.anno}</td>
+                                  <td className="num">{row.numeroTotale.toLocaleString('it-IT')}</td>
+                                  <td className="num">{row.numeroPositivo.toLocaleString('it-IT')}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoNumero)}</td>
+                                  <td className={`num ${row.importoTotale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotale)}</td>
+                                  <td className={`num ${row.importoPositivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPositivo)}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoImporto)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  </>
+                )}
+
+                {(isProcessoOffertaIncidenzaRccPage || isProcessoOffertaIncidenzaBuPage) && (
+                  <>
+                    <section className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Incidenza RCC su totale anno' : 'Incidenza BU su totale anno'}</h3>
+                      </header>
+                      {processoOffertaIncidenzaRows.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                      )}
+                      {processoOffertaIncidenzaRows.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                          <table className="bonifici-table">
+                            <thead>
+                              <tr>
+                                <th>Anno</th>
+                                <th>{processoOffertaAggregazioneLabel}</th>
+                                <th className="num">Numero</th>
+                                <th className="num">Importo Prevedibile</th>
+                                <th className="num">Totale anno</th>
+                                <th className="num">% su totale anno</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {processoOffertaIncidenzaRows.map((row) => (
+                                <tr key={`processo-offerta-incidenza-${row.anno}-${row.aggregazione}`}>
+                                  <td>{row.anno}</td>
+                                  <td>{row.aggregazione}</td>
+                                  <td className="num">{row.numero.toLocaleString('it-IT')}</td>
+                                  <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
+                                  <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuAnno)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>Totali per anno</h3>
+                      </header>
+                      {processoOffertaIncidenzaTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                      )}
+                      {processoOffertaIncidenzaTotaliPerAnno.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                          <table className="bonifici-table">
+                            <thead>
+                              <tr>
+                                <th>Anno</th>
+                                <th className="num">Numero</th>
+                                <th className="num">Importo Prevedibile</th>
+                                <th className="num">Totale anno</th>
+                                <th className="num">% su totale anno</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {processoOffertaIncidenzaTotaliPerAnno.map((row) => (
+                                <tr key={`processo-offerta-incidenza-totale-${row.anno}`} className="table-totals-row">
+                                  <td>{row.anno}</td>
+                                  <td className="num">{row.numero.toLocaleString('it-IT')}</td>
+                                  <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
+                                  <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
+                                  <td className="num">{formatPercentRatio(row.percentualeSuAnno)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
         {activePage === 'analisi-rcc-risultato-mensile' && (
           <section className="panel sintesi-page analisi-rcc-page">
             <header className="panel-header">
-              <h2>Analisi RCC - Risultato Mensile</h2>
+              <h2>Analisi Proiezioni - Proiezione Mensile RCC</h2>
               <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
             </header>
 
@@ -4172,7 +7750,7 @@ function App() {
             {canAccessAnalisiRccPage && (
               <>
                 <section className="panel sintesi-filter-panel">
-                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiRccSubmit}>
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
                     <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-anno">
                       <span>Anno Snapshot</span>
                       <input
@@ -4277,7 +7855,7 @@ function App() {
         {activePage === 'analisi-rcc-pivot-fatturato' && (
           <section className="panel sintesi-page analisi-rcc-page">
             <header className="panel-header">
-              <h2>Analisi RCC - PivotFatturato</h2>
+              <h2>Analisi Proiezioni - Report Annuale RCC</h2>
               <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
             </header>
 
@@ -4290,7 +7868,7 @@ function App() {
             {canAccessAnalisiRccPage && (
               <>
                 <section className="panel sintesi-filter-panel">
-                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiRccSubmit}>
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
                     <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-pivot-anni">
                       <span>Anni confronto</span>
                       <select
@@ -4344,7 +7922,7 @@ function App() {
 
                 <section className="panel analisi-rcc-grid-card">
                   <header className="panel-header">
-                    <h3>PivotFatturatoBIPivot</h3>
+                    <h3>Report Annuale RCC</h3>
                   </header>
 
                   {analisiRccPivotRows.length === 0 && !analisiRccLoading && (
@@ -4443,6 +8021,1272 @@ function App() {
                               <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
                                 {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
                               </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'analisi-bu-risultato-mensile' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Proiezioni - Proiezione Mensile BU</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessAnalisiBuPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessAnalisiBuPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-bu-anno">
+                      <span>Anno Snapshot</span>
+                      <input
+                        id="analisi-bu-anno"
+                        type="number"
+                        min={2000}
+                        max={2100}
+                        step={1}
+                        value={analisiBuAnno}
+                        onChange={(event) => setAnalisiBuAnno(event.target.value)}
+                      />
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {analisiBuData
+                        ? `Anno ${analisiBuData.anno}. Visibilita: ${analisiBuData.vediTutto ? 'tutte le BU' : `solo ${analisiBuData.rccFiltro || 'BU corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {analisiBuData ? `${analisiBuData.risultatoPesato.righe.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="analisi-rcc-grids">
+                  {analisiBuData && analisiBuGrids.length > 0 && analisiBuGrids.map((grid) => (
+                    <section key={`bu-${grid.titolo}`} className="panel analisi-rcc-grid-card">
+                      <header className="panel-header">
+                        <h3>{grid.titolo}</h3>
+                      </header>
+                      {grid.righe.length === 0 && !analisiRccLoading && (
+                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                      )}
+                      {grid.righe.length > 0 && (
+                        <div className="bonifici-table-wrap bonifici-table-wrap-main analisi-rcc-table-wrap">
+                          <table className="bonifici-table analisi-rcc-table">
+                            <thead>
+                              <tr>
+                                <th>Aggregazione</th>
+                                {!grid.valoriPercentuali && <th className="num">Budget</th>}
+                                {grid.mesi.map((mese) => (
+                                  <th key={`bu-${grid.titolo}-mese-${mese}`} className="num">{mese.toString().padStart(2, '0')}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {grid.righe.map((row) => {
+                                const isTotalRow = row.aggregazione.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
+                                const budgetValue = Number(row.budget ?? 0)
+                                return (
+                                  <tr key={`bu-${grid.titolo}-${row.aggregazione}`} className={isTotalRow ? 'table-totals-row' : ''}>
+                                    <td>{row.aggregazione}</td>
+                                    {!grid.valoriPercentuali && (
+                                      <td className={`num ${Number(row.budget ?? 0) < 0 ? 'num-negative' : ''}`}>
+                                        {row.budget === null || row.budget === undefined
+                                          ? ''
+                                          : formatCurrency(row.budget)}
+                                      </td>
+                                    )}
+                                    {grid.mesi.map((mese) => {
+                                      const value = getAnalisiRccValueForMonth(row, mese)
+                                      const isUnderBudget = !grid.valoriPercentuali &&
+                                        !isTotalRow &&
+                                        row.budget !== null &&
+                                        row.budget !== undefined &&
+                                        value < budgetValue
+                                      return (
+                                        <td
+                                          key={`bu-${grid.titolo}-${row.aggregazione}-${mese}`}
+                                          className={`num ${grid.valoriPercentuali
+                                            ? (isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : '')
+                                            : (isUnderBudget ? 'num-under-target' : (value < 0 ? 'num-negative' : ''))}`}
+                                        >
+                                          {grid.valoriPercentuali ? formatAnalisiRccPercent(value) : formatCurrency(value)}
+                                        </td>
+                                      )
+                                    })}
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                  {!analisiRccLoading && (!analisiBuData || analisiBuGrids.every((grid) => grid.righe.length === 0)) && (
+                    <section className="panel">
+                      <p className="empty-state">Nessun dato disponibile. Imposta l'anno e premi Aggiorna.</p>
+                    </section>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'analisi-bu-pivot-fatturato' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Proiezioni - Report Annuale BU</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessAnalisiBuPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessAnalisiBuPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-bu-pivot-anni">
+                      <span>Anni confronto</span>
+                      <select
+                        id="analisi-bu-pivot-anni"
+                        multiple
+                        size={4}
+                        value={analisiBuPivotAnni}
+                        onChange={(event) => setAnalisiBuPivotAnni(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {analisiBuPivotAnnoOptions.map((year) => (
+                          <option key={`analisi-bu-pivot-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canSelectAnalisiBuPivotBusinessUnit && (
+                      <label className="analisi-rcc-year-field" htmlFor="analisi-bu-pivot-bu">
+                        <span>BU</span>
+                        <select
+                          id="analisi-bu-pivot-bu"
+                          value={analisiBuPivotBusinessUnit}
+                          onChange={(event) => setAnalisiBuPivotBusinessUnit(event.target.value)}
+                        >
+                          <option value="">Tutte</option>
+                          {analisiBuPivotBusinessUnitOptions.map((value) => (
+                            <option key={`analisi-bu-pivot-bu-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {analisiBuPivotData
+                        ? `Anni ${analisiBuPivotData.anni.join(', ') || '-'}. Visibilita: ${analisiBuPivotData.vediTutto ? 'tutte le BU' : `solo ${analisiBuPivotData.rccFiltro || 'BU corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {analisiBuPivotData ? `${analisiBuPivotRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Report Annuale BU</h3>
+                  </header>
+
+                  {analisiBuPivotRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {analisiBuPivotRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>BU</th>
+                            <th className="num">Fatturato anno</th>
+                            <th className="num">Fatturato futuro anno</th>
+                            <th className="num">Totale fatturato certo</th>
+                            <th className="num">Budget Previsto</th>
+                            <th className="num">Margine col budget</th>
+                            <th className="num">% Certa Raggiunta</th>
+                            <th className="num">Ricavo ipotetico</th>
+                            <th className="num">Ricavo ipotetico pesato</th>
+                            <th className="num">Totale ipotetico</th>
+                            <th className="num">% Compreso ricavo ipotetico</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiBuPivotRows.map((row) => {
+                            const isTotalRow = row.rcc.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
+                            return (
+                              <tr key={`analisi-bu-pivot-${row.anno}-${row.rcc}`} className={isTotalRow ? 'table-totals-row' : ''}>
+                                <td>{row.anno}</td>
+                                <td>{row.rcc}</td>
+                                <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
+                                <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
+                                <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
+                                <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
+                                <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
+                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
+                                  {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
+                                </td>
+                                <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
+                                <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
+                                <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
+                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
+                                  {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Totali per anno</h3>
+                  </header>
+                  {analisiBuPivotTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {analisiBuPivotTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Fatturato anno</th>
+                            <th className="num">Fatturato futuro anno</th>
+                            <th className="num">Totale fatturato certo</th>
+                            <th className="num">Budget Previsto</th>
+                            <th className="num">Margine col budget</th>
+                            <th className="num">% Certa Raggiunta</th>
+                            <th className="num">Ricavo ipotetico</th>
+                            <th className="num">Ricavo ipotetico pesato</th>
+                            <th className="num">Totale ipotetico</th>
+                            <th className="num">% Compreso ricavo ipotetico</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiBuPivotTotaliPerAnno.map((row) => (
+                            <tr key={`analisi-bu-pivot-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
+                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
+                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
+                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
+                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
+                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
+                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
+                              </td>
+                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
+                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
+                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
+                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
+                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'previsioni-funnel' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Previsioni - Funnel</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessPrevisioniFunnelRccPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessPrevisioniFunnelRccPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-anni">
+                      <span>Anni confronto</span>
+                      <select
+                        id="previsioni-funnel-anni"
+                        multiple
+                        size={4}
+                        value={previsioniFunnelAnni}
+                        onChange={(event) => setPrevisioniFunnelAnni(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {previsioniFunnelAnnoOptions.map((year) => (
+                          <option key={`previsioni-funnel-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canSelectPrevisioniFunnelRcc && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-rcc">
+                        <span>RCC</span>
+                        <select
+                          id="previsioni-funnel-rcc"
+                          value={previsioniFunnelRcc}
+                          onChange={(event) => setPrevisioniFunnelRcc(event.target.value)}
+                        >
+                          <option value="">Tutti</option>
+                          {previsioniFunnelRccOptions.map((value) => (
+                            <option key={`previsioni-funnel-rcc-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-tipo">
+                      <span>Tipo</span>
+                      <select
+                        id="previsioni-funnel-tipo"
+                        value={previsioniFunnelTipo}
+                        onChange={(event) => setPrevisioniFunnelTipo(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {previsioniFunnelTipoOptions.map((value) => (
+                          <option key={`previsioni-funnel-tipo-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-stato-documento">
+                      <span>Stato documento</span>
+                      <select
+                        id="previsioni-funnel-stato-documento"
+                        value={previsioniFunnelStatoDocumento}
+                        onChange={(event) => setPrevisioniFunnelStatoDocumento(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {previsioniFunnelStatoDocumentoOptions.map((value) => (
+                          <option key={`previsioni-funnel-stato-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {previsioniFunnelData
+                        ? `Anni ${previsioniFunnelData.anni.join(', ') || '-'}. Visibilita: ${previsioniFunnelData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniFunnelData.rccFiltro || 'RCC corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {previsioniFunnelData ? `${previsioniFunnelRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Funnel</h3>
+                  </header>
+
+                  {previsioniFunnelRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {previsioniFunnelRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>RCC</th>
+                            <th>BU</th>
+                            <th>Tipo</th>
+                            <th>Stato Documento</th>
+                            <th>Commessa</th>
+                            <th>Protocollo</th>
+                            <th>Data</th>
+                            <th>Oggetto</th>
+                            <th className="num">% Successo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Personale</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Ricavo atteso</th>
+                            <th className="num">Fatturato emesso</th>
+                            <th className="num">Fatturato futuro</th>
+                            <th className="num">Totale anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniFunnelRows.map((row, index) => (
+                            <tr key={`previsioni-funnel-${row.anno}-${row.rcc}-${row.protocollo}-${index}`}>
+                              <td>{row.anno}</td>
+                              <td>{row.rcc}</td>
+                              <td>{row.businessUnit}</td>
+                              <td>{row.tipo}</td>
+                              <td>{row.statoDocumento}</td>
+                              <td>{row.commessa}</td>
+                              <td>{row.protocollo}</td>
+                              <td>{formatDate(row.data)}</td>
+                              <td>{row.oggetto}</td>
+                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
+                                {formatAnalisiRccPercent(row.percentualeSuccesso)}
+                              </td>
+                              <td className={`num ${row.budgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetRicavo)}</td>
+                              <td className={`num ${row.budgetPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPersonale)}</td>
+                              <td className={`num ${row.budgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetCosti)}</td>
+                              <td className={`num ${row.ricavoAtteso < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoAtteso)}</td>
+                              <td className={`num ${row.fatturatoEmesso < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoEmesso)}</td>
+                              <td className={`num ${row.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="table-totals-row">
+                            <td colSpan={9} className="table-totals-label">Totale</td>
+                            <td className={`num ${isAnalisiRccPercentUnderTarget(previsioniFunnelTotals.percentualeSuccesso) ? 'num-under-target' : ''}`}>
+                              {formatAnalisiRccPercent(previsioniFunnelTotals.percentualeSuccesso)}
+                            </td>
+                            <td className={`num ${previsioniFunnelTotals.budgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetRicavo)}</td>
+                            <td className={`num ${previsioniFunnelTotals.budgetPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetPersonale)}</td>
+                            <td className={`num ${previsioniFunnelTotals.budgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetCosti)}</td>
+                            <td className={`num ${previsioniFunnelTotals.ricavoAtteso < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.ricavoAtteso)}</td>
+                            <td className={`num ${previsioniFunnelTotals.fatturatoEmesso < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.fatturatoEmesso)}</td>
+                            <td className={`num ${previsioniFunnelTotals.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.fatturatoFuturo)}</td>
+                            <td className={`num ${previsioniFunnelTotals.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.totaleAnno)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'previsioni-report-funnel-rcc' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Previsioni - Report Funnel RCC</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessPrevisioniFunnelRccPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessPrevisioniFunnelRccPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-anno">
+                      <span>Anno</span>
+                      <select
+                        id="previsioni-report-funnel-rcc-anno"
+                        value={previsioniReportFunnelRccAnnoSelezionato}
+                        onChange={(event) => setPrevisioniReportFunnelRccAnni([event.target.value])}
+                      >
+                        {previsioniReportFunnelRccAnnoOptions.map((year) => (
+                          <option key={`previsioni-report-funnel-rcc-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canSelectPrevisioniFunnelRcc && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-rcc">
+                        <span>RCC</span>
+                        <select
+                          id="previsioni-report-funnel-rcc-rcc"
+                          value={previsioniReportFunnelRcc}
+                          onChange={(event) => setPrevisioniReportFunnelRcc(event.target.value)}
+                        >
+                          <option value="">Tutti</option>
+                          {previsioniReportFunnelRccOptions.map((value) => (
+                            <option key={`previsioni-report-funnel-rcc-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {previsioniReportFunnelRccData
+                        ? `Anno ${previsioniReportFunnelRccAnnoSelezionato}. Visibilita: ${previsioniReportFunnelRccData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniReportFunnelRccData.aggregazioneFiltro || 'RCC corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {previsioniReportFunnelRccData ? `${previsioniReportFunnelRccPivotRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Report Funnel RCC</h3>
+                  </header>
+
+                  {previsioniReportFunnelRccPivotRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {previsioniReportFunnelRccPivotRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>Etichette di riga</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelRccPivotRows.map((row) => (
+                            <tr key={row.key} className={`funnel-pivot-row level-${row.livello}`}>
+                              <td>{row.anno}</td>
+                              <td>
+                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                              </td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>{previsioniReportFunnelRccHasMultipleAggregazioni ? 'Totali per anno (ripartiti per tipo/% successo)' : 'Totali per anno'}</h3>
+                  </header>
+                  {previsioniReportFunnelRccTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniReportFunnelRccHasMultipleAggregazioni && previsioniReportFunnelRccTotaliDettaglioRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>Etichette di riga</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelRccTotaliDettaglioRows.map((row) => (
+                            <tr key={`previsioni-report-funnel-rcc-totale-dettaglio-${row.key}`} className={`funnel-pivot-row level-${row.livello} table-totals-row`}>
+                              <td>{row.anno}</td>
+                              <td>
+                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                              </td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {!previsioniReportFunnelRccHasMultipleAggregazioni && previsioniReportFunnelRccTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelRccTotaliPerAnno.map((row) => (
+                            <tr key={`previsioni-report-funnel-rcc-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'previsioni-report-funnel-bu' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Previsioni - Report Funnel BU</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessPrevisioniFunnelBuPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessPrevisioniFunnelBuPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-anno">
+                      <span>Anno</span>
+                      <select
+                        id="previsioni-report-funnel-bu-anno"
+                        value={previsioniReportFunnelBuAnnoSelezionato}
+                        onChange={(event) => setPrevisioniReportFunnelBuAnni([event.target.value])}
+                      >
+                        {previsioniReportFunnelBuAnnoOptions.map((year) => (
+                          <option key={`previsioni-report-funnel-bu-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {canSelectPrevisioniFunnelBu && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-bu">
+                        <span>BU</span>
+                        <select
+                          id="previsioni-report-funnel-bu-bu"
+                          value={previsioniReportFunnelBu}
+                          onChange={(event) => setPrevisioniReportFunnelBu(event.target.value)}
+                        >
+                          <option value="">Tutte</option>
+                          {previsioniReportFunnelBuOptions.map((value) => (
+                            <option key={`previsioni-report-funnel-bu-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-rcc">
+                      <span>RCC</span>
+                      <select
+                        id="previsioni-report-funnel-bu-rcc"
+                        value={previsioniReportFunnelBuRcc}
+                        onChange={(event) => setPrevisioniReportFunnelBuRcc(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {previsioniReportFunnelBuRccOptions.map((value) => (
+                          <option key={`previsioni-report-funnel-bu-rcc-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {previsioniReportFunnelBuData
+                        ? `Anno ${previsioniReportFunnelBuAnnoSelezionato}. Visibilita: ${previsioniReportFunnelBuData.vediTutto ? 'tutte le BU' : `solo ${previsioniReportFunnelBuData.aggregazioneFiltro || 'BU corrente'}`}.`
+                        : statusMessage}
+                    </p>
+                    <span className="status-badge neutral">
+                      {previsioniReportFunnelBuData ? `${previsioniReportFunnelBuPivotRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Report Funnel BU</h3>
+                  </header>
+
+                  {previsioniReportFunnelBuPivotRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {previsioniReportFunnelBuPivotRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>Etichette di riga</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelBuPivotRows.map((row) => (
+                            <tr key={row.key} className={`funnel-pivot-row level-${row.livello}`}>
+                              <td>{row.anno}</td>
+                              <td>
+                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                              </td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>{previsioniReportFunnelBuHasMultipleAggregazioni ? 'Totali per anno (ripartiti per tipo/% successo)' : 'Totali per anno'}</h3>
+                  </header>
+                  {previsioniReportFunnelBuTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliDettaglioRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>Etichette di riga</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelBuTotaliDettaglioRows.map((row) => (
+                            <tr key={`previsioni-report-funnel-bu-totale-dettaglio-${row.key}`} className={`funnel-pivot-row level-${row.livello} table-totals-row`}>
+                              <td>{row.anno}</td>
+                              <td>
+                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                              </td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {!previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Conteggio protocollo</th>
+                            <th className="num">Budget Ricavo</th>
+                            <th className="num">Budget Costi</th>
+                            <th className="num">Fatturato Futuro</th>
+                            <th className="num">Futura Anno</th>
+                            <th className="num">Emessa Anno</th>
+                            <th className="num">Totale Anno</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniReportFunnelBuTotaliPerAnno.map((row) => (
+                            <tr key={`previsioni-report-funnel-bu-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
+                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
+                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
+                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
+                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
+                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
+                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'previsioni-utile-mensile-rcc' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Commesse - Utile Mensile RCC</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessPrevisioniUtileMensileRccPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa pagina.
+              </p>
+            )}
+
+            {canAccessPrevisioniUtileMensileRccPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-anno">
+                      <span>Anno</span>
+                      <select
+                        id="previsioni-utile-rcc-anno"
+                        value={previsioniUtileMensileRccAnno}
+                        onChange={(event) => setPrevisioniUtileMensileRccAnno(event.target.value)}
+                      >
+                        {previsioniUtileMensileRccAnnoOptions.map((year) => (
+                          <option key={`previsioni-utile-rcc-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-mese-riferimento">
+                      <span>Mese riferimento</span>
+                      <select
+                        id="previsioni-utile-rcc-mese-riferimento"
+                        value={previsioniUtileMensileRccMeseRiferimento}
+                        onChange={(event) => setPrevisioniUtileMensileRccMeseRiferimento(event.target.value)}
+                      >
+                        {mesiItaliani.map((mese, index) => {
+                          const monthValue = (index + 1).toString()
+                          return (
+                            <option key={`previsioni-utile-rcc-mese-${monthValue}`} value={monthValue}>
+                              {`${monthValue.padStart(2, '0')} - ${mese}`}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </label>
+                    {canSelectPrevisioniUtileMensileRcc && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-rcc">
+                        <span>RCC</span>
+                        <select
+                          id="previsioni-utile-rcc-rcc"
+                          value={previsioniUtileMensileRcc}
+                          onChange={(event) => setPrevisioniUtileMensileRcc(event.target.value)}
+                        >
+                          <option value="">Tutti</option>
+                          {previsioniUtileMensileRccOptions.map((value) => (
+                            <option key={`previsioni-utile-rcc-rcc-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-produzione">
+                      <span>Produzione</span>
+                      <select
+                        id="previsioni-utile-rcc-produzione"
+                        value={previsioniUtileMensileRccProduzione}
+                        onChange={(event) => setPrevisioniUtileMensileRccProduzione(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        <option value="1">1</option>
+                        <option value="0">0</option>
+                      </select>
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {previsioniUtileMensileRccData
+                        ? `Anno ${previsioniUtileMensileRccAnno}. Visibilita: ${previsioniUtileMensileRccData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniUtileMensileRccData.aggregazioneFiltro || 'RCC corrente'}`}. Mese riferimento: ${formatReferenceMonthLabel(previsioniUtileMensileRccMeseRiferimentoValue)}.`
+                        : statusMessage}
+                    </p>
+                    <div className="sintesi-toolbar-badges">
+                      <span className="status-badge neutral">
+                        Mese rif.: {formatReferenceMonthLabel(previsioniUtileMensileRccMeseRiferimentoValue)}
+                      </span>
+                      <span className="status-badge neutral">
+                        {previsioniUtileMensileRccData ? `${previsioniUtileMensileRccRows.length} righe` : '0 righe'}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Utile Mensile RCC</h3>
+                  </header>
+                  {previsioniUtileMensileRccRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniUtileMensileRccRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>RCC</th>
+                            <th className="num">Totale Ricavi</th>
+                            <th className="num">Totale Costi</th>
+                            <th className="num">Totale Costo Personale</th>
+                            <th className="num">Totale Utile Specifico</th>
+                            <th className="num">Totale Ore Lavorate</th>
+                            <th className="num">Totale Costo Generale Ribaltato</th>
+                            <th className="num">% Margine su Ricavi</th>
+                            <th className="num">% Markup su Costi</th>
+                            <th className="num">% Cost Income</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniUtileMensileRccRows.map((row) => (
+                            <tr key={`previsioni-utile-rcc-${row.anno}-${row.aggregazione}`}>
+                              <td>{row.anno}</td>
+                              <td>{row.aggregazione}</td>
+                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
+                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
+                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
+                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
+                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
+                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Totali per anno</h3>
+                  </header>
+                  {previsioniUtileMensileRccTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniUtileMensileRccTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Totale Ricavi</th>
+                            <th className="num">Totale Costi</th>
+                            <th className="num">Totale Costo Personale</th>
+                            <th className="num">Totale Utile Specifico</th>
+                            <th className="num">Totale Ore Lavorate</th>
+                            <th className="num">Totale Costo Generale Ribaltato</th>
+                            <th className="num">% Margine su Ricavi</th>
+                            <th className="num">% Markup su Costi</th>
+                            <th className="num">% Cost Income</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniUtileMensileRccTotaliPerAnno.map((row) => (
+                            <tr key={`previsioni-utile-rcc-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
+                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
+                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
+                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
+                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
+                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'previsioni-utile-mensile-bu' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Commesse - Utile Mensile BU</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessPrevisioniUtileMensileBuPage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa pagina.
+              </p>
+            )}
+
+            {canAccessPrevisioniUtileMensileBuPage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className="analisi-rcc-toolbar" onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-anno">
+                      <span>Anno</span>
+                      <select
+                        id="previsioni-utile-bu-anno"
+                        value={previsioniUtileMensileBuAnno}
+                        onChange={(event) => setPrevisioniUtileMensileBuAnno(event.target.value)}
+                      >
+                        {previsioniUtileMensileBuAnnoOptions.map((year) => (
+                          <option key={`previsioni-utile-bu-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-mese-riferimento">
+                      <span>Mese riferimento</span>
+                      <select
+                        id="previsioni-utile-bu-mese-riferimento"
+                        value={previsioniUtileMensileBuMeseRiferimento}
+                        onChange={(event) => setPrevisioniUtileMensileBuMeseRiferimento(event.target.value)}
+                      >
+                        {mesiItaliani.map((mese, index) => {
+                          const monthValue = (index + 1).toString()
+                          return (
+                            <option key={`previsioni-utile-bu-mese-${monthValue}`} value={monthValue}>
+                              {`${monthValue.padStart(2, '0')} - ${mese}`}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </label>
+                    {canSelectPrevisioniUtileMensileBu && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-bu">
+                        <span>BU</span>
+                        <select
+                          id="previsioni-utile-bu-bu"
+                          value={previsioniUtileMensileBu}
+                          onChange={(event) => setPrevisioniUtileMensileBu(event.target.value)}
+                        >
+                          <option value="">Tutte</option>
+                          {previsioniUtileMensileBuOptions.map((value) => (
+                            <option key={`previsioni-utile-bu-bu-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-produzione">
+                      <span>Produzione</span>
+                      <select
+                        id="previsioni-utile-bu-produzione"
+                        value={previsioniUtileMensileBuProduzione}
+                        onChange={(event) => setPrevisioniUtileMensileBuProduzione(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        <option value="1">1</option>
+                        <option value="0">0</option>
+                      </select>
+                    </label>
+                    <button type="submit" disabled={analisiRccLoading}>
+                      {analisiRccLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {previsioniUtileMensileBuData
+                        ? `Anno ${previsioniUtileMensileBuAnno}. Visibilita: ${previsioniUtileMensileBuData.vediTutto ? 'tutte le BU' : `solo ${previsioniUtileMensileBuData.aggregazioneFiltro || 'BU corrente'}`}. Mese riferimento: ${formatReferenceMonthLabel(previsioniUtileMensileBuMeseRiferimentoValue)}.`
+                        : statusMessage}
+                    </p>
+                    <div className="sintesi-toolbar-badges">
+                      <span className="status-badge neutral">
+                        Mese rif.: {formatReferenceMonthLabel(previsioniUtileMensileBuMeseRiferimentoValue)}
+                      </span>
+                      <span className="status-badge neutral">
+                        {previsioniUtileMensileBuData ? `${previsioniUtileMensileBuRows.length} righe` : '0 righe'}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Utile Mensile BU</h3>
+                  </header>
+                  {previsioniUtileMensileBuRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniUtileMensileBuRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th>BU</th>
+                            <th className="num">Totale Ricavi</th>
+                            <th className="num">Totale Costi</th>
+                            <th className="num">Totale Costo Personale</th>
+                            <th className="num">Totale Utile Specifico</th>
+                            <th className="num">Totale Ore Lavorate</th>
+                            <th className="num">Totale Costo Generale Ribaltato</th>
+                            <th className="num">% Margine su Ricavi</th>
+                            <th className="num">% Markup su Costi</th>
+                            <th className="num">% Cost Income</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniUtileMensileBuRows.map((row) => (
+                            <tr key={`previsioni-utile-bu-${row.anno}-${row.aggregazione}`}>
+                              <td>{row.anno}</td>
+                              <td>{row.aggregazione}</td>
+                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
+                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
+                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
+                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
+                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
+                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Totali per anno</h3>
+                  </header>
+                  {previsioniUtileMensileBuTotaliPerAnno.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
+                  )}
+                  {previsioniUtileMensileBuTotaliPerAnno.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            <th className="num">Totale Ricavi</th>
+                            <th className="num">Totale Costi</th>
+                            <th className="num">Totale Costo Personale</th>
+                            <th className="num">Totale Utile Specifico</th>
+                            <th className="num">Totale Ore Lavorate</th>
+                            <th className="num">Totale Costo Generale Ribaltato</th>
+                            <th className="num">% Margine su Ricavi</th>
+                            <th className="num">% Markup su Costi</th>
+                            <th className="num">% Cost Income</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previsioniUtileMensileBuTotaliPerAnno.map((row) => (
+                            <tr key={`previsioni-utile-bu-totale-${row.anno}`} className="table-totals-row">
+                              <td>{row.anno}</td>
+                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
+                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
+                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
+                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
+                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
+                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
+                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
                             </tr>
                           ))}
                         </tbody>

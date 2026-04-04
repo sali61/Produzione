@@ -1045,6 +1045,93 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
     }
 
+    public async Task<IReadOnlyCollection<CommessaAndamentoMensileRow>> SearchAndamentoMensileAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var selectedAnni = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .OrderByDescending(value => value)
+            .ToArray();
+
+        var filterClause = BuildAnalisiCommesseFilterClause(user, visibility, request);
+        if (selectedAnni.Length == 1)
+        {
+            var annoClause = $"anno_competenza = {selectedAnni[0]}";
+            filterClause = string.IsNullOrWhiteSpace(filterClause)
+                ? annoClause
+                : $"{filterClause} AND {annoClause}";
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(MensileCommesseStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", AnalisiCommesseIdRisorsa);
+            command.Parameters.AddWithValue("@tiporicerca", "AnalisiCommessa");
+            command.Parameters.AddWithValue(
+                "@FiltroDaApplicare",
+                string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
+            command.Parameters.AddWithValue("@CampoAggregazione", DBNull.Value);
+
+            var rows = new List<CommessaAndamentoMensileRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var anno = ReadNullableInt(reader, "anno_competenza");
+                var mese = ReadNullableInt(reader, "mese_competenza");
+                if (!anno.HasValue || !mese.HasValue || anno.Value <= 0 || mese.Value is < 1 or > 12)
+                {
+                    continue;
+                }
+
+                rows.Add(new CommessaAndamentoMensileRow(
+                    anno.Value,
+                    mese.Value,
+                    ReadString(reader, "commessa"),
+                    ReadString(reader, "descrizione"),
+                    ReadString(reader, "tipo_commessa"),
+                    ReadString(reader, "stato"),
+                    ReadString(reader, "macrotipologia"),
+                    ReadString(reader, "Nomeprodotto"),
+                    ReadString(reader, "controparte"),
+                    ReadString(reader, "idbusinessunit"),
+                    ReadString(reader, "RCC"),
+                    ReadString(reader, "PM"),
+                    ReadDecimal(reader, "produzione") > 0m,
+                    ReadDecimal(reader, "ore_lavorate"),
+                    ReadDecimal(reader, "costo_personale"),
+                    ReadDecimal(reader, "ricavi"),
+                    ReadDecimal(reader, "costi"),
+                    ReadDecimal(reader, "CostoGeneraleRibaltato"),
+                    ReadDecimal(reader, "utile_specifico")));
+            }
+
+            return rows
+                .OrderByDescending(row => row.AnnoCompetenza)
+                .ThenByDescending(row => row.MeseCompetenza)
+                .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
+                .Take(Math.Clamp(request.Take, 1, 5000))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyCollection<ContabilitaVenditaRow>> SearchVenditeAsync(
         UserContext user,
         string profile,
@@ -1308,22 +1395,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             SELECT
                 CAST(CASE WHEN p.[anno] IS NULL THEN NULL ELSE p.[anno] END AS INT) AS AnnoFattura,
                 CAST(p.[Data Documento] AS DATE) AS DataDocumento,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(p.[codicesocieta] AS NVARCHAR(64)), N''))), 64) AS NVARCHAR(64)) AS CodiceSocieta,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(p.[idsocieta] AS NVARCHAR(64)), N''))), 64) AS NVARCHAR(64)) AS CodiceSocieta,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneFattura,
                 CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0)) AS DECIMAL(18, 2)) AS ImportoComplessivo,
                 CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0)) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[controparte], N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[commessa], N''))), 128) AS NVARCHAR(128)) AS Commessa,
-                CAST(UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) AS NVARCHAR(128)) AS CommessaUpper
+                CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N''))), 128) AS NVARCHAR(128)) AS Commessa,
+                CAST(UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) AS NVARCHAR(128)) AS CommessaUpper
             FROM [CDG].[CdgFatturePassive] p
-            INNER JOIN cdg_qryComessaPmRcc c
-                ON p.idcommessa = c.idcommessa
-            WHERE UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) IN ({commesseInClause})
-            ORDER BY
-                CAST(p.[Data Documento] AS DATE),
-                Commessa,
-                CodiceSocieta;
+            LEFT JOIN [cdg_qryComessaPmRcc] q
+                ON q.[idcommessa] = p.[idcommessa]
+            WHERE UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) IN ({commesseInClause});
             """;
 
         try

@@ -609,6 +609,44 @@
   padding: 0.2rem 0.3rem;
 }
 
+.analisi-rcc-years-checklist {
+  width: 11rem;
+  min-height: 6.7rem;
+  max-height: 8rem;
+  overflow: auto;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid #6a7d95;
+  border-radius: 2px;
+  background: #ffffff;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.analisi-rcc-years-checklist-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #153659;
+}
+
+.funnel-pivot-row.level-0 td {
+  font-weight: 700;
+  background: #f4f8ff;
+}
+
+.funnel-pivot-label {
+  display: inline-block;
+}
+
+.funnel-pivot-label.level-1 {
+  padding-left: 1rem;
+}
+
+.funnel-pivot-label.level-2 {
+  padding-left: 2rem;
+}
+
 .analisi-rcc-grids {
   display: grid;
   grid-template-columns: 1fr;
@@ -659,6 +697,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sintesi-toolbar-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 button {

@@ -31,3 +31,12 @@ Script presenti:
   crea la tabella `produzione.avanzamento` per il salvataggio della
   `% raggiunto` per commessa e data di riferimento (fine mese precedente),
   con vincolo di unicita su `(idcommessa, data_riferimento)`.
+- `007_spAnalisiRccRisultatoMensile.sql`:
+  crea/aggiorna `produzione.spAnalisiRccRisultatoMensile(@AnnoSnapshot, @TipoAggregazione, @FiltroAggregazione, @Rcc)`
+  come stored comune per `Proiezione Mensile RCC` e `Proiezione Mensile BU`,
+  normalizzando i campi numerici
+  con parsing locale (`it-IT`/`en-US`) per evitare problemi punti/virgole.
+- `008_spAnalisiRccPivotFatturato.sql`:
+  crea/aggiorna `produzione.spAnalisiRccPivotFatturato(@idrisorsa, @Anno, @Rcc)`
+  per `Analisi RCC - PivotFatturato`, esponendo valori numerici tipizzati
+  (senza conversioni locali lato applicazione).

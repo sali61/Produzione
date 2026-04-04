@@ -32,6 +32,11 @@ public interface ICommesseFilterRepository
         string profile,
         CommesseSintesiSearchRequest request,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaAndamentoMensileRow>> SearchAndamentoMensileAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<ContabilitaVenditaRow>> SearchVenditeAsync(
         UserContext user,
         string profile,

@@ -1,0 +1,28 @@
+namespace Produzione.Application.Models;
+
+public sealed record ProcessoOffertaDettaglioRow(
+    int Id,
+    string BusinessUnit,
+    string NomeProdotto,
+    string CodiceSocieta,
+    string Rcc,
+    int? IdRcc,
+    int Anno,
+    int? AnnoLavoro,
+    string Commessa,
+    string Esito,
+    string Protocollo,
+    DateTime? Data,
+    string Tipo,
+    string Oggetto,
+    string StatoDocumento,
+    decimal PercentualeSuccesso,
+    string Soluzione,
+    string MacroTipologia,
+    string TipoCommessa,
+    string Controparte,
+    bool? EsitoPositivo,
+    string EsitoPositivoTesto,
+    decimal ImportoPrevedibile,
+    decimal CostoPrevedibile,
+    bool CostoPrevisto);

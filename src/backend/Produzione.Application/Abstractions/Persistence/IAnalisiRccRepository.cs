@@ -11,9 +11,80 @@ public interface IAnalisiRccRepository
         string? rcc,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<AnalisiRccMensileSnapshotRow>> GetRisultatoMensileBusinessUnitSnapshotAsync(
+        int annoSnapshot,
+        string? businessUnit,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<AnalisiRccPivotFatturatoRow>> GetPivotFatturatoAsync(
         int idRisorsa,
         int anno,
         string? rcc,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccPivotFatturatoRow>> GetPivotFatturatoBusinessUnitAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccUtileMensileRow>> GetUtileMensileRccAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        int? meseRiferimento,
+        string? rcc,
+        int? produzione,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccUtileMensileRow>> GetUtileMensileBusinessUnitAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        int? meseRiferimento,
+        string? businessUnit,
+        string? rcc,
+        int? produzione,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccFunnelRow>> GetFunnelAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        string? rcc,
+        string? tipo,
+        string? statoDocumento,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccPivotFunnelRow>> GetPivotFunnelAsync(
+        int idRisorsa,
+        int anno,
+        string? rcc,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccPivotFunnelRow>> GetPivotFunnelBusinessUnitAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<ProcessoOffertaDettaglioRow>> GetProcessoOffertaDettaglioAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits,
+        IReadOnlyCollection<string>? esitiPositiviTesto,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<ProcessoOffertaSintesiRow>> GetProcessoOffertaSintesiAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        string campoAggregazione,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits,
+        IReadOnlyCollection<string>? esitiPositiviTesto,
         CancellationToken cancellationToken = default);
 }

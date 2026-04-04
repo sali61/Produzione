@@ -240,6 +240,266 @@ public sealed class CommesseController(
         }
     }
 
+    [HttpGet("andamento-mensile")]
+    [ProducesResponseType(typeof(CommesseAndamentoMensileResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AndamentoMensile(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? commessa = null,
+        [FromQuery] string? tipologiaCommessa = null,
+        [FromQuery] string? stato = null,
+        [FromQuery] string? macroTipologia = null,
+        [FromQuery] string? prodotto = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? pm = null,
+        [FromQuery] int take = 2000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var selectedAnni = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+
+            if (selectedAnni.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                selectedAnni = [anno.Value];
+            }
+
+            var request = new CommesseSintesiSearchRequest(
+                selectedAnni,
+                commessa,
+                tipologiaCommessa,
+                stato,
+                macroTipologia,
+                prodotto,
+                businessUnit,
+                rcc,
+                pm,
+                take,
+                false);
+
+            var rows = await commesseFilterRepository.SearchAndamentoMensileAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                request,
+                cancellationToken);
+
+            var response = new CommesseAndamentoMensileResponseDto
+            {
+                Profile = profileResult,
+                Count = rows.Count,
+                Items = rows
+                    .Select(row => new CommessaAndamentoMensileRowDto
+                    {
+                        AnnoCompetenza = row.AnnoCompetenza,
+                        MeseCompetenza = row.MeseCompetenza,
+                        Commessa = row.Commessa,
+                        DescrizioneCommessa = row.DescrizioneCommessa,
+                        TipologiaCommessa = row.TipologiaCommessa,
+                        Stato = row.Stato,
+                        MacroTipologia = row.MacroTipologia,
+                        Prodotto = row.Prodotto,
+                        Controparte = row.Controparte,
+                        BusinessUnit = row.BusinessUnit,
+                        Rcc = row.Rcc,
+                        Pm = row.Pm,
+                        Produzione = row.Produzione,
+                        OreLavorate = row.OreLavorate,
+                        CostoPersonale = row.CostoPersonale,
+                        Ricavi = row.Ricavi,
+                        Costi = row.Costi,
+                        CostoGeneraleRibaltato = row.CostoGeneraleRibaltato,
+                        UtileSpecifico = row.UtileSpecifico
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/andamento-mensile.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/andamento-mensile.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero dell'andamento mensile commesse."
+            });
+        }
+    }
+
+    [HttpGet("dati-annuali-aggregati")]
+    [ProducesResponseType(typeof(CommesseDatiAnnualiAggregatiResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DatiAnnualiAggregati(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string aggregazione = "cliente",
+        [FromQuery] string? commessa = null,
+        [FromQuery] string? tipologiaCommessa = null,
+        [FromQuery] string? stato = null,
+        [FromQuery] string? macroTipologia = null,
+        [FromQuery] string? prodotto = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? pm = null,
+        [FromQuery] int take = 25000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var selectedAnni = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+
+            if (selectedAnni.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                selectedAnni = [anno.Value];
+            }
+
+            var aggregazioneSelezionata = NormalizeDatiAnnualiAggregazione(aggregazione);
+            if (aggregazioneSelezionata is null)
+            {
+                return BadRequest(new
+                {
+                    message = "Valore 'aggregazione' non valido. Usa: cliente, tipologia-commessa, rcc."
+                });
+            }
+
+            var safeTake = Math.Clamp(take, 100, 100000);
+            var request = new CommesseSintesiSearchRequest(
+                selectedAnni,
+                commessa,
+                tipologiaCommessa,
+                stato,
+                macroTipologia,
+                prodotto,
+                businessUnit,
+                rcc,
+                pm,
+                safeTake,
+                false);
+
+            var rows = await commesseFilterRepository.SearchSintesiAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                request,
+                cancellationToken);
+
+            Func<CommessaSintesiRow, string?> keySelector = aggregazioneSelezionata switch
+            {
+                "cliente" => row => row.Controparte,
+                "tipologia-commessa" => row => row.TipologiaCommessa,
+                _ => row => row.Rcc
+            };
+
+            var groupedRows = rows
+                .Where(row => row.Anno.HasValue && row.Anno.Value > 0)
+                .GroupBy(row => new
+                {
+                    Anno = row.Anno!.Value,
+                    Aggregazione = NormalizeDatiAnnualiValue(keySelector(row))
+                })
+                .Select(group => new CommesseDatiAnnualiAggregatiRowDto
+                {
+                    Anno = group.Key.Anno,
+                    Aggregazione = group.Key.Aggregazione,
+                    NumeroCommesse = group
+                        .Select(item => (item.Commessa ?? string.Empty).Trim())
+                        .Where(value => !string.IsNullOrWhiteSpace(value))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count(),
+                    OreLavorate = group.Sum(item => item.OreLavorate),
+                    CostoPersonale = group.Sum(item => item.CostoPersonale),
+                    Ricavi = group.Sum(item => item.Ricavi),
+                    Costi = group.Sum(item => item.Costi),
+                    UtileSpecifico = group.Sum(item => item.UtileSpecifico),
+                    RicaviFuturi = group.Sum(item => item.RicaviFuturi),
+                    CostiFuturi = group.Sum(item => item.CostiFuturi)
+                })
+                .OrderByDescending(item => item.Anno)
+                .ThenBy(item => item.Aggregazione, StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+
+            var totaliPerAnno = groupedRows
+                .GroupBy(item => item.Anno)
+                .Select(group => new CommesseDatiAnnualiAggregatiTotaleAnnoDto
+                {
+                    Anno = group.Key,
+                    NumeroCommesse = group.Sum(item => item.NumeroCommesse),
+                    OreLavorate = group.Sum(item => item.OreLavorate),
+                    CostoPersonale = group.Sum(item => item.CostoPersonale),
+                    Ricavi = group.Sum(item => item.Ricavi),
+                    Costi = group.Sum(item => item.Costi),
+                    UtileSpecifico = group.Sum(item => item.UtileSpecifico),
+                    RicaviFuturi = group.Sum(item => item.RicaviFuturi),
+                    CostiFuturi = group.Sum(item => item.CostiFuturi)
+                })
+                .OrderByDescending(item => item.Anno)
+                .ToArray();
+
+            var response = new CommesseDatiAnnualiAggregatiResponseDto
+            {
+                Profile = profileResult,
+                AggregazioneSelezionata = aggregazioneSelezionata,
+                Anni = selectedAnni,
+                Items = groupedRows,
+                TotaliPerAnno = totaliPerAnno
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dati-annuali-aggregati.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dati-annuali-aggregati.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero dei dati annuali aggregati."
+            });
+        }
+    }
+
     [HttpGet("dettaglio")]
     [ProducesResponseType(typeof(CommesseDettaglioResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -717,5 +977,28 @@ public sealed class CommesseController(
             Value = option.Value,
             Label = option.Label
         };
+    }
+
+    private static string? NormalizeDatiAnnualiAggregazione(string? aggregazione)
+    {
+        var normalized = (aggregazione ?? "cliente").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" => "cliente",
+            "cliente" => "cliente",
+            "controparte" => "cliente",
+            "tipologia-commessa" => "tipologia-commessa",
+            "tipologiacommessa" => "tipologia-commessa",
+            "tipologia_commessa" => "tipologia-commessa",
+            "tipologia" => "tipologia-commessa",
+            "rcc" => "rcc",
+            _ => null
+        };
+    }
+
+    private static string NormalizeDatiAnnualiValue(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? "(vuoto)" : normalized;
     }
 }
