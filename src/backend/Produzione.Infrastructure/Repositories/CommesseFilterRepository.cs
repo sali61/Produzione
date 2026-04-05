@@ -474,6 +474,67 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         ORDER BY id DESC;
         """;
     private const int AnalisiCommesseIdRisorsa = 3;
+    private const string EnsureSignificatoMenuTableQuery = """
+        IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'cdg')
+        BEGIN
+            EXEC ('CREATE SCHEMA cdg');
+        END;
+
+        IF OBJECT_ID('cdg.significatomenu', 'U') IS NULL
+        BEGIN
+            CREATE TABLE cdg.significatomenu
+            (
+                applicazione NVARCHAR(100) NOT NULL,
+                [menu] NVARCHAR(150) NOT NULL,
+                voce NVARCHAR(150) NOT NULL,
+                descrizione NVARCHAR(2000) NULL,
+                CONSTRAINT PK_significatomenu PRIMARY KEY CLUSTERED (applicazione, [menu], voce)
+            );
+        END
+        ELSE IF COL_LENGTH('cdg.significatomenu', 'descrizione') IS NULL
+        BEGIN
+            ALTER TABLE cdg.significatomenu
+            ADD descrizione NVARCHAR(2000) NULL;
+        END;
+        """;
+    private const string SignificatoMenuSelectQuery = """
+        SELECT
+            CAST(ISNULL(applicazione, N'') AS NVARCHAR(100)) AS Applicazione,
+            CAST(ISNULL([menu], N'') AS NVARCHAR(150)) AS [Menu],
+            CAST(ISNULL(voce, N'') AS NVARCHAR(150)) AS Voce,
+            CAST(ISNULL(descrizione, N'') AS NVARCHAR(2000)) AS Descrizione
+        FROM cdg.significatomenu
+        WHERE applicazione = @Applicazione
+        ORDER BY [menu], voce;
+        """;
+    private const string SignificatoMenuUpsertQuery = """
+        MERGE cdg.significatomenu AS target
+        USING
+        (
+            SELECT
+                @Applicazione AS applicazione,
+                @Menu AS [menu],
+                @Voce AS voce
+        ) AS source
+            ON target.applicazione = source.applicazione
+           AND target.[menu] = source.[menu]
+           AND target.voce = source.voce
+        WHEN MATCHED THEN
+            UPDATE SET descrizione = @Descrizione
+        WHEN NOT MATCHED THEN
+            INSERT (applicazione, [menu], voce, descrizione)
+            VALUES (source.applicazione, source.[menu], source.voce, @Descrizione);
+
+        SELECT TOP (1)
+            CAST(ISNULL(applicazione, N'') AS NVARCHAR(100)) AS Applicazione,
+            CAST(ISNULL([menu], N'') AS NVARCHAR(150)) AS [Menu],
+            CAST(ISNULL(voce, N'') AS NVARCHAR(150)) AS Voce,
+            CAST(ISNULL(descrizione, N'') AS NVARCHAR(2000)) AS Descrizione
+        FROM cdg.significatomenu
+        WHERE applicazione = @Applicazione
+          AND [menu] = @Menu
+          AND voce = @Voce;
+        """;
     private const string VenditeProvenienzaFatturaContabilita = "Fattura in contabilità";
     private const string VenditeProvenienzaFatturaFutura = "Fattura Futura";
     private const string VenditeProvenienzaRicavoIpotetico = "Ricavo Ipotetico";
@@ -928,7 +989,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.Parameters.AddWithValue("@Aggrega", request.Aggrega ? 1 : 0);
             command.Parameters.AddWithValue("@FiltroDaApplicare",
                 string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
-            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 500));
+            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 100000));
 
             var rows = new List<CommessaSintesiRow>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -958,7 +1019,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             return rows
                 .OrderBy(item => item.Commessa)
                 .ThenBy(item => item.Anno)
-                .Take(Math.Clamp(request.Take, 1, 500))
+                .Take(Math.Clamp(request.Take, 1, 100000))
                 .ToArray();
         }
         catch
@@ -2039,6 +2100,100 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
     }
 
+    public async Task<IReadOnlyCollection<AppInfoMenuRow>> GetAppInfoMenuVoicesAsync(
+        string applicazione,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(applicazione))
+        {
+            return Array.Empty<AppInfoMenuRow>();
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using (var ensureCommand = new SqlCommand(EnsureSignificatoMenuTableQuery, connection))
+            {
+                ensureCommand.CommandType = CommandType.Text;
+                await ensureCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using var command = new SqlCommand(SignificatoMenuSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Applicazione", applicazione.Trim());
+
+            var rows = new List<AppInfoMenuRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new AppInfoMenuRow(
+                    ReadString(reader, "Applicazione"),
+                    ReadString(reader, "Menu"),
+                    ReadString(reader, "Voce"),
+                    ReadString(reader, "Descrizione")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return Array.Empty<AppInfoMenuRow>();
+        }
+    }
+
+    public async Task<AppInfoMenuRow?> SaveAppInfoMenuVoiceAsync(
+        string applicazione,
+        string menu,
+        string voce,
+        string descrizione,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            string.IsNullOrWhiteSpace(applicazione) ||
+            string.IsNullOrWhiteSpace(menu) ||
+            string.IsNullOrWhiteSpace(voce))
+        {
+            return null;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using (var ensureCommand = new SqlCommand(EnsureSignificatoMenuTableQuery, connection))
+            {
+                ensureCommand.CommandType = CommandType.Text;
+                await ensureCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using var command = new SqlCommand(SignificatoMenuUpsertQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Applicazione", applicazione.Trim());
+            command.Parameters.AddWithValue("@Menu", menu.Trim());
+            command.Parameters.AddWithValue("@Voce", voce.Trim());
+            command.Parameters.AddWithValue("@Descrizione", descrizione?.Trim() ?? string.Empty);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new AppInfoMenuRow(
+                ReadString(reader, "Applicazione"),
+                ReadString(reader, "Menu"),
+                ReadString(reader, "Voce"),
+                ReadString(reader, "Descrizione"));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static IReadOnlyCollection<string> BuildUsernameCandidates(string username)
     {
         var candidates = new List<string>();
@@ -2251,6 +2406,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         if (selectedAnni.Length > 1)
         {
             clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
+        }
+
+        if (request.Mese.HasValue && request.Mese.Value is >= 1 and <= 12)
+        {
+            clauses.Add($"mese_competenza = {request.Mese.Value}");
         }
 
         AddStringClause(clauses, "commessa", request.Commessa);

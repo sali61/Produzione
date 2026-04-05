@@ -40,3 +40,9 @@ Script presenti:
   crea/aggiorna `produzione.spAnalisiRccPivotFatturato(@idrisorsa, @Anno, @Rcc)`
   per `Analisi RCC - PivotFatturato`, esponendo valori numerici tipizzati
   (senza conversioni locali lato applicazione).
+- `009_tblSignificatoMenu.sql`:
+  crea/aggiorna la tabella `cdg.significatomenu`
+  (campi `applicazione`, `menu`, `voce`, `descrizione`)
+  e la sincronizza in automatico per l'applicazione `Produzione` con tutte le
+  voci menu attualmente esposte in UI, valorizzando descrizioni di default
+  senza sovrascrivere eventuali descrizioni gia' personalizzate.

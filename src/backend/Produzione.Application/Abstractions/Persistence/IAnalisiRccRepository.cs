@@ -17,6 +17,13 @@ public interface IAnalisiRccRepository
         IReadOnlyCollection<string>? allowedBusinessUnits = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<AnalisiRccMensileBurccSnapshotRow>> GetRisultatoMensileBurccSnapshotAsync(
+        int annoSnapshot,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<AnalisiRccPivotFatturatoRow>> GetPivotFatturatoAsync(
         int idRisorsa,
         int anno,
@@ -27,6 +34,14 @@ public interface IAnalisiRccRepository
         int idRisorsa,
         int anno,
         string? businessUnit,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<AnalisiRccPivotBurccRow>> GetPivotFatturatoBurccAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        string? rcc,
         IReadOnlyCollection<string>? allowedBusinessUnits = null,
         CancellationToken cancellationToken = default);
 

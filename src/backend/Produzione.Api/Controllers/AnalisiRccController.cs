@@ -32,6 +32,15 @@ public sealed class AnalisiRccController(
         ProfileCatalog.ResponsabileOu
     ];
 
+    private static readonly string[] AllowedProfilesBurcc =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.ResponsabileOu
+    ];
+
     private static readonly string[] AllowedProfilesFunnelRcc =
     [
         ProfileCatalog.Supervisore,
@@ -678,6 +687,399 @@ public sealed class AnalisiRccController(
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Errore interno durante il recupero report annuale BU."
+            });
+        }
+    }
+
+    [HttpGet("risultato-mensile-burcc")]
+    [ProducesResponseType(typeof(AnalisiRccRisultatoMensileBurccResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RisultatoMensileBurcc(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            if (!AllowedProfilesBurcc.Contains(profileResult, StringComparer.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfilesBurcc)}."
+                });
+            }
+
+            var annoRiferimento = anno.HasValue && anno.Value > 0
+                ? anno.Value
+                : DateTime.Now.Year;
+            var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
+                ? null
+                : businessUnit.Trim();
+            var requestedRcc = string.IsNullOrWhiteSpace(rcc)
+                ? null
+                : rcc.Trim();
+            var profileIsRcc = profileResult.Equals(ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase);
+            var profileIsRou = profileResult.Equals(ProfileCatalog.ResponsabileOu, StringComparison.OrdinalIgnoreCase);
+            var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+
+            IReadOnlyCollection<string>? allowedBusinessUnits = null;
+            string? rccFiltro = requestedRcc;
+
+            if (!vediTutto)
+            {
+                if (profileIsRcc)
+                {
+                    rccFiltro = await analisiRccRepository.GetNomeRisorsaAsync(
+                        contextData.EffectiveUser.IdRisorsa,
+                        cancellationToken);
+                    if (string.IsNullOrWhiteSpace(rccFiltro))
+                    {
+                        return Ok(BuildEmptyRisultatoMensileBurccResponse(profileResult, annoRiferimento, false, requestedBusinessUnit, null));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                        !rccFiltro.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"RCC '{requestedRcc}' non autorizzato per il profilo '{profileResult}'."
+                        });
+                    }
+                }
+                else if (profileIsRou)
+                {
+                    var effectiveOuScopes = NormalizeScopes(contextData.EffectiveOuScopes);
+                    if (effectiveOuScopes.Length == 0)
+                    {
+                        return Ok(BuildEmptyRisultatoMensileBurccResponse(profileResult, annoRiferimento, false, null, requestedRcc));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                        !effectiveOuScopes.Contains(requestedBusinessUnit, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"Business Unit '{requestedBusinessUnit}' non autorizzata per il profilo '{profileResult}'."
+                        });
+                    }
+
+                    allowedBusinessUnits = effectiveOuScopes;
+                    rccFiltro = requestedRcc;
+                }
+            }
+
+            var rows = await analisiRccRepository.GetRisultatoMensileBurccSnapshotAsync(
+                annoRiferimento,
+                requestedBusinessUnit,
+                rccFiltro,
+                allowedBusinessUnits,
+                cancellationToken);
+            var optionRows = await analisiRccRepository.GetRisultatoMensileBurccSnapshotAsync(
+                annoRiferimento,
+                null,
+                rccFiltro,
+                allowedBusinessUnits,
+                cancellationToken);
+
+            var businessUnitDisponibili = optionRows
+                .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var rccDisponibili = optionRows
+                .Select(item => item.Rcc?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var normalizedRows = rows
+                .Select(item => new AnalisiRccMensileSnapshotRow(
+                    $"{item.BusinessUnit} - {item.Rcc}",
+                    item.AnnoSnapshot,
+                    item.MeseSnapshot,
+                    item.Budget,
+                    item.TotaleRisultatoPesato,
+                    item.PercentualePesato))
+                .ToArray();
+            var mesi = normalizedRows
+                .Select(item => item.MeseSnapshot)
+                .Where(value => value >= 1 && value <= 12)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+
+            var response = new AnalisiRccRisultatoMensileBurccResponseDto
+            {
+                Profile = profileResult,
+                Anno = annoRiferimento,
+                VediTutto = vediTutto,
+                BusinessUnitFiltro = requestedBusinessUnit ?? (profileIsRou ? BuildScopeLabel(allowedBusinessUnits) : null),
+                RccFiltro = rccFiltro,
+                BusinessUnitDisponibili = businessUnitDisponibili,
+                RccDisponibili = rccDisponibili,
+                RisultatoPesato = BuildRisultatoPesatoGrid(normalizedRows, mesi),
+                PercentualePesata = BuildPercentualePesataGrid(normalizedRows, mesi)
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/analisi-rcc/risultato-mensile-burcc.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/analisi-rcc/risultato-mensile-burcc.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero analisi BURCC."
+            });
+        }
+    }
+
+    [HttpGet("pivot-fatturato-burcc")]
+    [ProducesResponseType(typeof(AnalisiRccPivotBurccResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> PivotFatturatoBurcc(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            if (!AllowedProfilesBurcc.Contains(profileResult, StringComparer.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfilesBurcc)}."
+                });
+            }
+
+            var anniRiferimento = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+            if (anniRiferimento.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                anniRiferimento = [anno.Value];
+            }
+
+            if (anniRiferimento.Length == 0)
+            {
+                anniRiferimento = [DateTime.Now.Year];
+            }
+
+            var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
+                ? null
+                : businessUnit.Trim();
+            var requestedRcc = string.IsNullOrWhiteSpace(rcc)
+                ? null
+                : rcc.Trim();
+            var profileIsRcc = profileResult.Equals(ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase);
+            var profileIsRou = profileResult.Equals(ProfileCatalog.ResponsabileOu, StringComparison.OrdinalIgnoreCase);
+            var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+
+            IReadOnlyCollection<string>? allowedBusinessUnits = null;
+            string? rccFiltro = requestedRcc;
+
+            if (!vediTutto)
+            {
+                if (profileIsRcc)
+                {
+                    rccFiltro = await analisiRccRepository.GetNomeRisorsaAsync(
+                        contextData.EffectiveUser.IdRisorsa,
+                        cancellationToken);
+                    if (string.IsNullOrWhiteSpace(rccFiltro))
+                    {
+                        return Ok(BuildEmptyPivotBurccResponse(profileResult, anniRiferimento, false, requestedBusinessUnit, null));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                        !rccFiltro.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"RCC '{requestedRcc}' non autorizzato per il profilo '{profileResult}'."
+                        });
+                    }
+                }
+                else if (profileIsRou)
+                {
+                    var effectiveOuScopes = NormalizeScopes(contextData.EffectiveOuScopes);
+                    if (effectiveOuScopes.Length == 0)
+                    {
+                        return Ok(BuildEmptyPivotBurccResponse(profileResult, anniRiferimento, false, null, requestedRcc));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                        !effectiveOuScopes.Contains(requestedBusinessUnit, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"Business Unit '{requestedBusinessUnit}' non autorizzata per il profilo '{profileResult}'."
+                        });
+                    }
+
+                    allowedBusinessUnits = effectiveOuScopes;
+                    rccFiltro = requestedRcc;
+                }
+            }
+
+            var rows = new List<AnalisiRccPivotBurccRow>();
+            foreach (var currentYear in anniRiferimento)
+            {
+                var yearRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
+                    contextData.EffectiveUser.IdRisorsa,
+                    currentYear,
+                    requestedBusinessUnit,
+                    rccFiltro,
+                    allowedBusinessUnits,
+                    cancellationToken);
+                rows.AddRange(yearRows);
+            }
+
+            var optionRows = new List<AnalisiRccPivotBurccRow>();
+            foreach (var currentYear in anniRiferimento)
+            {
+                var yearRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
+                    contextData.EffectiveUser.IdRisorsa,
+                    currentYear,
+                    null,
+                    rccFiltro,
+                    allowedBusinessUnits,
+                    cancellationToken);
+                optionRows.AddRange(yearRows);
+            }
+
+            var businessUnitDisponibili = optionRows
+                .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var rccDisponibili = optionRows
+                .Select(item => item.Rcc?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var rowsOrdered = rows
+                .OrderBy(item => item.Anno)
+                .ThenBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Rcc, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var totaliPerAnno = rowsOrdered
+                .GroupBy(item => item.Anno)
+                .OrderBy(group => group.Key)
+                .Select(group =>
+                {
+                    var fatturatoAnno = group.Sum(item => item.FatturatoAnno);
+                    var fatturatoFuturoAnno = group.Sum(item => item.FatturatoFuturoAnno);
+                    var totaleFatturatoCerto = group.Sum(item => item.TotaleFatturatoCerto);
+                    var budgetPrevisto = group.Sum(item => item.BudgetPrevisto);
+                    var totaleRicavoIpotetico = group.Sum(item => item.TotaleRicavoIpotetico);
+                    var totaleRicavoIpoteticoPesato = group.Sum(item => item.TotaleRicavoIpoteticoPesato);
+                    var totaleIpotetico = group.Sum(item => item.TotaleIpotetico);
+
+                    return new AnalisiRccPivotFatturatoTotaleAnnoDto
+                    {
+                        Anno = group.Key,
+                        FatturatoAnno = fatturatoAnno,
+                        FatturatoFuturoAnno = fatturatoFuturoAnno,
+                        TotaleFatturatoCerto = totaleFatturatoCerto,
+                        BudgetPrevisto = budgetPrevisto,
+                        MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
+                        PercentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto,
+                        TotaleRicavoIpotetico = totaleRicavoIpotetico,
+                        TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
+                        TotaleIpotetico = totaleIpotetico,
+                        PercentualeCompresoRicavoIpotetico = budgetPrevisto == 0m ? 0m : totaleIpotetico / budgetPrevisto
+                    };
+                })
+                .ToArray();
+
+            var response = new AnalisiRccPivotBurccResponseDto
+            {
+                Profile = profileResult,
+                Anni = anniRiferimento,
+                VediTutto = vediTutto,
+                BusinessUnitFiltro = requestedBusinessUnit ?? (profileIsRou ? BuildScopeLabel(allowedBusinessUnits) : null),
+                RccFiltro = rccFiltro,
+                BusinessUnitDisponibili = businessUnitDisponibili,
+                RccDisponibili = rccDisponibili,
+                Righe = rowsOrdered
+                    .Select(item => new AnalisiRccPivotBurccRowDto
+                    {
+                        Anno = item.Anno,
+                        BusinessUnit = item.BusinessUnit,
+                        Rcc = item.Rcc,
+                        FatturatoAnno = item.FatturatoAnno,
+                        FatturatoFuturoAnno = item.FatturatoFuturoAnno,
+                        TotaleFatturatoCerto = item.TotaleFatturatoCerto,
+                        BudgetPrevisto = item.BudgetPrevisto,
+                        MargineColBudget = item.MargineColBudget,
+                        PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
+                        TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
+                        TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
+                        TotaleIpotetico = item.TotaleIpotetico,
+                        PercentualeCompresoRicavoIpotetico = item.PercentualeCompresoRicavoIpotetico
+                    })
+                    .ToArray(),
+                TotaliPerAnno = totaliPerAnno
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/analisi-rcc/pivot-fatturato-burcc.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/analisi-rcc/pivot-fatturato-burcc.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero report annuale BURCC."
             });
         }
     }
@@ -1719,6 +2121,60 @@ public sealed class AnalisiRccController(
                 message = "Errore interno durante il recupero Report Funnel BU."
             });
         }
+    }
+
+    private static AnalisiRccRisultatoMensileBurccResponseDto BuildEmptyRisultatoMensileBurccResponse(
+        string profile,
+        int anno,
+        bool vediTutto,
+        string? businessUnitFiltro,
+        string? rccFiltro)
+    {
+        return new AnalisiRccRisultatoMensileBurccResponseDto
+        {
+            Profile = profile,
+            Anno = anno,
+            VediTutto = vediTutto,
+            BusinessUnitFiltro = businessUnitFiltro,
+            RccFiltro = rccFiltro,
+            BusinessUnitDisponibili = [],
+            RccDisponibili = [],
+            RisultatoPesato = new AnalisiRccRisultatoMensileGridDto
+            {
+                Titolo = "Somma totale_risultato_pesato",
+                Mesi = [],
+                ValoriPercentuali = false,
+                Righe = []
+            },
+            PercentualePesata = new AnalisiRccRisultatoMensileGridDto
+            {
+                Titolo = "Media percentuale_pesato",
+                Mesi = [],
+                ValoriPercentuali = true,
+                Righe = []
+            }
+        };
+    }
+
+    private static AnalisiRccPivotBurccResponseDto BuildEmptyPivotBurccResponse(
+        string profile,
+        IReadOnlyCollection<int> anni,
+        bool vediTutto,
+        string? businessUnitFiltro,
+        string? rccFiltro)
+    {
+        return new AnalisiRccPivotBurccResponseDto
+        {
+            Profile = profile,
+            Anni = anni.ToArray(),
+            VediTutto = vediTutto,
+            BusinessUnitFiltro = businessUnitFiltro,
+            RccFiltro = rccFiltro,
+            BusinessUnitDisponibili = [],
+            RccDisponibili = [],
+            Righe = [],
+            TotaliPerAnno = []
+        };
     }
 
     private static AnalisiRccUtileMensileResponseDto BuildEmptyUtileMensileResponse(

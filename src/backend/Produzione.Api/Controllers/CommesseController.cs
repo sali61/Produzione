@@ -249,6 +249,7 @@ public sealed class CommesseController(
         [FromQuery] string profile,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] int? mese = null,
         [FromQuery] string? commessa = null,
         [FromQuery] string? tipologiaCommessa = null,
         [FromQuery] string? stato = null,
@@ -291,7 +292,8 @@ public sealed class CommesseController(
                 rcc,
                 pm,
                 take,
-                false);
+                false,
+                Mese: mese);
 
             var rows = await commesseFilterRepository.SearchAndamentoMensileAsync(
                 contextData.EffectiveUser,

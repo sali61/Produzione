@@ -85,4 +85,13 @@ public interface ICommesseFilterRepository
         string commessa,
         DateTime dataFineConsuntivo,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<AppInfoMenuRow>> GetAppInfoMenuVoicesAsync(
+        string applicazione,
+        CancellationToken cancellationToken = default);
+    Task<AppInfoMenuRow?> SaveAppInfoMenuVoiceAsync(
+        string applicazione,
+        string menu,
+        string voce,
+        string descrizione,
+        CancellationToken cancellationToken = default);
 }

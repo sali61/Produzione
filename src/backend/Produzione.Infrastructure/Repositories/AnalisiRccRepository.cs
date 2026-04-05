@@ -19,6 +19,26 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
     private const string SnapshotMensileStoredProcedure = "produzione.spAnalisiRccRisultatoMensile";
     private const string SnapshotMensileTipoRcc = "RCC";
     private const string SnapshotMensileTipoBusinessUnit = "BUSINESSUNIT";
+    private const string SnapshotMensileTipoBurcc = "BURCC";
+    private const string SnapshotMensileBurccFallbackQuery = """
+        SELECT
+            TipoAggregazione = LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50)))),
+            Aggregazione = LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))),
+            AnnoSnapshot = src.AnnoSnapshot,
+            MeseSnapshot = src.MeseSnapshot,
+            Budget = CAST(src.Budget AS NVARCHAR(128)),
+            Fatturato = CAST(src.totale_fatturato AS NVARCHAR(128)),
+            FatturatoFuturo = CAST(src.totale_fatturato_futuro AS NVARCHAR(128)),
+            RicavoIpoteticoPesato = CAST(src.totale_ricavo_ipotetico_pesato AS NVARCHAR(128))
+        FROM CDG.BIXeniaValutazioneProiezioni_Mensile src
+        WHERE ISNUMERIC(CAST(src.AnnoSnapshot AS NVARCHAR(32))) = 1
+          AND CONVERT(INT, src.AnnoSnapshot) = @AnnoSnapshot
+          AND UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))) = @TipoAggregazione
+        ORDER BY
+            CONVERT(INT, src.AnnoSnapshot),
+            TRY_CONVERT(INT, src.MeseSnapshot),
+            LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128))))
+        """;
 
     private const string PivotFatturatoStoredProcedure = "produzione.spBixeniaValutazioneProiezioni";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
@@ -76,6 +96,173 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             allowedBusinessUnits,
             new[] { "Aggregazione", "IDBUSINESSUNIT", "idbusinessunit", "BusinessUnit" },
             cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<AnalisiRccMensileBurccSnapshotRow>> GetRisultatoMensileBurccSnapshotAsync(
+        int annoSnapshot,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default)
+    {
+        var rawRows = await GetRisultatoMensileSnapshotByAggregazioneAsync(
+            annoSnapshot,
+            SnapshotMensileTipoBurcc,
+            null,
+            null,
+            new[] { "Aggregazione", "RCC", "rcc", "IDBUSINESSUNIT", "idbusinessunit" },
+            cancellationToken);
+
+        if (rawRows.Count == 0)
+        {
+            rawRows = await GetRisultatoMensileBurccSnapshotFallbackAsync(
+                annoSnapshot,
+                cancellationToken);
+        }
+
+        var requestedBusinessUnit = businessUnit?.Trim();
+        var requestedRcc = rcc?.Trim();
+        var allowedBusinessUnitSet = BuildAllowedSet(allowedBusinessUnits);
+        if (allowedBusinessUnitSet is { Count: 0 })
+        {
+            return [];
+        }
+
+        var rows = BuildBurccRows(
+            rawRows,
+            requestedBusinessUnit,
+            requestedRcc,
+            allowedBusinessUnitSet);
+
+        if (rows.Count == 0)
+        {
+            var fallbackRows = await GetRisultatoMensileBurccSnapshotFallbackAsync(
+                annoSnapshot,
+                cancellationToken);
+
+            rows = BuildBurccRows(
+                fallbackRows,
+                requestedBusinessUnit,
+                requestedRcc,
+                allowedBusinessUnitSet);
+        }
+
+        return rows
+            .OrderBy(item => item.AnnoSnapshot)
+            .ThenBy(item => item.MeseSnapshot)
+            .ThenBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Rcc, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async Task<IReadOnlyCollection<AnalisiRccMensileSnapshotRow>> GetRisultatoMensileBurccSnapshotFallbackAsync(
+        int annoSnapshot,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || annoSnapshot <= 0)
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SnapshotMensileBurccFallbackQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@AnnoSnapshot", annoSnapshot);
+            command.Parameters.AddWithValue("@TipoAggregazione", SnapshotMensileTipoBurcc);
+
+            var rows = new List<AnalisiRccMensileSnapshotRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var aggregazioneValue = ReadString(reader, "Aggregazione", "aggregazione");
+                if (string.IsNullOrWhiteSpace(aggregazioneValue))
+                {
+                    continue;
+                }
+
+                var anno = ReadNullableInt(reader, "AnnoSnapshot", "annoSnapshot", "anno")
+                    ?? annoSnapshot;
+                var mese = ReadNullableInt(reader, "MeseSnapshot", "meseSnapshot", "mese")
+                    ?? 0;
+                if (mese <= 0)
+                {
+                    continue;
+                }
+
+                var budget = ReadDecimal(reader, "Budget", "budget");
+                var fatturato = ReadDecimal(reader, "Fatturato", "totale_fatturato");
+                var fatturatoFuturo = ReadDecimal(reader, "FatturatoFuturo", "totale_fatturato_futuro");
+                var ricavoIpoteticoPesato = ReadDecimal(reader, "RicavoIpoteticoPesato", "totale_ricavo_ipotetico_pesato");
+                var totaleRisultatoPesato = fatturato + fatturatoFuturo + ricavoIpoteticoPesato;
+                var percentualePesato = budget == 0m
+                    ? 0m
+                    : totaleRisultatoPesato / budget;
+
+                rows.Add(new AnalisiRccMensileSnapshotRow(
+                    aggregazioneValue,
+                    anno,
+                    mese,
+                    budget,
+                    totaleRisultatoPesato,
+                    percentualePesato));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static List<AnalisiRccMensileBurccSnapshotRow> BuildBurccRows(
+        IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rawRows,
+        string? requestedBusinessUnit,
+        string? requestedRcc,
+        HashSet<string>? allowedBusinessUnitSet)
+    {
+        var rows = new List<AnalisiRccMensileBurccSnapshotRow>();
+        foreach (var raw in rawRows)
+        {
+            var (businessUnitValue, rccValue) = SplitBurccAggregation(raw.Rcc);
+            if (string.IsNullOrWhiteSpace(businessUnitValue) || string.IsNullOrWhiteSpace(rccValue))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                !businessUnitValue.Equals(requestedBusinessUnit, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                !rccValue.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (allowedBusinessUnitSet is not null &&
+                !allowedBusinessUnitSet.Contains(businessUnitValue))
+            {
+                continue;
+            }
+
+            rows.Add(new AnalisiRccMensileBurccSnapshotRow(
+                businessUnitValue,
+                rccValue,
+                raw.AnnoSnapshot,
+                raw.MeseSnapshot,
+                raw.Budget,
+                raw.TotaleRisultatoPesato,
+                raw.PercentualePesato));
+        }
+
+        return rows;
     }
 
     private async Task<IReadOnlyCollection<AnalisiRccMensileSnapshotRow>> GetRisultatoMensileSnapshotByAggregazioneAsync(
@@ -203,6 +390,157 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             businessUnit,
             allowedBusinessUnits,
             cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<AnalisiRccPivotBurccRow>> GetPivotFatturatoBurccAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || anno <= 0)
+        {
+            return [];
+        }
+
+        var requestedBusinessUnit = businessUnit?.Trim();
+        var requestedRcc = rcc?.Trim();
+        var allowedBusinessUnitSet = BuildAllowedSet(allowedBusinessUnits);
+        if (allowedBusinessUnitSet is { Count: 0 })
+        {
+            return [];
+        }
+
+        var idRisorsaParam = idRisorsa > 0
+            ? idRisorsa
+            : DefaultAnalisiIdRisorsa;
+
+        var filterClauses = new List<string>
+        {
+            $"anno = {anno}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(requestedBusinessUnit))
+        {
+            filterClauses.Add($"IDBUSINESSUNIT = {SqlQuote(requestedBusinessUnit)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestedRcc))
+        {
+            filterClauses.Add($"RCC = {SqlQuote(requestedRcc)}");
+        }
+
+        if (allowedBusinessUnitSet is not null && allowedBusinessUnitSet.Count > 0)
+        {
+            filterClauses.Add($"IDBUSINESSUNIT in ({string.Join(", ", allowedBusinessUnitSet.Select(SqlQuote))})");
+        }
+
+        var filter = string.Join(" AND ", filterClauses);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(PivotFatturatoStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", idRisorsaParam);
+            command.Parameters.AddWithValue("@tiporicerca", "FatturatoPivot");
+            command.Parameters.AddWithValue("@FiltroDaApplicare", string.IsNullOrWhiteSpace(filter) ? DBNull.Value : filter);
+            command.Parameters.AddWithValue("@CampoAggregazione", "BURCC");
+
+            var rows = new List<AnalisiRccPivotBurccRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            do
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var annoValue = ReadNullableInt(reader, "anno")
+                        ?? ReadNullableInt(reader, "Anno")
+                        ?? anno;
+
+                    var businessUnitValue = ReadString(reader, "IDBUSINESSUNIT", "idbusinessunit", "BusinessUnit");
+                    var rccValue = ReadString(reader, "RCC", "rcc");
+
+                    if (string.IsNullOrWhiteSpace(businessUnitValue) || string.IsNullOrWhiteSpace(rccValue))
+                    {
+                        var aggregazione = ReadString(reader, "Aggregazione");
+                        var parsed = SplitBurccAggregation(aggregazione);
+                        if (string.IsNullOrWhiteSpace(businessUnitValue))
+                        {
+                            businessUnitValue = parsed.BusinessUnit;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(rccValue))
+                        {
+                            rccValue = parsed.Rcc;
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(businessUnitValue) || string.IsNullOrWhiteSpace(rccValue))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                        !businessUnitValue.Equals(requestedBusinessUnit, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                        !rccValue.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (allowedBusinessUnitSet is not null &&
+                        !allowedBusinessUnitSet.Contains(businessUnitValue))
+                    {
+                        continue;
+                    }
+
+                    var fatturatoAnno = ReadDecimal(reader, "fatturato_anno", "totale_fatturato_numerico", "totale_fatturato_Numerico", "totale_fatturato");
+                    var fatturatoFuturoAnno = ReadDecimal(reader, "fatturato_futuro_anno", "totale_fatturato_futuro_numerico", "totale_fatturato_futuro");
+                    var totaleFatturatoCerto = fatturatoAnno + fatturatoFuturoAnno;
+                    var budgetPrevisto = ReadDecimal(reader, "budget_previsto", "Budget_numerico", "Budget");
+                    var totaleRicavoIpotetico = ReadDecimal(reader, "totale_ricavo_ipotetico", "totale_ricavo_ipotetico_numerico");
+                    var totaleRicavoIpoteticoPesato = ReadDecimal(reader, "totale_ricavo_ipotetico_pesato", "totale_ricavo_ipotetico_pesato_numerico");
+                    var totaleConRicavoIpoteticoPesato = ReadDecimal(reader, "totale_ipotetico", "totale_con_ricavo_ipotetico_pesato_numerico", "totale_con_ricavo_ipotetico_pesato");
+                    var percentualeCertaRaggiunta = budgetPrevisto == 0m
+                        ? 0m
+                        : totaleFatturatoCerto / budgetPrevisto;
+
+                    rows.Add(new AnalisiRccPivotBurccRow(
+                        annoValue,
+                        businessUnitValue.Trim(),
+                        rccValue.Trim(),
+                        fatturatoAnno,
+                        fatturatoFuturoAnno,
+                        totaleFatturatoCerto,
+                        budgetPrevisto,
+                        totaleFatturatoCerto - budgetPrevisto,
+                        percentualeCertaRaggiunta,
+                        totaleRicavoIpotetico,
+                        totaleRicavoIpoteticoPesato,
+                        totaleConRicavoIpoteticoPesato,
+                        budgetPrevisto == 0m ? 0m : totaleConRicavoIpoteticoPesato / budgetPrevisto));
+                }
+            }
+            while (await reader.NextResultAsync(cancellationToken));
+
+            return rows
+                .OrderBy(item => item.Anno)
+                .ThenBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Rcc, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<IReadOnlyCollection<AnalisiRccUtileMensileRow>> GetUtileMensileRccAsync(
@@ -1031,6 +1369,27 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         {
             return [];
         }
+    }
+
+    private static (string BusinessUnit, string Rcc) SplitBurccAggregation(string? value)
+    {
+        var raw = value?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return (string.Empty, string.Empty);
+        }
+
+        var separatorIndex = raw.IndexOf('-', StringComparison.Ordinal);
+        if (separatorIndex <= 0 || separatorIndex >= raw.Length - 1)
+        {
+            return (string.Empty, string.Empty);
+        }
+
+        var businessUnit = raw[..separatorIndex].Trim();
+        var rcc = raw[(separatorIndex + 1)..].Trim();
+        return string.IsNullOrWhiteSpace(businessUnit) || string.IsNullOrWhiteSpace(rcc)
+            ? (string.Empty, string.Empty)
+            : (businessUnit, rcc);
     }
 
     private static HashSet<string>? BuildAllowedSet(IReadOnlyCollection<string>? values)

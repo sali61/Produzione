@@ -30,7 +30,7 @@ BEGIN
         LTRIM(RTRIM(COALESCE(@FiltroAggregazione, @Rcc))),
         N'');
 
-    IF @TipoAggregazioneFiltro NOT IN (N'RCC', N'BUSINESSUNIT')
+    IF @TipoAggregazioneFiltro NOT IN (N'RCC', N'BUSINESSUNIT', N'BURCC')
     BEGIN
         SET @TipoAggregazioneFiltro = N'RCC';
     END
@@ -129,7 +129,7 @@ BEGIN
     ;WITH SourceRows AS
     (
         SELECT
-            TipoAggregazione = N'BUSINESSUNIT',
+            TipoAggregazione = @TipoAggregazioneFiltro,
             Aggregazione = LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))),
             AnnoSnapshot = CASE WHEN ISNUMERIC(CAST(src.AnnoSnapshot AS NVARCHAR(32))) = 1 THEN CONVERT(INT, src.AnnoSnapshot) ELSE NULL END,
             MeseSnapshot = CASE WHEN ISNUMERIC(CAST(src.MeseSnapshot AS NVARCHAR(32))) = 1 THEN CONVERT(INT, src.MeseSnapshot) ELSE NULL END,
@@ -140,7 +140,7 @@ BEGIN
         FROM CDG.BIXeniaValutazioneProiezioni_Mensile src
         WHERE ISNUMERIC(CAST(src.AnnoSnapshot AS NVARCHAR(32))) = 1
           AND CONVERT(INT, src.AnnoSnapshot) = @AnnoSnapshot
-          AND UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))) = N'BUSINESSUNIT'
+          AND UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))) = @TipoAggregazioneFiltro
     ),
     Normalized AS
     (
