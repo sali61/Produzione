@@ -1001,6 +1001,16 @@ button:disabled {
   font-weight: 700;
 }
 
+.bonifici-table th.piano-quarter-total-col,
+.bonifici-table td.piano-quarter-total-col {
+  background: #e7effd;
+  font-weight: 700;
+}
+
+.table-totals-row td.piano-quarter-total-col {
+  background: #dce9ff;
+}
+
 .table-group-summary-row td {
   background: #f6f9ff;
   font-weight: 700;
@@ -1060,6 +1070,22 @@ button:disabled {
 .num-negative {
   color: #b42318;
   font-weight: 700;
+}
+
+.piano-progress-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.piano-progress-percent {
+  margin-top: 0.05rem;
+  font-size: 0.7rem;
+  color: #4a6992;
+  line-height: 1.1;
+}
+
+.table-totals-row .piano-progress-percent {
+  color: #244d7d;
+  font-weight: 600;
 }
 
 .num-under-target {

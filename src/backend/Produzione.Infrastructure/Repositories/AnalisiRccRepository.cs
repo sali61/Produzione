@@ -42,6 +42,50 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
 
     private const string PivotFatturatoStoredProcedure = "produzione.spBixeniaValutazioneProiezioni";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
+    private const string PianoFatturazioneTipoRcc = "RCC";
+    private const string PianoFatturazioneBaseQuery = """
+        WITH RankedRows AS (
+            SELECT
+                AnnoSnapshot = src.AnnoSnapshot,
+                MeseSnapshot = src.MeseSnapshot,
+                AnnoRiferimento = src.AnnoRiferimento,
+                MeseRiferimento = src.MeseRiferimento,
+                InseritoIl = src.InseritoIl,
+                TotaleFatturato = src.totale_fatturato,
+                TotaleFatturatoFuturo = src.totale_fatturato_futuro,
+                TotaleComplessivo = src.totale_complessivo,
+                Budget = src.Budget,
+                Aggregazione = LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))),
+                TipoAggregazione = UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))),
+                rn = ROW_NUMBER() OVER (
+                    PARTITION BY src.AnnoRiferimento, src.MeseRiferimento, LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128))))
+                    ORDER BY src.MeseSnapshot DESC, src.InseritoIl DESC
+                )
+            FROM CDG.BIXeniaPianoFatturazione_Mensile src
+            WHERE src.AnnoSnapshot = @AnnoSnapshot
+              AND src.AnnoRiferimento = @AnnoSnapshot
+              AND src.MeseSnapshot IN ({0})
+              AND src.MeseRiferimento BETWEEN 1 AND 12
+              AND UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))) = @TipoAggregazione
+              AND LEN(LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128))))) > 0
+              AND (@Rcc IS NULL OR LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))) = @Rcc)
+        )
+        SELECT
+            AnnoSnapshot,
+            MeseSnapshot,
+            AnnoRiferimento,
+            MeseRiferimento,
+            InseritoIl,
+            TotaleFatturato,
+            TotaleFatturatoFuturo,
+            TotaleComplessivo,
+            Budget,
+            Aggregazione,
+            TipoAggregazione
+        FROM RankedRows
+        WHERE rn = 1
+        ORDER BY Aggregazione, MeseRiferimento
+        """;
 
     public async Task<string?> GetNomeRisorsaAsync(int idRisorsa, CancellationToken cancellationToken = default)
     {
@@ -152,6 +196,88 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             .ThenBy(item => item.MeseSnapshot)
             .ThenBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Rcc, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<AnalisiRccPianoFatturazioneRow>> GetPianoFatturazioneMensileAsync(
+        int annoSnapshot,
+        IReadOnlyCollection<int>? mesiSnapshot,
+        string? rcc,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || annoSnapshot <= 0)
+        {
+            return [];
+        }
+
+        var normalizedMesiSnapshot = (mesiSnapshot ?? [])
+            .Where(value => value >= 1 && value <= 12)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+        if (normalizedMesiSnapshot.Length == 0)
+        {
+            normalizedMesiSnapshot = Enumerable.Range(1, 12).ToArray();
+        }
+
+        var snapshotParamNames = normalizedMesiSnapshot
+            .Select((_, index) => $"@MeseSnapshot{index}")
+            .ToArray();
+        var sql = string.Format(CultureInfo.InvariantCulture, PianoFatturazioneBaseQuery, string.Join(", ", snapshotParamNames));
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand(sql, connection);
+        command.CommandType = CommandType.Text;
+        command.Parameters.AddWithValue("@AnnoSnapshot", annoSnapshot);
+        command.Parameters.AddWithValue("@TipoAggregazione", PianoFatturazioneTipoRcc);
+        command.Parameters.AddWithValue("@Rcc", NormalizeForSql(rcc));
+
+        for (var index = 0; index < normalizedMesiSnapshot.Length; index += 1)
+        {
+            command.Parameters.AddWithValue(snapshotParamNames[index], normalizedMesiSnapshot[index]);
+        }
+
+        var rows = new List<AnalisiRccPianoFatturazioneRow>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var aggregationValue = ReadString(reader, "Aggregazione", "aggregazione");
+            if (string.IsNullOrWhiteSpace(aggregationValue))
+            {
+                continue;
+            }
+
+            var meseRiferimento = ReadNullableInt(reader, "MeseRiferimento", "meseRiferimento", "mese")
+                ?? 0;
+            if (meseRiferimento is < 1 or > 12)
+            {
+                continue;
+            }
+
+            var row = new AnalisiRccPianoFatturazioneRow(
+                AnnoSnapshot: ReadNullableInt(reader, "AnnoSnapshot", "annoSnapshot", "anno")
+                    ?? annoSnapshot,
+                MeseSnapshot: ReadNullableInt(reader, "MeseSnapshot", "meseSnapshot", "mese")
+                    ?? 0,
+                AnnoRiferimento: ReadNullableInt(reader, "AnnoRiferimento", "annoRiferimento")
+                    ?? annoSnapshot,
+                MeseRiferimento: meseRiferimento,
+                InseritoIl: ReadNullableDateTime(reader, "InseritoIl", "inseritoIl"),
+                TotaleFatturato: ReadDecimal(reader, "TotaleFatturato", "totale_fatturato"),
+                TotaleFatturatoFuturo: ReadDecimal(reader, "TotaleFatturatoFuturo", "totale_fatturato_futuro"),
+                TotaleComplessivo: ReadDecimal(reader, "TotaleComplessivo", "totale_complessivo"),
+                Budget: ReadDecimal(reader, "Budget", "budget"),
+                Aggregazione: aggregationValue.Trim(),
+                TipoAggregazione: ReadString(reader, "TipoAggregazione", "tipoAggregazione"));
+            rows.Add(row);
+        }
+
+        return rows
+            .OrderBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.MeseRiferimento)
+            .ThenByDescending(item => item.MeseSnapshot)
             .ToArray();
     }
 

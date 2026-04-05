@@ -24,6 +24,12 @@ public interface IAnalisiRccRepository
         IReadOnlyCollection<string>? allowedBusinessUnits = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<AnalisiRccPianoFatturazioneRow>> GetPianoFatturazioneMensileAsync(
+        int annoSnapshot,
+        IReadOnlyCollection<int>? mesiSnapshot,
+        string? rcc,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<AnalisiRccPivotFatturatoRow>> GetPivotFatturatoAsync(
         int idRisorsa,
         int anno,

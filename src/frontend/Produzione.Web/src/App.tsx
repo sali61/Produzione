@@ -48,6 +48,7 @@ type AppPage =
   | 'analisi-bu-pivot-fatturato'
   | 'analisi-burcc-risultato-mensile'
   | 'analisi-burcc-pivot-fatturato'
+  | 'analisi-piano-fatturazione'
   | 'previsioni-funnel'
   | 'previsioni-report-funnel-rcc'
   | 'previsioni-report-funnel-bu'
@@ -255,6 +256,50 @@ type AnalisiRccUtileMensileResponse = {
   totaliPerAnno: AnalisiRccUtileMensileTotaleAnno[]
 }
 
+type AnalisiRccPianoFatturazioneRow = {
+  rcc: string
+  isTotale: boolean
+  budget: number
+  valoriMensili: AnalisiRccMensileValue[]
+  totaleTrim1: number
+  percentualeTrim1Cumulata: number
+  totaleTrim2: number
+  percentualeTrim2Cumulata: number
+  totaleTrim3: number
+  percentualeTrim3Cumulata: number
+  totaleTrim4: number
+  percentualeTrim4Cumulata: number
+  totaleComplessivo: number
+  percentualeTotaleBudget: number
+}
+
+type AnalisiRccPianoFatturazioneProgressValue = {
+  mese: number
+  importoProgressivo: number
+  percentualeBudgetProgressiva: number
+}
+
+type AnalisiRccPianoFatturazioneProgressRow = {
+  rcc: string
+  isTotale: boolean
+  budget: number
+  valoriMensili: AnalisiRccPianoFatturazioneProgressValue[]
+  importoTotaleProgressivo: number
+  percentualeTotaleBudget: number
+}
+
+type AnalisiRccPianoFatturazioneResponse = {
+  profile: string
+  anno: number
+  mesiSnapshot: number[]
+  mesiRiferimento: number[]
+  tipoCalcolo: string
+  vediTutto: boolean
+  rccFiltro?: string | null
+  rccDisponibili: string[]
+  righe: AnalisiRccPianoFatturazioneRow[]
+}
+
 type ProcessoOffertaDettaglioRow = {
   id: number
   businessUnit: string
@@ -311,6 +356,47 @@ type ProcessoOffertaSintesiResponse = {
   esitiDisponibili: string[]
   aggregazioniDisponibili: string[]
   righe: ProcessoOffertaSintesiRow[]
+}
+
+type ProcessoOffertaSuccessoCategoria = {
+  ricavo: number
+  costo: number
+  margine: number
+  ricarico: number
+}
+
+type ProcessoOffertaSuccessoSintesiCategoria = {
+  numero: number
+  importo: number
+  percentualeNumero: number
+  percentualeImporto: number
+}
+
+type ProcessoOffertaSuccessoSintesiRow = {
+  anno: number
+  aggregazione: string
+  negativo: ProcessoOffertaSuccessoSintesiCategoria
+  nonDefinito: ProcessoOffertaSuccessoSintesiCategoria
+  positivo: ProcessoOffertaSuccessoSintesiCategoria
+  totaleNumero: number
+  totaleImporto: number
+}
+
+type ProcessoOffertaSuccessoReportRow = {
+  anno: number
+  aggregazione: string
+  negativo: ProcessoOffertaSuccessoCategoria
+  nonDefinito: ProcessoOffertaSuccessoCategoria
+  positivo: ProcessoOffertaSuccessoCategoria
+  totale: ProcessoOffertaSuccessoCategoria
+}
+
+type ProcessoOffertaSuccessoReportTotaleAnno = {
+  anno: number
+  negativo: ProcessoOffertaSuccessoCategoria
+  nonDefinito: ProcessoOffertaSuccessoCategoria
+  positivo: ProcessoOffertaSuccessoCategoria
+  totale: ProcessoOffertaSuccessoCategoria
 }
 
 type AnalisiRccFunnelRow = {
@@ -764,6 +850,8 @@ const previsioniUtileMensileRccAllowedProfiles = ['Supervisore', 'Responsabile C
 const previsioniUtileMensileRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 const previsioniUtileMensileBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 const previsioniUtileMensileBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
+const analisiPianoFatturazioneAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
+const analisiPianoFatturazioneSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 const analisiSearchCollapsiblePages = new Set<AppPage>([
   'commesse-andamento-mensile',
@@ -778,6 +866,7 @@ const analisiSearchCollapsiblePages = new Set<AppPage>([
   'analisi-bu-pivot-fatturato',
   'analisi-burcc-risultato-mensile',
   'analisi-burcc-pivot-fatturato',
+  'analisi-piano-fatturazione',
   'previsioni-funnel',
   'previsioni-report-funnel-rcc',
   'previsioni-report-funnel-bu',
@@ -942,6 +1031,32 @@ const isProcessoOffertaEsitoPositivo = (value: string) => {
   )
 }
 
+type ProcessoOffertaEsitoBucket = 'negativo' | 'non-definito' | 'positivo'
+
+const getProcessoOffertaEsitoBucket = (value: string): ProcessoOffertaEsitoBucket => {
+  if (isProcessoOffertaEsitoPositivo(value)) {
+    return 'positivo'
+  }
+
+  const normalized = normalizeTextForMatch(value)
+  if (!normalized) {
+    return 'non-definito'
+  }
+
+  if (
+    normalized === 'no' ||
+    normalized === 'false' ||
+    normalized === 'falso' ||
+    normalized === '0' ||
+    normalized.startsWith('negativ') ||
+    normalized.includes('pers')
+  ) {
+    return 'negativo'
+  }
+
+  return 'non-definito'
+}
+
 const isValidProductValue = (value: string) => {
   const normalized = value.trim()
   if (!normalized) {
@@ -966,6 +1081,25 @@ const normalizeFilterText = (value: string) => (
     .trim()
 )
 
+const normalizePersonFilterLabel = (value: string) => {
+  const normalized = normalizeFilterText(value)
+  if (!normalized) {
+    return ''
+  }
+
+  const tokens = normalized.split(' ')
+  if (tokens.length >= 4 && tokens.length % 2 === 0) {
+    const half = tokens.length / 2
+    const left = tokens.slice(0, half).join(' ')
+    const right = tokens.slice(half).join(' ')
+    if (left.localeCompare(right, 'it', { sensitivity: 'base' }) === 0) {
+      return left
+    }
+  }
+
+  return normalized
+}
+
 const distinctFilterOptionsForUi = (options: FilterOption[]) => {
   const map = new Map<string, FilterOption>()
   options.forEach((option) => {
@@ -978,6 +1112,31 @@ const distinctFilterOptionsForUi = (options: FilterOption[]) => {
     }
 
     const key = `${safeLabel.toLocaleLowerCase('it-IT')}|${safeValue.toLocaleLowerCase('it-IT')}`
+    if (!map.has(key)) {
+      map.set(key, {
+        value: safeValue,
+        label: safeLabel,
+      })
+    }
+  })
+
+  return [...map.values()].sort((left, right) => (
+    left.label.localeCompare(right.label, 'it', { sensitivity: 'base' })
+  ))
+}
+
+const distinctPersonFilterOptionsForUi = (options: FilterOption[]) => {
+  const map = new Map<string, FilterOption>()
+  options.forEach((option) => {
+    const normalizedValue = normalizeFilterText(option.value ?? '')
+    const normalizedLabel = normalizePersonFilterLabel(option.label ?? option.value ?? '')
+    const safeValue = normalizedValue || normalizedLabel
+    const safeLabel = normalizedLabel || safeValue
+    if (!safeValue || !safeLabel) {
+      return
+    }
+
+    const key = safeLabel.toLocaleLowerCase('it-IT')
     if (!map.has(key)) {
       map.set(key, {
         value: safeValue,
@@ -1014,6 +1173,28 @@ const mergeFilterOptionValues = (
     values.add(selected)
   }
   return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+}
+
+const buildPersonSelectItems = (values: string[]) => {
+  const map = new Map<string, { value: string; label: string }>()
+  values.forEach((rawValue) => {
+    const normalizedValue = normalizeFilterText(rawValue)
+    const normalizedLabel = normalizePersonFilterLabel(rawValue)
+    const safeValue = normalizedValue || normalizedLabel
+    const safeLabel = normalizedLabel || safeValue
+    if (!safeValue || !safeLabel) {
+      return
+    }
+
+    const key = safeLabel.toLocaleLowerCase('it-IT')
+    if (!map.has(key)) {
+      map.set(key, { value: safeValue, label: safeLabel })
+    }
+  })
+
+  return [...map.values()].sort((left, right) => (
+    left.label.localeCompare(right.label, 'it', { sensitivity: 'base' })
+  ))
 }
 
 const normalizePivotGroupValue = (value: string) => {
@@ -1206,6 +1387,11 @@ const appInfoVoicesDefault: AppInfoVoice[] = [
     sintesi: 'Report annuale integrato RCC-BU con fatturato certo, budget e ricavi ipotetici sulla stessa riga. Utile per confronto incrociato tra area e responsabile.',
   },
   {
+    menu: 'Analisi Proiezioni',
+    voce: 'Piano Fatturazione',
+    sintesi: 'Mostra il piano mensile per RCC in due viste: valori mensili/trimestrali e progressivo di raggiungimento budget per mese. Supporta filtri per anno, mesi snapshot e tipo calcolo.',
+  },
+  {
     menu: 'Previsioni',
     voce: 'Funnel',
     sintesi: 'Elenco opportunita e ordini con filtri su anno, tipo e stato documento. Permette visione operativa del portafoglio atteso.',
@@ -1330,6 +1516,11 @@ function App() {
   const [analisiBurccPivotAnni, setAnalisiBurccPivotAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [analisiBurccPivotBusinessUnit, setAnalisiBurccPivotBusinessUnit] = useState('')
   const [analisiBurccPivotRcc, setAnalisiBurccPivotRcc] = useState('')
+  const [analisiPianoFatturazioneAnno, setAnalisiPianoFatturazioneAnno] = useState(new Date().getFullYear().toString())
+  const [analisiPianoFatturazioneMesiSnapshot, setAnalisiPianoFatturazioneMesiSnapshot] = useState<string[]>([])
+  const [analisiPianoFatturazioneTipoCalcolo, setAnalisiPianoFatturazioneTipoCalcolo] = useState('complessivo')
+  const [analisiPianoFatturazioneRcc, setAnalisiPianoFatturazioneRcc] = useState('')
+  const [analisiPianoFatturazioneData, setAnalisiPianoFatturazioneData] = useState<AnalisiRccPianoFatturazioneResponse | null>(null)
   const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseAndamentoMensileMese, setCommesseAndamentoMensileMese] = useState('')
   const [commesseAndamentoMensileTipologia, setCommesseAndamentoMensileTipologia] = useState('')
@@ -1368,6 +1559,8 @@ function App() {
   const [previsioniReportFunnelBuData, setPrevisioniReportFunnelBuData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
   const [processoOffertaAnni, setProcessoOffertaAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [processoOffertaEsiti, setProcessoOffertaEsiti] = useState<string[]>([])
+  const [processoOffertaPercentualeRcc, setProcessoOffertaPercentualeRcc] = useState('')
+  const [processoOffertaPercentualeBu, setProcessoOffertaPercentualeBu] = useState('')
   const [processoOffertaOfferteData, setProcessoOffertaOfferteData] = useState<ProcessoOffertaOfferteResponse | null>(null)
   const [processoOffertaSintesiRccData, setProcessoOffertaSintesiRccData] = useState<ProcessoOffertaSintesiResponse | null>(null)
   const [processoOffertaSintesiBuData, setProcessoOffertaSintesiBuData] = useState<ProcessoOffertaSintesiResponse | null>(null)
@@ -1450,6 +1643,12 @@ function App() {
   const isAnalisiBurccRccProfile = currentProfile.localeCompare('Responsabile Commerciale Commessa', 'it', { sensitivity: 'base' }) === 0
   const canSelectAnalisiBurccBusinessUnit = canAccessAnalisiBurccPage
   const canSelectAnalisiBurccRcc = canAccessAnalisiBurccPage && !isAnalisiBurccRccProfile
+  const canAccessAnalisiPianoFatturazionePage = analisiPianoFatturazioneAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectAnalisiPianoFatturazioneRcc = analisiPianoFatturazioneSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
   const canAccessPrevisioniFunnelRccPage = previsioniFunnelRccAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
@@ -1474,7 +1673,7 @@ function App() {
   const canSelectPrevisioniUtileMensileBu = previsioniUtileMensileBuSelectableProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
-  const canAccessAnalisiProiezioniMenu = canAccessAnalisiRccPage || canAccessAnalisiBuPage || canAccessAnalisiBurccPage
+  const canAccessAnalisiProiezioniMenu = canAccessAnalisiRccPage || canAccessAnalisiBuPage || canAccessAnalisiBurccPage || canAccessAnalisiPianoFatturazionePage
   const canAccessPrevisioniMenu = canAccessPrevisioniFunnelRccPage ||
     canAccessPrevisioniFunnelBuPage
   const canAccessProcessoOffertaPage = processoOffertaAllowedProfiles.some((profile) => (
@@ -1550,6 +1749,11 @@ function App() {
     setAnalisiBurccPivotAnni([new Date().getFullYear().toString()])
     setAnalisiBurccPivotBusinessUnit('')
     setAnalisiBurccPivotRcc('')
+    setAnalisiPianoFatturazioneAnno(new Date().getFullYear().toString())
+    setAnalisiPianoFatturazioneMesiSnapshot([])
+    setAnalisiPianoFatturazioneTipoCalcolo('complessivo')
+    setAnalisiPianoFatturazioneRcc('')
+    setAnalisiPianoFatturazioneData(null)
     setCommesseAndamentoMensileAnni([new Date().getFullYear().toString()])
     setCommesseAndamentoMensileMese('')
     setCommesseAndamentoMensileTipologia('')
@@ -1588,6 +1792,8 @@ function App() {
     setPrevisioniReportFunnelBuData(null)
     setProcessoOffertaAnni([new Date().getFullYear().toString()])
     setProcessoOffertaEsiti([])
+    setProcessoOffertaPercentualeRcc('')
+    setProcessoOffertaPercentualeBu('')
     setProcessoOffertaOfferteData(null)
     setProcessoOffertaSintesiRccData(null)
     setProcessoOffertaSintesiBuData(null)
@@ -2934,6 +3140,112 @@ function App() {
     }
   }
 
+  const loadAnalisiPianoFatturazione = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiPianoFatturazionePage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Piano Fatturazione.`)
+      setAnalisiPianoFatturazioneData(null)
+      return
+    }
+
+    const parsedYear = Number.parseInt(analisiPianoFatturazioneAnno.trim(), 10)
+    const annoToQuery = Number.isFinite(parsedYear) && parsedYear > 0
+      ? parsedYear
+      : new Date().getFullYear()
+    const mesiSnapshotToQuery = [...new Set(
+      analisiPianoFatturazioneMesiSnapshot
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value >= 1 && value <= 12),
+    )].sort((left, right) => left - right)
+    const normalizedMesiSnapshot = mesiSnapshotToQuery.length > 0
+      ? mesiSnapshotToQuery
+      : []
+    const normalizedTipoCalcolo = (() => {
+      const value = analisiPianoFatturazioneTipoCalcolo.trim().toLowerCase()
+      return value === 'fatturato' || value === 'futuro' || value === 'complessivo'
+        ? value
+        : 'complessivo'
+    })()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', annoToQuery.toString())
+      normalizedMesiSnapshot.forEach((value) => params.append('mesiSnapshot', value.toString()))
+      params.set('tipoCalcolo', normalizedTipoCalcolo)
+      if (canSelectAnalisiPianoFatturazioneRcc && analisiPianoFatturazioneRcc.trim()) {
+        params.set('rcc', analisiPianoFatturazioneRcc.trim())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/piano-fatturazione?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiPianoFatturazioneData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Piano Fatturazione.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiPianoFatturazioneData(null)
+        setStatusMessage(message || `Errore caricamento Piano Fatturazione (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccPianoFatturazioneResponse
+      setAnalisiPianoFatturazioneAnno(payload.anno.toString())
+      const serverMesiSnapshot = [...new Set(
+        (payload.mesiSnapshot ?? [])
+          .filter((value) => Number.isFinite(value) && value >= 1 && value <= 12),
+      )].sort((left, right) => left - right)
+      setAnalisiPianoFatturazioneMesiSnapshot(
+        (serverMesiSnapshot.length > 0 ? serverMesiSnapshot : normalizedMesiSnapshot).map((value) => value.toString()),
+      )
+      const serverTipoCalcolo = (payload.tipoCalcolo ?? '').trim().toLowerCase()
+      setAnalisiPianoFatturazioneTipoCalcolo(
+        serverTipoCalcolo === 'fatturato' || serverTipoCalcolo === 'futuro' || serverTipoCalcolo === 'complessivo'
+          ? serverTipoCalcolo
+          : normalizedTipoCalcolo,
+      )
+      if (canSelectAnalisiPianoFatturazioneRcc) {
+        const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
+        const availableRcc = (payload.rccDisponibili ?? [])
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0)
+        if (normalizedRccFiltro.length > 0 && availableRcc.some((value) => value.localeCompare(normalizedRccFiltro, 'it', { sensitivity: 'base' }) === 0)) {
+          setAnalisiPianoFatturazioneRcc(normalizedRccFiltro)
+        } else if (!payload.vediTutto && availableRcc.length === 1) {
+          setAnalisiPianoFatturazioneRcc(availableRcc[0])
+        } else if (!availableRcc.some((value) => value.localeCompare(analisiPianoFatturazioneRcc.trim(), 'it', { sensitivity: 'base' }) === 0)) {
+          setAnalisiPianoFatturazioneRcc('')
+        }
+      }
+
+      setAnalisiPianoFatturazioneData(payload)
+      const mesiEffective = (serverMesiSnapshot.length > 0 ? serverMesiSnapshot : normalizedMesiSnapshot)
+      const mesiLabel = mesiEffective.length > 0
+        ? mesiEffective.map((value) => value.toString().padStart(2, '0')).join(', ')
+        : 'tutti'
+      setStatusMessage(`Piano Fatturazione caricato (anno: ${payload.anno}, snapshot: ${mesiLabel}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
   const loadCommesseAndamentoMensile = async () => {
     if (!token.trim() || !currentProfile.trim()) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -3516,11 +3828,13 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0),
     )].sort((left, right) => left - right)
     const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
-    const selectedEsiti = [...new Set(
-      processoOffertaEsiti
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
-    )]
+    const selectedEsiti = (isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage)
+      ? []
+      : [...new Set(
+        processoOffertaEsiti
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0),
+      )]
 
     setAnalisiRccLoading(true)
     try {
@@ -3589,11 +3903,13 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0),
     )].sort((left, right) => left - right)
     const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
-    const selectedEsiti = [...new Set(
-      processoOffertaEsiti
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
-    )]
+    const selectedEsiti = (isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage)
+      ? []
+      : [...new Set(
+        processoOffertaEsiti
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0),
+      )]
 
     setAnalisiRccLoading(true)
     try {
@@ -3631,6 +3947,15 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0)
         .map((value) => value.toString())
       setProcessoOffertaAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      const selectedRcc = processoOffertaPercentualeRcc.trim()
+      if (selectedRcc.length > 0) {
+        const hasSelectedRcc = (payload.aggregazioniDisponibili ?? []).some((value) => (
+          value.localeCompare(selectedRcc, 'it', { sensitivity: 'base' }) === 0
+        ))
+        if (!hasSelectedRcc) {
+          setProcessoOffertaPercentualeRcc('')
+        }
+      }
       const validEsiti = selectedEsiti.filter((esito) => (
         (payload.esitiDisponibili ?? []).some((option) => option.localeCompare(esito, 'it', { sensitivity: 'base' }) === 0)
       ))
@@ -3704,6 +4029,15 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0)
         .map((value) => value.toString())
       setProcessoOffertaAnni(payloadYears.length > 0 ? payloadYears : yearsToQuery.map((value) => value.toString()))
+      const selectedBu = processoOffertaPercentualeBu.trim()
+      if (selectedBu.length > 0) {
+        const hasSelectedBu = (payload.aggregazioniDisponibili ?? []).some((value) => (
+          value.localeCompare(selectedBu, 'it', { sensitivity: 'base' }) === 0
+        ))
+        if (!hasSelectedBu) {
+          setProcessoOffertaPercentualeBu('')
+        }
+      }
       const validEsiti = selectedEsiti.filter((esito) => (
         (payload.esitiDisponibili ?? []).some((option) => option.localeCompare(esito, 'it', { sensitivity: 'base' }) === 0)
       ))
@@ -4057,6 +4391,16 @@ function App() {
     void loadAnalisiBurccPivotFatturato()
   }
 
+  const activateAnalisiPianoFatturazionePage = () => {
+    setOpenMenu(null)
+    setActivePage('analisi-piano-fatturazione')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadAnalisiPianoFatturazione()
+  }
+
   const activatePrevisioniFunnelPage = () => {
     setOpenMenu(null)
     setActivePage('previsioni-funnel')
@@ -4140,6 +4484,7 @@ function App() {
   const activateProcessoOffertaPercentualeSuccessoRccPage = () => {
     setOpenMenu(null)
     setActivePage('processo-offerta-percentuale-successo-rcc')
+    setProcessoOffertaEsiti([])
     if (!token.trim() || !currentProfile) {
       return
     }
@@ -4150,6 +4495,7 @@ function App() {
   const activateProcessoOffertaPercentualeSuccessoBuPage = () => {
     setOpenMenu(null)
     setActivePage('processo-offerta-percentuale-successo-bu')
+    setProcessoOffertaEsiti([])
     if (!token.trim() || !currentProfile) {
       return
     }
@@ -4295,6 +4641,11 @@ function App() {
 
     if (activePage === 'analisi-burcc-risultato-mensile') {
       void loadAnalisiBurccRisultatoMensile()
+      return
+    }
+
+    if (activePage === 'analisi-piano-fatturazione') {
+      void loadAnalisiPianoFatturazione()
       return
     }
 
@@ -4629,8 +4980,8 @@ function App() {
     ...(isCommesseSintesiPage
       ? [businessUnitFilter, productOrCounterpartFilter]
       : [productOrCounterpartFilter, businessUnitFilter]),
-    { id: 'sintesi-rcc', label: 'RCC', key: 'rcc', options: distinctFilterOptionsForUi(sintesiFiltersCatalog.rcc) },
-    { id: 'sintesi-pm', label: 'PM', key: 'pm', options: distinctFilterOptionsForUi(sintesiFiltersCatalog.pm) },
+    { id: 'sintesi-rcc', label: 'RCC', key: 'rcc', options: distinctPersonFilterOptionsForUi(sintesiFiltersCatalog.rcc) },
+    { id: 'sintesi-pm', label: 'PM', key: 'pm', options: distinctPersonFilterOptionsForUi(sintesiFiltersCatalog.pm) },
   ]
   const sintesiFilterFieldCount = useMemo(() => {
     let count = 2 + sintesiSelects.length // Anni + Ricerca Commessa
@@ -5208,6 +5559,110 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [analisiBurccPivotData?.rccDisponibili, analisiBurccPivotData?.rccFiltro, analisiBurccPivotRcc])
+  const analisiPianoFatturazioneRows = useMemo(
+    () => [...(analisiPianoFatturazioneData?.righe ?? [])]
+      .sort((left, right) => {
+        if (left.isTotale !== right.isTotale) {
+          return left.isTotale ? 1 : -1
+        }
+        return left.rcc.localeCompare(right.rcc, 'it', { sensitivity: 'base' })
+      }),
+    [analisiPianoFatturazioneData?.righe],
+  )
+  const analisiPianoFatturazioneAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    const selected = analisiPianoFatturazioneAnno.trim()
+    if (selected) {
+      years.add(selected)
+    }
+    const serverYear = analisiPianoFatturazioneData?.anno
+    if (Number.isFinite(serverYear) && (serverYear ?? 0) > 0) {
+      years.add((serverYear ?? 0).toString())
+    }
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [analisiPianoFatturazioneAnno, analisiPianoFatturazioneData?.anno, sintesiFiltersCatalog.anni])
+  const analisiPianoFatturazioneMesiSnapshotOptions = useMemo(() => {
+    const months = new Set<number>()
+    for (let month = 1; month <= 12; month += 1) {
+      months.add(month)
+    }
+    ;(analisiPianoFatturazioneData?.mesiSnapshot ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value >= 1 && value <= 12) {
+        months.add(value)
+      }
+    })
+    analisiPianoFatturazioneMesiSnapshot.forEach((value) => {
+      const parsed = Number.parseInt(value.trim(), 10)
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 12) {
+        months.add(parsed)
+      }
+    })
+    return [...months].sort((left, right) => left - right)
+  }, [analisiPianoFatturazioneData?.mesiSnapshot, analisiPianoFatturazioneMesiSnapshot])
+  const analisiPianoFatturazioneMesiRiferimento = useMemo(() => {
+    const months = new Set<number>()
+    ;(analisiPianoFatturazioneData?.mesiRiferimento ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value >= 1 && value <= 12) {
+        months.add(value)
+      }
+    })
+    if (months.size === 0) {
+      for (let month = 1; month <= 12; month += 1) {
+        months.add(month)
+      }
+    }
+    return [...months].sort((left, right) => left - right)
+  }, [analisiPianoFatturazioneData?.mesiRiferimento])
+  const analisiPianoFatturazioneRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(analisiPianoFatturazioneData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = analisiPianoFatturazioneRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (analisiPianoFatturazioneData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [analisiPianoFatturazioneData?.rccDisponibili, analisiPianoFatturazioneData?.rccFiltro, analisiPianoFatturazioneRcc])
+  const analisiPianoFatturazioneProgressRows = useMemo<AnalisiRccPianoFatturazioneProgressRow[]>(() => (
+    analisiPianoFatturazioneRows.map((row) => {
+      let cumulato = 0
+      const valoriMensili = analisiPianoFatturazioneMesiRiferimento.map((mese) => {
+        cumulato += row.valoriMensili.find((item) => item.mese === mese)?.valore ?? 0
+        return {
+          mese,
+          importoProgressivo: cumulato,
+          percentualeBudgetProgressiva: row.budget === 0 ? 0 : cumulato / row.budget,
+        }
+      })
+      return {
+        rcc: row.rcc,
+        isTotale: row.isTotale,
+        budget: row.budget,
+        valoriMensili,
+        importoTotaleProgressivo: cumulato,
+        percentualeTotaleBudget: row.budget === 0 ? 0 : cumulato / row.budget,
+      }
+    })
+  ), [analisiPianoFatturazioneMesiRiferimento, analisiPianoFatturazioneRows])
   const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
   const commesseAndamentoMensileTotals = useMemo(() => (
     commesseAndamentoMensileRows.reduce((acc, row) => ({
@@ -5300,6 +5755,14 @@ function App() {
       commesseAndamentoMensileRows.map((row) => row.pm),
     ),
     [commesseAndamentoMensilePm, commesseAndamentoMensileRows, sintesiFiltersCatalog.pm],
+  )
+  const commesseAndamentoMensileRccSelectItems = useMemo(
+    () => buildPersonSelectItems(commesseAndamentoMensileRccOptions),
+    [commesseAndamentoMensileRccOptions],
+  )
+  const commesseAndamentoMensilePmSelectItems = useMemo(
+    () => buildPersonSelectItems(commesseAndamentoMensilePmOptions),
+    [commesseAndamentoMensilePmOptions],
   )
   const commesseDatiAnnualiRows = commesseDatiAnnualiData?.items ?? []
   const commesseDatiAnnualiAnnoOptions = useMemo(() => {
@@ -6105,33 +6568,95 @@ function App() {
     processoOffertaSintesiRccData?.esitiDisponibili,
     processoOffertaSintesiBuData?.esitiDisponibili,
   ])
-  const processoOffertaSuccessoRccRows = useMemo(() => {
+  const processoOffertaPercentualeRccOptions = useMemo(() => (
+    [...new Set((processoOffertaSintesiRccData?.aggregazioniDisponibili ?? [])
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0))]
+      .sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  ), [processoOffertaSintesiRccData?.aggregazioniDisponibili])
+  const processoOffertaPercentualeBuOptions = useMemo(() => (
+    [...new Set((processoOffertaSintesiBuData?.aggregazioniDisponibili ?? [])
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0))]
+      .sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  ), [processoOffertaSintesiBuData?.aggregazioniDisponibili])
+  const processoOffertaPercentualeSelectedAggregazione = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaPercentualeRcc.trim()
+    : processoOffertaPercentualeBu.trim()
+  const processoOffertaPercentualeAggregazioneOptions = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaPercentualeRccOptions
+    : processoOffertaPercentualeBuOptions
+
+  const calculateProcessoOffertaRicarico = (ricavo: number, costo: number) => (
+    costo === 0 ? 0 : (ricavo - costo) / costo
+  )
+  const buildSuccessCategory = (ricavo: number, costo: number): ProcessoOffertaSuccessoCategoria => ({
+    ricavo,
+    costo,
+    margine: ricavo - costo,
+    ricarico: calculateProcessoOffertaRicarico(ricavo, costo),
+  })
+
+  const buildSuccessoSintesiCategoria = (
+    numero: number,
+    importo: number,
+    totaleNumero: number,
+    totaleImporto: number,
+  ): ProcessoOffertaSuccessoSintesiCategoria => ({
+    numero,
+    importo,
+    percentualeNumero: totaleNumero > 0 ? (numero / totaleNumero) : 0,
+    percentualeImporto: totaleImporto !== 0 ? (importo / totaleImporto) : 0,
+  })
+
+  const buildProcessoOffertaSuccessoSintesiRows = (
+    rows: ProcessoOffertaSintesiRow[],
+    selectedAggregazione: string,
+  ): ProcessoOffertaSuccessoSintesiRow[] => {
+    const normalizedSelectedAggregazione = selectedAggregazione.trim()
     const grouped = new Map<string, {
       anno: number
       aggregazione: string
-      numeroTotale: number
-      numeroPositivo: number
-      importoTotale: number
-      importoPositivo: number
+      negativoNumero: number
+      negativoImporto: number
+      nonDefinitoNumero: number
+      nonDefinitoImporto: number
+      positivoNumero: number
+      positivoImporto: number
     }>()
 
-    processoOffertaSintesiRccRows.forEach((row) => {
+    rows.forEach((row) => {
+      if (
+        normalizedSelectedAggregazione.length > 0 &&
+        row.aggregazione.localeCompare(normalizedSelectedAggregazione, 'it', { sensitivity: 'base' }) !== 0
+      ) {
+        return
+      }
+
       const key = `${row.anno}||${row.aggregazione}`
       const current = grouped.get(key) ?? {
         anno: row.anno,
         aggregazione: row.aggregazione,
-        numeroTotale: 0,
-        numeroPositivo: 0,
-        importoTotale: 0,
-        importoPositivo: 0,
+        negativoNumero: 0,
+        negativoImporto: 0,
+        nonDefinitoNumero: 0,
+        nonDefinitoImporto: 0,
+        positivoNumero: 0,
+        positivoImporto: 0,
       }
-      const isPositive = isProcessoOffertaEsitoPositivo(row.esitoPositivoTesto)
-      current.numeroTotale += row.numero
-      current.importoTotale += row.importoPrevedibile
-      if (isPositive) {
-        current.numeroPositivo += row.numero
-        current.importoPositivo += row.importoPrevedibile
+
+      const bucket = getProcessoOffertaEsitoBucket(row.esitoPositivoTesto)
+      if (bucket === 'positivo') {
+        current.positivoNumero += row.numero
+        current.positivoImporto += row.importoPrevedibile
+      } else if (bucket === 'negativo') {
+        current.negativoNumero += row.numero
+        current.negativoImporto += row.importoPrevedibile
+      } else {
+        current.nonDefinitoNumero += row.numero
+        current.nonDefinitoImporto += row.importoPrevedibile
       }
+
       grouped.set(key, current)
     })
 
@@ -6142,39 +6667,102 @@ function App() {
         }
         return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
       })
-      .map((row) => ({
-        ...row,
-        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
-        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
-      }))
-  }, [processoOffertaSintesiRccRows])
-  const processoOffertaSuccessoBuRows = useMemo(() => {
+      .map((row) => {
+        const totaleNumero = row.negativoNumero + row.nonDefinitoNumero + row.positivoNumero
+        const totaleImporto = row.negativoImporto + row.nonDefinitoImporto + row.positivoImporto
+        return {
+          anno: row.anno,
+          aggregazione: row.aggregazione,
+          negativo: buildSuccessoSintesiCategoria(row.negativoNumero, row.negativoImporto, totaleNumero, totaleImporto),
+          nonDefinito: buildSuccessoSintesiCategoria(row.nonDefinitoNumero, row.nonDefinitoImporto, totaleNumero, totaleImporto),
+          positivo: buildSuccessoSintesiCategoria(row.positivoNumero, row.positivoImporto, totaleNumero, totaleImporto),
+          totaleNumero,
+          totaleImporto,
+        }
+      })
+  }
+
+  const buildProcessoOffertaSuccessoSintesiTotale = (
+    rows: ProcessoOffertaSuccessoSintesiRow[],
+  ): ProcessoOffertaSuccessoSintesiRow => {
+    const totals = rows.reduce((acc, row) => ({
+      negativoNumero: acc.negativoNumero + row.negativo.numero,
+      negativoImporto: acc.negativoImporto + row.negativo.importo,
+      nonDefinitoNumero: acc.nonDefinitoNumero + row.nonDefinito.numero,
+      nonDefinitoImporto: acc.nonDefinitoImporto + row.nonDefinito.importo,
+      positivoNumero: acc.positivoNumero + row.positivo.numero,
+      positivoImporto: acc.positivoImporto + row.positivo.importo,
+    }), {
+      negativoNumero: 0,
+      negativoImporto: 0,
+      nonDefinitoNumero: 0,
+      nonDefinitoImporto: 0,
+      positivoNumero: 0,
+      positivoImporto: 0,
+    })
+
+    const totaleNumero = totals.negativoNumero + totals.nonDefinitoNumero + totals.positivoNumero
+    const totaleImporto = totals.negativoImporto + totals.nonDefinitoImporto + totals.positivoImporto
+
+    return {
+      anno: 0,
+      aggregazione: '',
+      negativo: buildSuccessoSintesiCategoria(totals.negativoNumero, totals.negativoImporto, totaleNumero, totaleImporto),
+      nonDefinito: buildSuccessoSintesiCategoria(totals.nonDefinitoNumero, totals.nonDefinitoImporto, totaleNumero, totaleImporto),
+      positivo: buildSuccessoSintesiCategoria(totals.positivoNumero, totals.positivoImporto, totaleNumero, totaleImporto),
+      totaleNumero,
+      totaleImporto,
+    }
+  }
+
+  const buildProcessoOffertaSuccessoRows = (
+    rows: ProcessoOffertaSintesiRow[],
+    selectedAggregazione: string,
+  ): ProcessoOffertaSuccessoReportRow[] => {
+    const normalizedSelectedAggregazione = selectedAggregazione.trim()
     const grouped = new Map<string, {
       anno: number
       aggregazione: string
-      numeroTotale: number
-      numeroPositivo: number
-      importoTotale: number
-      importoPositivo: number
+      negativoRicavo: number
+      negativoCosto: number
+      nonDefinitoRicavo: number
+      nonDefinitoCosto: number
+      positivoRicavo: number
+      positivoCosto: number
     }>()
 
-    processoOffertaSintesiBuRows.forEach((row) => {
+    rows.forEach((row) => {
+      if (
+        normalizedSelectedAggregazione.length > 0 &&
+        row.aggregazione.localeCompare(normalizedSelectedAggregazione, 'it', { sensitivity: 'base' }) !== 0
+      ) {
+        return
+      }
+
       const key = `${row.anno}||${row.aggregazione}`
       const current = grouped.get(key) ?? {
         anno: row.anno,
         aggregazione: row.aggregazione,
-        numeroTotale: 0,
-        numeroPositivo: 0,
-        importoTotale: 0,
-        importoPositivo: 0,
+        negativoRicavo: 0,
+        negativoCosto: 0,
+        nonDefinitoRicavo: 0,
+        nonDefinitoCosto: 0,
+        positivoRicavo: 0,
+        positivoCosto: 0,
       }
-      const isPositive = isProcessoOffertaEsitoPositivo(row.esitoPositivoTesto)
-      current.numeroTotale += row.numero
-      current.importoTotale += row.importoPrevedibile
-      if (isPositive) {
-        current.numeroPositivo += row.numero
-        current.importoPositivo += row.importoPrevedibile
+
+      const bucket = getProcessoOffertaEsitoBucket(row.esitoPositivoTesto)
+      if (bucket === 'positivo') {
+        current.positivoRicavo += row.importoPrevedibile
+        current.positivoCosto += row.costoPrevedibile
+      } else if (bucket === 'negativo') {
+        current.negativoRicavo += row.importoPrevedibile
+        current.negativoCosto += row.costoPrevedibile
+      } else {
+        current.nonDefinitoRicavo += row.importoPrevedibile
+        current.nonDefinitoCosto += row.costoPrevedibile
       }
+
       grouped.set(key, current)
     })
 
@@ -6185,12 +6773,132 @@ function App() {
         }
         return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
       })
-      .map((row) => ({
-        ...row,
-        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
-        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
-      }))
-  }, [processoOffertaSintesiBuRows])
+      .map((row) => {
+        const negativo = buildSuccessCategory(row.negativoRicavo, row.negativoCosto)
+        const nonDefinito = buildSuccessCategory(row.nonDefinitoRicavo, row.nonDefinitoCosto)
+        const positivo = buildSuccessCategory(row.positivoRicavo, row.positivoCosto)
+        const totale = buildSuccessCategory(
+          negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
+          negativo.costo + nonDefinito.costo + positivo.costo,
+        )
+
+        return {
+          anno: row.anno,
+          aggregazione: row.aggregazione,
+          negativo,
+          nonDefinito,
+          positivo,
+          totale,
+        }
+      })
+  }
+
+  const buildProcessoOffertaSuccessoTotaliPerAnno = (
+    rows: ProcessoOffertaSuccessoReportRow[],
+  ): ProcessoOffertaSuccessoReportTotaleAnno[] => {
+    const grouped = new Map<number, {
+      anno: number
+      negativoRicavo: number
+      negativoCosto: number
+      nonDefinitoRicavo: number
+      nonDefinitoCosto: number
+      positivoRicavo: number
+      positivoCosto: number
+    }>()
+
+    rows.forEach((row) => {
+      const current = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        negativoRicavo: 0,
+        negativoCosto: 0,
+        nonDefinitoRicavo: 0,
+        nonDefinitoCosto: 0,
+        positivoRicavo: 0,
+        positivoCosto: 0,
+      }
+      current.negativoRicavo += row.negativo.ricavo
+      current.negativoCosto += row.negativo.costo
+      current.nonDefinitoRicavo += row.nonDefinito.ricavo
+      current.nonDefinitoCosto += row.nonDefinito.costo
+      current.positivoRicavo += row.positivo.ricavo
+      current.positivoCosto += row.positivo.costo
+      grouped.set(row.anno, current)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => {
+        const negativo = buildSuccessCategory(row.negativoRicavo, row.negativoCosto)
+        const nonDefinito = buildSuccessCategory(row.nonDefinitoRicavo, row.nonDefinitoCosto)
+        const positivo = buildSuccessCategory(row.positivoRicavo, row.positivoCosto)
+        const totale = buildSuccessCategory(
+          negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
+          negativo.costo + nonDefinito.costo + positivo.costo,
+        )
+        return {
+          anno: row.anno,
+          negativo,
+          nonDefinito,
+          positivo,
+          totale,
+        }
+      })
+  }
+
+  const buildProcessoOffertaSuccessoTotaleComplessivo = (
+    rows: ProcessoOffertaSuccessoReportRow[],
+  ): ProcessoOffertaSuccessoCategoria[] => {
+    const totals = rows.reduce((acc, row) => ({
+      negativoRicavo: acc.negativoRicavo + row.negativo.ricavo,
+      negativoCosto: acc.negativoCosto + row.negativo.costo,
+      nonDefinitoRicavo: acc.nonDefinitoRicavo + row.nonDefinito.ricavo,
+      nonDefinitoCosto: acc.nonDefinitoCosto + row.nonDefinito.costo,
+      positivoRicavo: acc.positivoRicavo + row.positivo.ricavo,
+      positivoCosto: acc.positivoCosto + row.positivo.costo,
+    }), {
+      negativoRicavo: 0,
+      negativoCosto: 0,
+      nonDefinitoRicavo: 0,
+      nonDefinitoCosto: 0,
+      positivoRicavo: 0,
+      positivoCosto: 0,
+    })
+
+    const negativo = buildSuccessCategory(totals.negativoRicavo, totals.negativoCosto)
+    const nonDefinito = buildSuccessCategory(totals.nonDefinitoRicavo, totals.nonDefinitoCosto)
+    const positivo = buildSuccessCategory(totals.positivoRicavo, totals.positivoCosto)
+    const totale = buildSuccessCategory(
+      negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
+      negativo.costo + nonDefinito.costo + positivo.costo,
+    )
+
+    return [negativo, nonDefinito, positivo, totale]
+  }
+
+  const processoOffertaSuccessoRccRows = useMemo(
+    () => buildProcessoOffertaSuccessoRows(processoOffertaSintesiRccRows, processoOffertaPercentualeRcc),
+    [processoOffertaSintesiRccRows, processoOffertaPercentualeRcc],
+  )
+  const processoOffertaSuccessoBuRows = useMemo(
+    () => buildProcessoOffertaSuccessoRows(processoOffertaSintesiBuRows, processoOffertaPercentualeBu),
+    [processoOffertaSintesiBuRows, processoOffertaPercentualeBu],
+  )
+  const processoOffertaSuccessoSintesiRccRows = useMemo(
+    () => buildProcessoOffertaSuccessoSintesiRows(processoOffertaSintesiRccRows, processoOffertaPercentualeRcc),
+    [processoOffertaSintesiRccRows, processoOffertaPercentualeRcc],
+  )
+  const processoOffertaSuccessoSintesiBuRows = useMemo(
+    () => buildProcessoOffertaSuccessoSintesiRows(processoOffertaSintesiBuRows, processoOffertaPercentualeBu),
+    [processoOffertaSintesiBuRows, processoOffertaPercentualeBu],
+  )
+  const processoOffertaSuccessoSintesiRccTotale = useMemo(
+    () => buildProcessoOffertaSuccessoSintesiTotale(processoOffertaSuccessoSintesiRccRows),
+    [processoOffertaSuccessoSintesiRccRows],
+  )
+  const processoOffertaSuccessoSintesiBuTotale = useMemo(
+    () => buildProcessoOffertaSuccessoSintesiTotale(processoOffertaSuccessoSintesiBuRows),
+    [processoOffertaSuccessoSintesiBuRows],
+  )
   const processoOffertaIncidenzaRccRows = useMemo(() => {
     const totalsByYear = new Map<number, number>()
     processoOffertaSintesiRccRows.forEach((row) => {
@@ -6294,70 +7002,22 @@ function App() {
       costoPrevedibile: 0,
     })
   ), [processoOffertaSintesiBuRows])
-  const processoOffertaSuccessoRccTotaliPerAnno = useMemo(() => {
-    const grouped = new Map<number, {
-      anno: number
-      numeroTotale: number
-      numeroPositivo: number
-      importoTotale: number
-      importoPositivo: number
-    }>()
-
-    processoOffertaSuccessoRccRows.forEach((row) => {
-      const current = grouped.get(row.anno) ?? {
-        anno: row.anno,
-        numeroTotale: 0,
-        numeroPositivo: 0,
-        importoTotale: 0,
-        importoPositivo: 0,
-      }
-      current.numeroTotale += row.numeroTotale
-      current.numeroPositivo += row.numeroPositivo
-      current.importoTotale += row.importoTotale
-      current.importoPositivo += row.importoPositivo
-      grouped.set(row.anno, current)
-    })
-
-    return [...grouped.values()]
-      .sort((left, right) => left.anno - right.anno)
-      .map((row) => ({
-        ...row,
-        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
-        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
-      }))
-  }, [processoOffertaSuccessoRccRows])
-  const processoOffertaSuccessoBuTotaliPerAnno = useMemo(() => {
-    const grouped = new Map<number, {
-      anno: number
-      numeroTotale: number
-      numeroPositivo: number
-      importoTotale: number
-      importoPositivo: number
-    }>()
-
-    processoOffertaSuccessoBuRows.forEach((row) => {
-      const current = grouped.get(row.anno) ?? {
-        anno: row.anno,
-        numeroTotale: 0,
-        numeroPositivo: 0,
-        importoTotale: 0,
-        importoPositivo: 0,
-      }
-      current.numeroTotale += row.numeroTotale
-      current.numeroPositivo += row.numeroPositivo
-      current.importoTotale += row.importoTotale
-      current.importoPositivo += row.importoPositivo
-      grouped.set(row.anno, current)
-    })
-
-    return [...grouped.values()]
-      .sort((left, right) => left.anno - right.anno)
-      .map((row) => ({
-        ...row,
-        percentualeSuccessoNumero: row.numeroTotale > 0 ? row.numeroPositivo / row.numeroTotale : 0,
-        percentualeSuccessoImporto: row.importoTotale > 0 ? row.importoPositivo / row.importoTotale : 0,
-      }))
-  }, [processoOffertaSuccessoBuRows])
+  const processoOffertaSuccessoRccTotaliPerAnno = useMemo(
+    () => buildProcessoOffertaSuccessoTotaliPerAnno(processoOffertaSuccessoRccRows),
+    [processoOffertaSuccessoRccRows],
+  )
+  const processoOffertaSuccessoBuTotaliPerAnno = useMemo(
+    () => buildProcessoOffertaSuccessoTotaliPerAnno(processoOffertaSuccessoBuRows),
+    [processoOffertaSuccessoBuRows],
+  )
+  const processoOffertaSuccessoRccTotaleComplessivo = useMemo(
+    () => buildProcessoOffertaSuccessoTotaleComplessivo(processoOffertaSuccessoRccRows),
+    [processoOffertaSuccessoRccRows],
+  )
+  const processoOffertaSuccessoBuTotaleComplessivo = useMemo(
+    () => buildProcessoOffertaSuccessoTotaleComplessivo(processoOffertaSuccessoBuRows),
+    [processoOffertaSuccessoBuRows],
+  )
   const processoOffertaIncidenzaRccTotaliPerAnno = useMemo(() => {
     const grouped = new Map<number, {
       anno: number
@@ -6489,6 +7149,29 @@ function App() {
 
   const getAnalisiRccValueForMonth = (row: AnalisiRccRisultatoMensileRow, mese: number) => (
     row.valoriMensili.find((item) => item.mese === mese)?.valore ?? 0
+  )
+  const isQuarterEndMonth = (mese: number) => mese === 3 || mese === 6 || mese === 9 || mese === 12
+  const getQuarterFromMonth = (mese: number) => Math.min(4, Math.max(1, Math.ceil(mese / 3)))
+  const getAnalisiPianoFatturazioneQuarterTotal = (row: AnalisiRccPianoFatturazioneRow, quarter: number) => {
+    if (quarter === 1) {
+      return row.totaleTrim1
+    }
+    if (quarter === 2) {
+      return row.totaleTrim2
+    }
+    if (quarter === 3) {
+      return row.totaleTrim3
+    }
+    return row.totaleTrim4
+  }
+  const getAnalisiPianoFatturazioneValueForMonth = (row: AnalisiRccPianoFatturazioneRow, mese: number) => (
+    row.valoriMensili.find((item) => item.mese === mese)?.valore ?? 0
+  )
+  const getAnalisiPianoFatturazioneProgressAmountForMonth = (row: AnalisiRccPianoFatturazioneProgressRow, mese: number) => (
+    row.valoriMensili.find((item) => item.mese === mese)?.importoProgressivo ?? 0
+  )
+  const getAnalisiPianoFatturazioneProgressPercentForMonth = (row: AnalisiRccPianoFatturazioneProgressRow, mese: number) => (
+    row.valoriMensili.find((item) => item.mese === mese)?.percentualeBudgetProgressiva ?? 0
   )
 
   const detailAnagrafica = detailData?.anagrafica ?? null
@@ -7011,9 +7694,22 @@ function App() {
   const processoOffertaSuccessoRows = isProcessoOffertaPercentualeSuccessoRccPage
     ? processoOffertaSuccessoRccRows
     : processoOffertaSuccessoBuRows
+  const processoOffertaSuccessoSintesiRows = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaSuccessoSintesiRccRows
+    : processoOffertaSuccessoSintesiBuRows
+  const processoOffertaSuccessoSintesiTotale = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaSuccessoSintesiRccTotale
+    : processoOffertaSuccessoSintesiBuTotale
   const processoOffertaSuccessoTotaliPerAnno = isProcessoOffertaPercentualeSuccessoRccPage
     ? processoOffertaSuccessoRccTotaliPerAnno
     : processoOffertaSuccessoBuTotaliPerAnno
+  const processoOffertaSuccessoTotaleComplessivo = isProcessoOffertaPercentualeSuccessoRccPage
+    ? processoOffertaSuccessoRccTotaleComplessivo
+    : processoOffertaSuccessoBuTotaleComplessivo
+  const processoOffertaSuccessoTotaleNegativo = processoOffertaSuccessoTotaleComplessivo[0]
+  const processoOffertaSuccessoTotaleNonDefinito = processoOffertaSuccessoTotaleComplessivo[1]
+  const processoOffertaSuccessoTotalePositivo = processoOffertaSuccessoTotaleComplessivo[2]
+  const processoOffertaSuccessoTotale = processoOffertaSuccessoTotaleComplessivo[3]
   const processoOffertaIncidenzaRows = isProcessoOffertaIncidenzaRccPage
     ? processoOffertaIncidenzaRccRows
     : processoOffertaIncidenzaBuRows
@@ -7045,9 +7741,12 @@ function App() {
                             activePage === 'analisi-burcc-risultato-mensile'
                               ? (analisiBurccData?.risultatoPesato.righe.length ?? 0)
                               : (
-                                activePage === 'analisi-burcc-pivot-fatturato'
+                            activePage === 'analisi-burcc-pivot-fatturato'
                                   ? analisiBurccPivotRows.length
                                   : (
+                                    activePage === 'analisi-piano-fatturazione'
+                                      ? analisiPianoFatturazioneRows.length
+                                      : (
                                     activePage === 'previsioni-funnel'
                                       ? previsioniFunnelRows.length
                                       : (
@@ -7070,6 +7769,7 @@ function App() {
                                                   )
                                               )
                                           )
+                                      )
                                       )
                                   )
                               )
@@ -7157,6 +7857,10 @@ function App() {
   const formatPercentRatio = (value: number) => {
     const safeValue = Number.isFinite(value) ? value : 0
     return `${percentFormatter.format(Math.min(1, Math.max(0, safeValue)) * 100)}%`
+  }
+  const formatPercentRatioUnbounded = (value: number) => {
+    const safeValue = Number.isFinite(value) ? value : 0
+    return `${percentFormatter.format(safeValue * 100)}%`
   }
 
   const formatPercentValue = (value: number) => {
@@ -7783,6 +8487,38 @@ function App() {
         filenamePrefix = 'AnalisiProiezioni_ReportAnnualeRCCBU'
         break
       }
+      case 'analisi-piano-fatturazione': {
+        appendSheet(analisiPianoFatturazioneRows.map((row) => {
+          const output: Record<string, unknown> = {
+            RCC: row.rcc,
+            Budget: row.budget,
+          }
+          analisiPianoFatturazioneMesiRiferimento.forEach((mese) => {
+            output[`M${mese.toString().padStart(2, '0')}`] = getAnalisiPianoFatturazioneValueForMonth(row, mese)
+            if (isQuarterEndMonth(mese)) {
+              const quarter = getQuarterFromMonth(mese)
+              output[`Trim${quarter}Totale`] = getAnalisiPianoFatturazioneQuarterTotal(row, quarter)
+            }
+          })
+          output.TotaleComplessivo = row.totaleComplessivo
+          return output
+        }), 'PianoFatturazione')
+        appendSheet(analisiPianoFatturazioneProgressRows.map((row) => {
+          const output: Record<string, unknown> = {
+            RCC: row.rcc,
+            Budget: row.budget,
+          }
+          analisiPianoFatturazioneMesiRiferimento.forEach((mese) => {
+            output[`M${mese.toString().padStart(2, '0')}_ImportoProgressivo`] = getAnalisiPianoFatturazioneProgressAmountForMonth(row, mese)
+            output[`M${mese.toString().padStart(2, '0')}_PercBudget`] = getAnalisiPianoFatturazioneProgressPercentForMonth(row, mese)
+          })
+          output.ImportoTotaleProgressivo = row.importoTotaleProgressivo
+          output.PercentualeTotaleBudget = row.percentualeTotaleBudget
+          return output
+        }), 'ProgressivoBudget')
+        filenamePrefix = 'AnalisiProiezioni_PianoFatturazione'
+        break
+      }
       case 'previsioni-funnel': {
         appendSheet(previsioniFunnelRows.map((row) => ({
           Anno: row.anno,
@@ -7981,22 +8717,60 @@ function App() {
         appendSheet(processoOffertaSuccessoRows.map((row) => ({
           Anno: row.anno,
           Aggregazione: row.aggregazione,
-          NumeroTotale: row.numeroTotale,
-          NumeroPositivo: row.numeroPositivo,
-          PercentualeSuccessoNumero: row.percentualeSuccessoNumero,
-          ImportoTotale: row.importoTotale,
-          ImportoPositivo: row.importoPositivo,
-          PercentualeSuccessoImporto: row.percentualeSuccessoImporto,
+          RicavoNegativo: row.negativo.ricavo,
+          CostoNegativo: row.negativo.costo,
+          MargineNegativo: row.negativo.margine,
+          RicaricoNegativo: row.negativo.ricarico,
+          RicavoNonDefinito: row.nonDefinito.ricavo,
+          CostoNonDefinito: row.nonDefinito.costo,
+          MargineNonDefinito: row.nonDefinito.margine,
+          RicaricoNonDefinito: row.nonDefinito.ricarico,
+          RicavoPositivo: row.positivo.ricavo,
+          CostoPositivo: row.positivo.costo,
+          MarginePositivo: row.positivo.margine,
+          RicaricoPositivo: row.positivo.ricarico,
+          RicavoTotale: row.totale.ricavo,
+          CostoTotale: row.totale.costo,
+          MargineTotale: row.totale.margine,
+          RicaricoTotale: row.totale.ricarico,
         })), 'PercentualeSuccesso')
         appendSheet(processoOffertaSuccessoTotaliPerAnno.map((row) => ({
           Anno: row.anno,
-          NumeroTotale: row.numeroTotale,
-          NumeroPositivo: row.numeroPositivo,
-          PercentualeSuccessoNumero: row.percentualeSuccessoNumero,
-          ImportoTotale: row.importoTotale,
-          ImportoPositivo: row.importoPositivo,
-          PercentualeSuccessoImporto: row.percentualeSuccessoImporto,
+          RicavoNegativo: row.negativo.ricavo,
+          CostoNegativo: row.negativo.costo,
+          MargineNegativo: row.negativo.margine,
+          RicaricoNegativo: row.negativo.ricarico,
+          RicavoNonDefinito: row.nonDefinito.ricavo,
+          CostoNonDefinito: row.nonDefinito.costo,
+          MargineNonDefinito: row.nonDefinito.margine,
+          RicaricoNonDefinito: row.nonDefinito.ricarico,
+          RicavoPositivo: row.positivo.ricavo,
+          CostoPositivo: row.positivo.costo,
+          MarginePositivo: row.positivo.margine,
+          RicaricoPositivo: row.positivo.ricarico,
+          RicavoTotale: row.totale.ricavo,
+          CostoTotale: row.totale.costo,
+          MargineTotale: row.totale.margine,
+          RicaricoTotale: row.totale.ricarico,
         })), 'TotaliPerAnno')
+        appendSheet(processoOffertaSuccessoSintesiRows.map((row) => ({
+          Anno: row.anno,
+          Aggregazione: row.aggregazione,
+          NumeroNegativo: row.negativo.numero,
+          ImportoNegativo: row.negativo.importo,
+          PercentualeNumeroNegativo: row.negativo.percentualeNumero,
+          PercentualeImportoNegativo: row.negativo.percentualeImporto,
+          NumeroNonDefinito: row.nonDefinito.numero,
+          ImportoNonDefinito: row.nonDefinito.importo,
+          PercentualeNumeroNonDefinito: row.nonDefinito.percentualeNumero,
+          PercentualeImportoNonDefinito: row.nonDefinito.percentualeImporto,
+          NumeroPositivo: row.positivo.numero,
+          ImportoPositivo: row.positivo.importo,
+          PercentualeNumeroPositivo: row.positivo.percentualeNumero,
+          PercentualeImportoPositivo: row.positivo.percentualeImporto,
+          NumeroTotale: row.totaleNumero,
+          ImportoTotale: row.totaleImporto,
+        })), 'SintesiSuccesso')
         filenamePrefix = isProcessoOffertaPercentualeSuccessoRccPage
           ? 'ProcessoOfferta_PercentualeSuccessoRCC'
           : 'ProcessoOfferta_PercentualeSuccessoBU'
@@ -8242,6 +9016,11 @@ function App() {
                       Report Annuale RCC-BU
                     </button>
                   </>
+                )}
+                {canAccessAnalisiPianoFatturazionePage && (
+                  <button type="button" className="menu-action" onClick={activateAnalisiPianoFatturazionePage}>
+                    Piano Fatturazione
+                  </button>
                 )}
               </div>
             </div>
@@ -9085,9 +9864,9 @@ function App() {
                     onChange={(event) => setCommesseAndamentoMensileRcc(event.target.value)}
                   >
                     <option value="">Tutti</option>
-                    {commesseAndamentoMensileRccOptions.map((value) => (
-                      <option key={`commesse-andamento-rcc-${value}`} value={value}>
-                        {value}
+                    {commesseAndamentoMensileRccSelectItems.map((option) => (
+                      <option key={`commesse-andamento-rcc-${option.value}`} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -9100,9 +9879,9 @@ function App() {
                     onChange={(event) => setCommesseAndamentoMensilePm(event.target.value)}
                   >
                     <option value="">Tutti</option>
-                    {commesseAndamentoMensilePmOptions.map((value) => (
-                      <option key={`commesse-andamento-pm-${value}`} value={value}>
-                        {value}
+                    {commesseAndamentoMensilePmSelectItems.map((option) => (
+                      <option key={`commesse-andamento-pm-${option.value}`} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -9483,24 +10262,51 @@ function App() {
                         ))}
                       </select>
                     </label>
-                    <label className="analisi-rcc-year-field" htmlFor="processo-offerta-esiti">
-                      <span>Esito</span>
-                      <select
-                        id="processo-offerta-esiti"
-                        multiple
-                        size={Math.max(3, Math.min(6, processoOffertaEsitiOptions.length || 3))}
-                        value={processoOffertaEsiti}
-                        onChange={(event) => setProcessoOffertaEsiti(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {processoOffertaEsitiOptions.map((value) => (
-                          <option key={`processo-offerta-esito-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {(isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage)
+                      ? (
+                        <label className="analisi-rcc-year-field" htmlFor="processo-offerta-percentuale-aggregazione">
+                          <span>{processoOffertaAggregazioneLabel}</span>
+                          <select
+                            id="processo-offerta-percentuale-aggregazione"
+                            value={processoOffertaPercentualeSelectedAggregazione}
+                            onChange={(event) => {
+                              const nextValue = event.target.value
+                              if (isProcessoOffertaPercentualeSuccessoRccPage) {
+                                setProcessoOffertaPercentualeRcc(nextValue)
+                              } else {
+                                setProcessoOffertaPercentualeBu(nextValue)
+                              }
+                            }}
+                          >
+                            <option value="">Tutti</option>
+                            {processoOffertaPercentualeAggregazioneOptions.map((value) => (
+                              <option key={`processo-offerta-aggregazione-${value}`} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )
+                      : (
+                        <label className="analisi-rcc-year-field" htmlFor="processo-offerta-esiti">
+                          <span>Esito</span>
+                          <select
+                            id="processo-offerta-esiti"
+                            multiple
+                            size={Math.max(3, Math.min(6, processoOffertaEsitiOptions.length || 3))}
+                            value={processoOffertaEsiti}
+                            onChange={(event) => setProcessoOffertaEsiti(
+                              Array.from(event.target.selectedOptions).map((option) => option.value),
+                            )}
+                          >
+                            {processoOffertaEsitiOptions.map((value) => (
+                              <option key={`processo-offerta-esito-${value}`} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
@@ -9683,39 +10489,168 @@ function App() {
                       {processoOffertaSuccessoRows.length === 0 && !analisiRccLoading && (
                         <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
                       )}
-                      {processoOffertaSuccessoRows.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                          <table className="bonifici-table">
-                            <thead>
-                              <tr>
-                                <th>Anno</th>
-                                <th>{processoOffertaAggregazioneLabel}</th>
-                                <th className="num">Numero Totale</th>
-                                <th className="num">Numero Positivo</th>
-                                <th className="num">% Successo Numero</th>
-                                <th className="num">Importo Totale</th>
-                                <th className="num">Importo Positivo</th>
-                                <th className="num">% Successo Importo</th>
+                    {processoOffertaSuccessoRows.length > 0 && (
+                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                        <table className="bonifici-table">
+                          <thead>
+                            <tr>
+                              <th rowSpan={2}>Anno</th>
+                              <th rowSpan={2}>{processoOffertaAggregazioneLabel}</th>
+                              <th colSpan={4}>Negativo</th>
+                              <th colSpan={4}>Non definito</th>
+                              <th colSpan={4}>Positivo</th>
+                              <th colSpan={4}>Totale</th>
+                            </tr>
+                            <tr>
+                              <th className="num">Ricavo in Offerta</th>
+                              <th className="num">Costo in Offerta</th>
+                              <th className="num">Margine Operativo</th>
+                              <th className="num">Ricarico %</th>
+                              <th className="num">Ricavo in Offerta</th>
+                              <th className="num">Costo in Offerta</th>
+                              <th className="num">Margine Operativo</th>
+                              <th className="num">Ricarico %</th>
+                              <th className="num">Ricavo in Offerta</th>
+                              <th className="num">Costo in Offerta</th>
+                              <th className="num">Margine Operativo</th>
+                              <th className="num">Ricarico %</th>
+                              <th className="num">Ricavo in Offerta</th>
+                              <th className="num">Costo in Offerta</th>
+                              <th className="num">Margine Operativo</th>
+                              <th className="num">Ricarico % totale</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {processoOffertaSuccessoRows.map((row) => (
+                              <tr key={`processo-offerta-successo-${row.anno}-${row.aggregazione}`}>
+                                <td>{row.anno}</td>
+                                <td>{row.aggregazione}</td>
+                                <td className={`num ${row.negativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.ricavo)}</td>
+                                <td className={`num ${row.negativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.costo)}</td>
+                                <td className={`num ${row.negativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.margine)}</td>
+                                <td className="num">{formatPercentValue(row.negativo.ricarico)}</td>
+                                <td className={`num ${row.nonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.ricavo)}</td>
+                                <td className={`num ${row.nonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.costo)}</td>
+                                <td className={`num ${row.nonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.margine)}</td>
+                                <td className="num">{formatPercentValue(row.nonDefinito.ricarico)}</td>
+                                <td className={`num ${row.positivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.ricavo)}</td>
+                                <td className={`num ${row.positivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.costo)}</td>
+                                <td className={`num ${row.positivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.margine)}</td>
+                                <td className="num">{formatPercentValue(row.positivo.ricarico)}</td>
+                                <td className={`num ${row.totale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.ricavo)}</td>
+                                <td className={`num ${row.totale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.costo)}</td>
+                                <td className={`num ${row.totale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.margine)}</td>
+                                <td className="num">{formatPercentValue(row.totale.ricarico)}</td>
                               </tr>
-                            </thead>
-                            <tbody>
-                              {processoOffertaSuccessoRows.map((row) => (
-                                <tr key={`processo-offerta-successo-${row.anno}-${row.aggregazione}`}>
-                                  <td>{row.anno}</td>
-                                  <td>{row.aggregazione}</td>
-                                  <td className="num">{row.numeroTotale.toLocaleString('it-IT')}</td>
-                                  <td className="num">{row.numeroPositivo.toLocaleString('it-IT')}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoNumero)}</td>
-                                  <td className={`num ${row.importoTotale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotale)}</td>
-                                  <td className={`num ${row.importoPositivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPositivo)}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoImporto)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td colSpan={2} className="table-totals-label">Totale complessivo</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.ricavo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.costo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.margine)}</td>
+                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotaleNegativo.ricarico)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.ricavo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.costo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.margine)}</td>
+                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotaleNonDefinito.ricarico)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotalePositivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.ricavo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotalePositivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.costo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotalePositivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.margine)}</td>
+                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotalePositivo.ricarico)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.ricavo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.costo)}</td>
+                              <td className={`num ${processoOffertaSuccessoTotale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.margine)}</td>
+                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotale.ricarico)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="panel analisi-rcc-grid-card">
+                    <header className="panel-header">
+                      <h3>Sintesi successo ({processoOffertaAggregazioneLabel})</h3>
+                    </header>
+                    {processoOffertaSuccessoSintesiRows.length === 0 && !analisiRccLoading && (
+                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                    )}
+                    {processoOffertaSuccessoSintesiRows.length > 0 && (
+                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                        <table className="bonifici-table">
+                          <thead>
+                            <tr>
+                              <th rowSpan={2}>Anno</th>
+                              <th rowSpan={2}>{processoOffertaAggregazioneLabel}</th>
+                              <th colSpan={4}>Negativo</th>
+                              <th colSpan={4}>Non definito</th>
+                              <th colSpan={4}>Positivo</th>
+                              <th colSpan={2}>Totale</th>
+                            </tr>
+                            <tr>
+                              <th className="num">N Offerte</th>
+                              <th className="num">Importo</th>
+                              <th className="num">% Numero</th>
+                              <th className="num">% Importo</th>
+                              <th className="num">N Offerte</th>
+                              <th className="num">Importo</th>
+                              <th className="num">% Numero</th>
+                              <th className="num">% Importo</th>
+                              <th className="num">N Offerte</th>
+                              <th className="num">Importo</th>
+                              <th className="num">% Numero</th>
+                              <th className="num">% Importo</th>
+                              <th className="num">N Offerte</th>
+                              <th className="num">Importo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {processoOffertaSuccessoSintesiRows.map((row) => (
+                              <tr key={`processo-offerta-successo-sintesi-${row.anno}-${row.aggregazione}`}>
+                                <td>{row.anno}</td>
+                                <td>{row.aggregazione}</td>
+                                <td className="num">{row.negativo.numero.toLocaleString('it-IT')}</td>
+                                <td className={`num ${row.negativo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.importo)}</td>
+                                <td className="num">{formatPercentRatio(row.negativo.percentualeNumero)}</td>
+                                <td className="num">{formatPercentRatio(row.negativo.percentualeImporto)}</td>
+                                <td className="num">{row.nonDefinito.numero.toLocaleString('it-IT')}</td>
+                                <td className={`num ${row.nonDefinito.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.importo)}</td>
+                                <td className="num">{formatPercentRatio(row.nonDefinito.percentualeNumero)}</td>
+                                <td className="num">{formatPercentRatio(row.nonDefinito.percentualeImporto)}</td>
+                                <td className="num">{row.positivo.numero.toLocaleString('it-IT')}</td>
+                                <td className={`num ${row.positivo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.importo)}</td>
+                                <td className="num">{formatPercentRatio(row.positivo.percentualeNumero)}</td>
+                                <td className="num">{formatPercentRatio(row.positivo.percentualeImporto)}</td>
+                                <td className="num">{row.totaleNumero.toLocaleString('it-IT')}</td>
+                                <td className={`num ${row.totaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleImporto)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td colSpan={2} className="table-totals-label">Totale complessivo</td>
+                              <td className="num">{processoOffertaSuccessoSintesiTotale.negativo.numero.toLocaleString('it-IT')}</td>
+                              <td className={`num ${processoOffertaSuccessoSintesiTotale.negativo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.negativo.importo)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.negativo.percentualeNumero)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.negativo.percentualeImporto)}</td>
+                              <td className="num">{processoOffertaSuccessoSintesiTotale.nonDefinito.numero.toLocaleString('it-IT')}</td>
+                              <td className={`num ${processoOffertaSuccessoSintesiTotale.nonDefinito.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.nonDefinito.importo)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.nonDefinito.percentualeNumero)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.nonDefinito.percentualeImporto)}</td>
+                              <td className="num">{processoOffertaSuccessoSintesiTotale.positivo.numero.toLocaleString('it-IT')}</td>
+                              <td className={`num ${processoOffertaSuccessoSintesiTotale.positivo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.positivo.importo)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.positivo.percentualeNumero)}</td>
+                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.positivo.percentualeImporto)}</td>
+                              <td className="num">{processoOffertaSuccessoSintesiTotale.totaleNumero.toLocaleString('it-IT')}</td>
+                              <td className={`num ${processoOffertaSuccessoSintesiTotale.totaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.totaleImporto)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </section>
 
                     <section className="panel analisi-rcc-grid-card">
                       <header className="panel-header">
@@ -9729,25 +10664,51 @@ function App() {
                           <table className="bonifici-table">
                             <thead>
                               <tr>
-                                <th>Anno</th>
-                                <th className="num">Numero Totale</th>
-                                <th className="num">Numero Positivo</th>
-                                <th className="num">% Successo Numero</th>
-                                <th className="num">Importo Totale</th>
-                                <th className="num">Importo Positivo</th>
-                                <th className="num">% Successo Importo</th>
+                                <th rowSpan={2}>Anno</th>
+                                <th colSpan={4}>Negativo</th>
+                                <th colSpan={4}>Non definito</th>
+                                <th colSpan={4}>Positivo</th>
+                                <th colSpan={4}>Totale</th>
+                              </tr>
+                              <tr>
+                                <th className="num">Ricavo in Offerta</th>
+                                <th className="num">Costo in Offerta</th>
+                                <th className="num">Margine Operativo</th>
+                                <th className="num">Ricarico %</th>
+                                <th className="num">Ricavo in Offerta</th>
+                                <th className="num">Costo in Offerta</th>
+                                <th className="num">Margine Operativo</th>
+                                <th className="num">Ricarico %</th>
+                                <th className="num">Ricavo in Offerta</th>
+                                <th className="num">Costo in Offerta</th>
+                                <th className="num">Margine Operativo</th>
+                                <th className="num">Ricarico %</th>
+                                <th className="num">Ricavo in Offerta</th>
+                                <th className="num">Costo in Offerta</th>
+                                <th className="num">Margine Operativo</th>
+                                <th className="num">Ricarico % totale</th>
                               </tr>
                             </thead>
                             <tbody>
                               {processoOffertaSuccessoTotaliPerAnno.map((row) => (
                                 <tr key={`processo-offerta-successo-totale-${row.anno}`} className="table-totals-row">
                                   <td>{row.anno}</td>
-                                  <td className="num">{row.numeroTotale.toLocaleString('it-IT')}</td>
-                                  <td className="num">{row.numeroPositivo.toLocaleString('it-IT')}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoNumero)}</td>
-                                  <td className={`num ${row.importoTotale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotale)}</td>
-                                  <td className={`num ${row.importoPositivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPositivo)}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuccessoImporto)}</td>
+                                  <td className={`num ${row.negativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.ricavo)}</td>
+                                  <td className={`num ${row.negativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.costo)}</td>
+                                  <td className={`num ${row.negativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.margine)}</td>
+                                  <td className="num">{formatPercentValue(row.negativo.ricarico)}</td>
+                                  <td className={`num ${row.nonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.ricavo)}</td>
+                                  <td className={`num ${row.nonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.costo)}</td>
+                                  <td className={`num ${row.nonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.margine)}</td>
+                                  <td className="num">{formatPercentValue(row.nonDefinito.ricarico)}</td>
+                                  <td className={`num ${row.positivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.ricavo)}</td>
+                                  <td className={`num ${row.positivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.costo)}</td>
+                                  <td className={`num ${row.positivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.margine)}</td>
+                                  <td className="num">{formatPercentValue(row.positivo.ricarico)}</td>
+                                  <td className={`num ${row.totale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.ricavo)}</td>
+                                  <td className={`num ${row.totale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.costo)}</td>
+                                  <td className={`num ${row.totale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.margine)}</td>
+                                  <td className="num">{formatPercentValue(row.totale.ricarico)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -10909,6 +11870,234 @@ function App() {
                               <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
                                 {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
                               </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        )}
+
+        {activePage === 'analisi-piano-fatturazione' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Proiezioni - Piano Fatturazione</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessAnalisiPianoFatturazionePage && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a questa analisi.
+              </p>
+            )}
+
+            {canAccessAnalisiPianoFatturazionePage && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-anno">
+                      <span>Anno</span>
+                      <select
+                        id="analisi-piano-fatturazione-anno"
+                        value={analisiPianoFatturazioneAnno}
+                        onChange={(event) => setAnalisiPianoFatturazioneAnno(event.target.value)}
+                      >
+                        {analisiPianoFatturazioneAnnoOptions.map((year) => (
+                          <option key={`analisi-piano-fatturazione-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-mesi-snapshot">
+                      <span>Mesi snapshot</span>
+                      <select
+                        id="analisi-piano-fatturazione-mesi-snapshot"
+                        multiple
+                        size={4}
+                        value={analisiPianoFatturazioneMesiSnapshot}
+                        onChange={(event) => setAnalisiPianoFatturazioneMesiSnapshot(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {analisiPianoFatturazioneMesiSnapshotOptions.map((month) => (
+                          <option key={`analisi-piano-fatturazione-snapshot-${month}`} value={month.toString()}>
+                            {formatReferenceMonthLabel(month)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-tipo-calcolo">
+                      <span>Tipo calcolo</span>
+                      <select
+                        id="analisi-piano-fatturazione-tipo-calcolo"
+                        value={analisiPianoFatturazioneTipoCalcolo}
+                        onChange={(event) => setAnalisiPianoFatturazioneTipoCalcolo(event.target.value)}
+                      >
+                        <option value="complessivo">Complessivo</option>
+                        <option value="fatturato">Fatturato</option>
+                        <option value="futuro">Futuro</option>
+                      </select>
+                    </label>
+                    {canSelectAnalisiPianoFatturazioneRcc && (
+                      <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-rcc">
+                        <span>RCC</span>
+                        <select
+                          id="analisi-piano-fatturazione-rcc"
+                          value={analisiPianoFatturazioneRcc}
+                          onChange={(event) => setAnalisiPianoFatturazioneRcc(event.target.value)}
+                        >
+                          <option value="">Tutti</option>
+                          {analisiPianoFatturazioneRccOptions.map((value) => (
+                            <option key={`analisi-piano-fatturazione-rcc-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <div className="inline-actions analisi-inline-actions">
+                      <button type="submit" disabled={analisiRccLoading}>
+                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={exportAnalisiExcel}
+                        disabled={analisiRccLoading || !canExportAnalisiPage}
+                      >
+                        Export Excel
+                      </button>
+                      {isAnalisiSearchCollapsible && (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={toggleAnalisiSearchCollapsed}
+                        >
+                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
+                        </button>
+                      )}
+                      <span className="status-badge neutral sintesi-inline-count-badge">
+                        {analisiPageCountLabel}
+                      </span>
+                    </div>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {analisiPianoFatturazioneData
+                        ? `Anno ${analisiPianoFatturazioneData.anno}. Snapshot: ${(analisiPianoFatturazioneData.mesiSnapshot ?? []).map((value) => value.toString().padStart(2, '0')).join(', ') || 'tutti'}. Tipo: ${analisiPianoFatturazioneData.tipoCalcolo}. Visibilita: ${analisiPianoFatturazioneData.vediTutto ? 'tutti gli RCC' : `solo ${analisiPianoFatturazioneData.rccFiltro || 'RCC corrente'}`}.`
+                        : statusMessageVisible}
+                    </p>
+                    <span className="status-badge neutral">
+                      {analisiPianoFatturazioneData ? `${analisiPianoFatturazioneRows.length} righe` : '0 righe'}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Piano Fatturazione - Valori</h3>
+                  </header>
+                  {analisiPianoFatturazioneRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+                  {analisiPianoFatturazioneRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>RCC</th>
+                            <th className="num">Budget</th>
+                            {analisiPianoFatturazioneMesiRiferimento.map((mese) => (
+                              <Fragment key={`analisi-piano-fatturazione-mese-head-${mese}`}>
+                                <th className="num">
+                                  {formatReferenceMonthLabel(mese).slice(5)}
+                                </th>
+                                {isQuarterEndMonth(mese) && (
+                                  <th className="num piano-quarter-total-col">
+                                    Trim{getQuarterFromMonth(mese)} Totale
+                                  </th>
+                                )}
+                              </Fragment>
+                            ))}
+                            <th className="num">Totale complessivo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiPianoFatturazioneRows.map((row) => (
+                            <tr key={`analisi-piano-fatturazione-row-${row.rcc}`} className={row.isTotale ? 'table-totals-row' : ''}>
+                              <td>{row.rcc}</td>
+                              <td className={`num ${row.budget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budget)}</td>
+                              {analisiPianoFatturazioneMesiRiferimento.map((mese) => {
+                                const value = getAnalisiPianoFatturazioneValueForMonth(row, mese)
+                                const quarter = getQuarterFromMonth(mese)
+                                const quarterTotal = getAnalisiPianoFatturazioneQuarterTotal(row, quarter)
+                                return (
+                                  <Fragment key={`analisi-piano-fatturazione-value-wrap-${row.rcc}-${mese}`}>
+                                    <td className={`num ${value < 0 ? 'num-negative' : ''}`}>
+                                      {formatNumber(value)}
+                                    </td>
+                                    {isQuarterEndMonth(mese) && (
+                                      <td className={`num piano-quarter-total-col ${quarterTotal < 0 ? 'num-negative' : ''}`}>
+                                        {formatNumber(quarterTotal)}
+                                      </td>
+                                    )}
+                                  </Fragment>
+                                )
+                              })}
+                              <td className={`num ${row.totaleComplessivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleComplessivo)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>Piano Fatturazione - Progressivo % Budget</h3>
+                  </header>
+                  {analisiPianoFatturazioneProgressRows.length === 0 && !analisiRccLoading && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+                  {analisiPianoFatturazioneProgressRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>RCC</th>
+                            <th className="num">Budget</th>
+                            {analisiPianoFatturazioneMesiRiferimento.map((mese) => (
+                              <th key={`analisi-piano-fatturazione-progress-mese-${mese}`} className="num">
+                                {formatReferenceMonthLabel(mese).slice(5)}
+                              </th>
+                            ))}
+                            <th className="num">Importo totale prog.</th>
+                            <th className="num">% Totale su Budget</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analisiPianoFatturazioneProgressRows.map((row) => (
+                            <tr key={`analisi-piano-fatturazione-progress-row-${row.rcc}`} className={row.isTotale ? 'table-totals-row' : ''}>
+                              <td>{row.rcc}</td>
+                              <td className={`num ${row.budget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budget)}</td>
+                              {analisiPianoFatturazioneMesiRiferimento.map((mese) => {
+                                const importo = getAnalisiPianoFatturazioneProgressAmountForMonth(row, mese)
+                                const percentuale = getAnalisiPianoFatturazioneProgressPercentForMonth(row, mese)
+                                return (
+                                  <td key={`analisi-piano-fatturazione-progress-value-${row.rcc}-${mese}`} className="num">
+                                    <div className={`piano-progress-amount ${importo < 0 ? 'num-negative' : ''}`}>{formatNumber(importo)}</div>
+                                    <div className={`piano-progress-percent ${percentuale < 0 ? 'num-negative' : ''}`}>{formatPercentRatioUnbounded(percentuale)}</div>
+                                  </td>
+                                )
+                              })}
+                              <td className={`num ${row.importoTotaleProgressivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotaleProgressivo)}</td>
+                              <td className={`num ${row.percentualeTotaleBudget < 0 ? 'num-negative' : ''}`}>{formatPercentRatioUnbounded(row.percentualeTotaleBudget)}</td>
                             </tr>
                           ))}
                         </tbody>

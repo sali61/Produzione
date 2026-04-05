@@ -75,6 +75,14 @@ public sealed class AnalisiRccController(
         ProfileCatalog.ResponsabileOu
     ];
 
+    private static readonly string[] AllowedProfilesPianoFatturazione =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommercialeCommessa
+    ];
+
     [HttpGet("risultato-mensile")]
     [ProducesResponseType(typeof(AnalisiRccRisultatoMensileResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -2121,6 +2129,288 @@ public sealed class AnalisiRccController(
                 message = "Errore interno durante il recupero Report Funnel BU."
             });
         }
+    }
+
+    [HttpGet("piano-fatturazione")]
+    [ProducesResponseType(typeof(AnalisiRccPianoFatturazioneResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> PianoFatturazione(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "mesiSnapshot")] int[]? mesiSnapshot = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? tipoCalcolo = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            if (!AllowedProfilesPianoFatturazione.Contains(profileResult, StringComparer.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfilesPianoFatturazione)}."
+                });
+            }
+
+            var annoRiferimento = anno.HasValue && anno.Value > 0
+                ? anno.Value
+                : DateTime.Now.Year;
+
+            var mesiSnapshotRiferimento = (mesiSnapshot ?? [])
+                .Where(value => value >= 1 && value <= 12)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+            if (mesiSnapshotRiferimento.Length == 0)
+            {
+                mesiSnapshotRiferimento = Enumerable.Range(1, 12).ToArray();
+            }
+
+            var tipoCalcoloNormalizzato = NormalizePianoTipoCalcolo(tipoCalcolo);
+            var mesiRiferimento = Enumerable.Range(1, 12).ToArray();
+
+            var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+
+            var requestedRcc = string.IsNullOrWhiteSpace(rcc)
+                ? null
+                : rcc.Trim();
+
+            string? rccFiltro;
+            if (!vediTutto)
+            {
+                rccFiltro = await analisiRccRepository.GetNomeRisorsaAsync(
+                    contextData.EffectiveUser.IdRisorsa,
+                    cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(rccFiltro))
+                {
+                    return Ok(BuildEmptyPianoFatturazioneResponse(
+                        profileResult,
+                        annoRiferimento,
+                        mesiSnapshotRiferimento,
+                        tipoCalcoloNormalizzato,
+                        false,
+                        null));
+                }
+            }
+            else
+            {
+                rccFiltro = requestedRcc;
+            }
+
+            var rows = await analisiRccRepository.GetPianoFatturazioneMensileAsync(
+                annoRiferimento,
+                mesiSnapshotRiferimento,
+                rccFiltro,
+                cancellationToken);
+
+            var mesiSnapshotPresenti = rows
+                .Select(item => item.MeseSnapshot)
+                .Where(value => value >= 1 && value <= 12)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+
+            var rccDisponibili = rows
+                .Select(item => item.Aggregazione?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!vediTutto && !string.IsNullOrWhiteSpace(rccFiltro) &&
+                !rccDisponibili.Contains(rccFiltro, StringComparer.OrdinalIgnoreCase))
+            {
+                rccDisponibili.Add(rccFiltro);
+                rccDisponibili = rccDisponibili
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            var righe = rows
+                .GroupBy(item => item.Aggregazione)
+                .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => BuildPianoFatturazioneRow(
+                    group.Key,
+                    false,
+                    group.ToArray(),
+                    tipoCalcoloNormalizzato,
+                    mesiRiferimento))
+                .ToList();
+
+            if (righe.Count > 0)
+            {
+                var totalBudget = righe.Sum(item => item.Budget);
+                var totalMonthlyValues = mesiRiferimento
+                    .Select(mese => new AnalisiRccMensileValueDto
+                    {
+                        Mese = mese,
+                        Valore = righe.Sum(item => item.ValoriMensili
+                            .FirstOrDefault(value => value.Mese == mese)?.Valore ?? 0m)
+                    })
+                    .ToArray();
+
+                var trim1 = totalMonthlyValues.Where(item => item.Mese is >= 1 and <= 3).Sum(item => item.Valore);
+                var trim2 = totalMonthlyValues.Where(item => item.Mese is >= 4 and <= 6).Sum(item => item.Valore);
+                var trim3 = totalMonthlyValues.Where(item => item.Mese is >= 7 and <= 9).Sum(item => item.Valore);
+                var trim4 = totalMonthlyValues.Where(item => item.Mese is >= 10 and <= 12).Sum(item => item.Valore);
+                var totaleComplessivo = trim1 + trim2 + trim3 + trim4;
+
+                righe.Add(new AnalisiRccPianoFatturazioneRowDto
+                {
+                    Rcc = "Totale complessivo",
+                    IsTotale = true,
+                    Budget = totalBudget,
+                    ValoriMensili = totalMonthlyValues,
+                    TotaleTrim1 = trim1,
+                    PercentualeTrim1Cumulata = totalBudget == 0m ? 0m : trim1 / totalBudget,
+                    TotaleTrim2 = trim2,
+                    PercentualeTrim2Cumulata = totalBudget == 0m ? 0m : (trim1 + trim2) / totalBudget,
+                    TotaleTrim3 = trim3,
+                    PercentualeTrim3Cumulata = totalBudget == 0m ? 0m : (trim1 + trim2 + trim3) / totalBudget,
+                    TotaleTrim4 = trim4,
+                    PercentualeTrim4Cumulata = totalBudget == 0m ? 0m : totaleComplessivo / totalBudget,
+                    TotaleComplessivo = totaleComplessivo,
+                    PercentualeTotaleBudget = totalBudget == 0m ? 0m : totaleComplessivo / totalBudget
+                });
+            }
+
+            var response = new AnalisiRccPianoFatturazioneResponseDto
+            {
+                Profile = profileResult,
+                Anno = annoRiferimento,
+                MesiSnapshot = mesiSnapshotPresenti.Length > 0 ? mesiSnapshotPresenti : mesiSnapshotRiferimento,
+                MesiRiferimento = mesiRiferimento,
+                TipoCalcolo = tipoCalcoloNormalizzato,
+                VediTutto = vediTutto,
+                RccFiltro = rccFiltro,
+                RccDisponibili = rccDisponibili.ToArray(),
+                Righe = righe.ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/analisi-rcc/piano-fatturazione.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/analisi-rcc/piano-fatturazione.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero Piano Fatturazione."
+            });
+        }
+    }
+
+    private static AnalisiRccPianoFatturazioneResponseDto BuildEmptyPianoFatturazioneResponse(
+        string profile,
+        int anno,
+        IReadOnlyCollection<int> mesiSnapshot,
+        string tipoCalcolo,
+        bool vediTutto,
+        string? rccFiltro)
+    {
+        return new AnalisiRccPianoFatturazioneResponseDto
+        {
+            Profile = profile,
+            Anno = anno,
+            MesiSnapshot = mesiSnapshot.ToArray(),
+            MesiRiferimento = Enumerable.Range(1, 12).ToArray(),
+            TipoCalcolo = tipoCalcolo,
+            VediTutto = vediTutto,
+            RccFiltro = rccFiltro,
+            RccDisponibili = [],
+            Righe = []
+        };
+    }
+
+    private static AnalisiRccPianoFatturazioneRowDto BuildPianoFatturazioneRow(
+        string rcc,
+        bool isTotale,
+        IReadOnlyCollection<AnalisiRccPianoFatturazioneRow> rows,
+        string tipoCalcolo,
+        IReadOnlyCollection<int> mesiRiferimento)
+    {
+        var budget = rows
+            .Select(item => item.Budget)
+            .FirstOrDefault(value => value != 0m);
+        if (budget == 0m)
+        {
+            budget = rows.Select(item => item.Budget).FirstOrDefault();
+        }
+
+        var monthlyValues = mesiRiferimento
+            .Select(mese => new AnalisiRccMensileValueDto
+            {
+                Mese = mese,
+                Valore = rows
+                    .Where(item => item.MeseRiferimento == mese)
+                    .Sum(item => ResolvePianoValore(item, tipoCalcolo))
+            })
+            .ToArray();
+
+        var trim1 = monthlyValues.Where(item => item.Mese is >= 1 and <= 3).Sum(item => item.Valore);
+        var trim2 = monthlyValues.Where(item => item.Mese is >= 4 and <= 6).Sum(item => item.Valore);
+        var trim3 = monthlyValues.Where(item => item.Mese is >= 7 and <= 9).Sum(item => item.Valore);
+        var trim4 = monthlyValues.Where(item => item.Mese is >= 10 and <= 12).Sum(item => item.Valore);
+        var totaleComplessivo = trim1 + trim2 + trim3 + trim4;
+
+        return new AnalisiRccPianoFatturazioneRowDto
+        {
+            Rcc = rcc,
+            IsTotale = isTotale,
+            Budget = budget,
+            ValoriMensili = monthlyValues,
+            TotaleTrim1 = trim1,
+            PercentualeTrim1Cumulata = budget == 0m ? 0m : trim1 / budget,
+            TotaleTrim2 = trim2,
+            PercentualeTrim2Cumulata = budget == 0m ? 0m : (trim1 + trim2) / budget,
+            TotaleTrim3 = trim3,
+            PercentualeTrim3Cumulata = budget == 0m ? 0m : (trim1 + trim2 + trim3) / budget,
+            TotaleTrim4 = trim4,
+            PercentualeTrim4Cumulata = budget == 0m ? 0m : totaleComplessivo / budget,
+            TotaleComplessivo = totaleComplessivo,
+            PercentualeTotaleBudget = budget == 0m ? 0m : totaleComplessivo / budget
+        };
+    }
+
+    private static decimal ResolvePianoValore(AnalisiRccPianoFatturazioneRow row, string tipoCalcolo)
+    {
+        return tipoCalcolo switch
+        {
+            "fatturato" => row.TotaleFatturato,
+            "futuro" => row.TotaleFatturatoFuturo,
+            _ => row.TotaleComplessivo
+        };
+    }
+
+    private static string NormalizePianoTipoCalcolo(string? tipoCalcolo)
+    {
+        var normalized = tipoCalcolo?.Trim().ToLowerInvariant() ?? string.Empty;
+        return normalized switch
+        {
+            "fatturato" => "fatturato",
+            "futuro" => "futuro",
+            "complessivo" => "complessivo",
+            _ => "complessivo"
+        };
     }
 
     private static AnalisiRccRisultatoMensileBurccResponseDto BuildEmptyRisultatoMensileBurccResponse(
