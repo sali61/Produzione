@@ -22,6 +22,14 @@ public interface ICommesseFilterRepository
         string profile,
         int? anno,
         CancellationToken cancellationToken = default);
+    Task<CommesseRisorseFilters> GetRisorseValutazioneFiltersAsync(
+        UserContext user,
+        string profile,
+        bool mensile,
+        IReadOnlyCollection<int>? anni,
+        bool analisiOu = false,
+        bool analisiOuPivot = false,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<CommessaSintesiRow>> SearchSintesiAsync(
         UserContext user,
         string profile,
@@ -36,6 +44,11 @@ public interface ICommesseFilterRepository
         UserContext user,
         string profile,
         CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaRisorseValutazioneRow>> SearchRisorseValutazioneAsync(
+        UserContext user,
+        string profile,
+        CommesseRisorseSearchRequest request,
         CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<ContabilitaVenditaRow>> SearchVenditeAsync(
         UserContext user,

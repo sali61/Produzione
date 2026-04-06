@@ -17,6 +17,17 @@ public sealed class DatiContabiliController(
     ICommesseFilterRepository commesseFilterRepository,
     ILogger<DatiContabiliController> logger) : ControllerBase
 {
+    private static readonly string[] AllowedProfiles =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ProjectManager,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.GeneralProjectManager,
+        ProfileCatalog.ResponsabileOu
+    ];
+
     [HttpGet("vendite")]
     [HttpGet("vendita")]
     [ProducesResponseType(typeof(DatiContabiliVenditaResponseDto), StatusCodes.Status200OK)]
@@ -267,6 +278,14 @@ public sealed class DatiContabiliController(
         if (!ProfileCatalog.IsKnown(normalizedProfile))
         {
             return (false, null, BadRequest(new { message = $"Profilo non riconosciuto: {profile}" }), null);
+        }
+
+        if (!AllowedProfiles.Contains(normalizedProfile, StringComparer.OrdinalIgnoreCase))
+        {
+            return (false, null, StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = $"Profilo '{normalizedProfile}' non autorizzato alla consultazione in Dati Contabili."
+            }), null);
         }
 
         var normalizedAllowedProfiles = UserExecutionContextService.BuildAvailableProfiles(

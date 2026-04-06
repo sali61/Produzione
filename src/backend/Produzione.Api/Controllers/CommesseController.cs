@@ -17,6 +17,28 @@ public sealed class CommesseController(
     ICommesseFilterRepository commesseFilterRepository,
     ILogger<CommesseController> logger) : ControllerBase
 {
+    private static readonly string[] AllowedProfiles =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ProjectManager,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.GeneralProjectManager,
+        ProfileCatalog.ResponsabileOu
+    ];
+
+    private static readonly string[] AllowedProfilesRisorse =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.GeneralProjectManager,
+        ProfileCatalog.ResponsabileOu,
+        ProfileCatalog.RisorseUmane
+    ];
+
     [HttpGet("options")]
     [ProducesResponseType(typeof(CommesseFilterResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -347,6 +369,245 @@ public sealed class CommesseController(
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Errore interno durante il recupero dell'andamento mensile commesse."
+            });
+        }
+    }
+
+    [HttpGet("risorse/filters")]
+    [ProducesResponseType(typeof(CommesseRisorseFiltersResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RisorseFilters(
+        [FromQuery] string profile,
+        [FromQuery] bool mensile = false,
+        [FromQuery] bool analisiOu = false,
+        [FromQuery] bool analisiOuPivot = false,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(
+                profile,
+                actAsUsername,
+                AllowedProfilesRisorse,
+                cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var selectedAnni = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+
+            if (selectedAnni.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                selectedAnni = [anno.Value];
+            }
+
+            if (mensile && selectedAnni.Length == 0)
+            {
+                var currentYear = DateTime.Now.Year;
+                selectedAnni = [currentYear - 1, currentYear];
+            }
+
+            var filters = await commesseFilterRepository.GetRisorseValutazioneFiltersAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                mensile,
+                selectedAnni,
+                analisiOu,
+                analisiOuPivot,
+                cancellationToken);
+
+            var response = new CommesseRisorseFiltersResponseDto
+            {
+                Profile = profileResult,
+                Mensile = mensile,
+                Anni = filters.Anni.Select(ToFilterItemDto).ToArray(),
+                Commesse = filters.Commesse.Select(ToFilterItemDto).ToArray(),
+                TipologieCommessa = filters.TipologieCommessa.Select(ToFilterItemDto).ToArray(),
+                Stati = filters.Stati.Select(ToFilterItemDto).ToArray(),
+                MacroTipologie = filters.MacroTipologie.Select(ToFilterItemDto).ToArray(),
+                Controparti = filters.Controparti.Select(ToFilterItemDto).ToArray(),
+                BusinessUnits = filters.BusinessUnits.Select(ToFilterItemDto).ToArray(),
+                Rcc = filters.Rcc.Select(ToFilterItemDto).ToArray(),
+                Pm = filters.Pm.Select(ToFilterItemDto).ToArray(),
+                Risorse = filters.Risorse
+                    .Select(item =>
+                    {
+                        var safeName = item.NomeRisorsa?.Trim() ?? string.Empty;
+                        var label = item.InForza ? safeName : $"^ {safeName}";
+                        return new CommesseRisorseFilterItemDto
+                        {
+                            IdRisorsa = item.IdRisorsa,
+                            Value = item.IdRisorsa.ToString(),
+                            Label = label,
+                            InForza = item.InForza
+                        };
+                    })
+                    .OrderBy(item => item.Label, StringComparer.CurrentCultureIgnoreCase)
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/risorse/filters.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/risorse/filters.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero filtri risultati risorse."
+            });
+        }
+    }
+
+    [HttpGet("risorse/valutazione")]
+    [ProducesResponseType(typeof(CommesseRisorseValutazioneResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RisorseValutazione(
+        [FromQuery] string profile,
+        [FromQuery] bool mensile = false,
+        [FromQuery] bool analisiOu = false,
+        [FromQuery] bool analisiOuPivot = false,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? commessa = null,
+        [FromQuery] string? tipologiaCommessa = null,
+        [FromQuery] string? stato = null,
+        [FromQuery] string? macroTipologia = null,
+        [FromQuery] string? controparte = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? pm = null,
+        [FromQuery] int? idRisorsa = null,
+        [FromQuery] int take = 10000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(
+                profile,
+                actAsUsername,
+                AllowedProfilesRisorse,
+                cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var selectedAnni = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+
+            if (selectedAnni.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                selectedAnni = [anno.Value];
+            }
+
+            if (mensile && selectedAnni.Length == 0)
+            {
+                var currentYear = DateTime.Now.Year;
+                selectedAnni = [currentYear - 1, currentYear];
+            }
+
+            var request = new CommesseRisorseSearchRequest(
+                mensile,
+                selectedAnni,
+                commessa,
+                tipologiaCommessa,
+                stato,
+                macroTipologia,
+                controparte,
+                businessUnit,
+                rcc,
+                pm,
+                idRisorsa is > 0 ? idRisorsa : null,
+                Math.Clamp(take, 1, 100000),
+                analisiOu,
+                analisiOuPivot);
+
+            var rows = await commesseFilterRepository.SearchRisorseValutazioneAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                request,
+                cancellationToken);
+
+            var response = new CommesseRisorseValutazioneResponseDto
+            {
+                Profile = profileResult,
+                Mensile = mensile,
+                Count = rows.Count,
+                Anni = selectedAnni,
+                Items = rows
+                    .Select(row => new CommessaRisorseValutazioneRowDto
+                    {
+                        AnnoCompetenza = row.AnnoCompetenza,
+                        MeseCompetenza = row.MeseCompetenza,
+                        Commessa = row.Commessa,
+                        DescrizioneCommessa = row.DescrizioneCommessa,
+                        TipologiaCommessa = row.TipologiaCommessa,
+                        Stato = row.Stato,
+                        MacroTipologia = row.MacroTipologia,
+                        Prodotto = row.Prodotto,
+                        Controparte = row.Controparte,
+                        BusinessUnit = row.BusinessUnit,
+                        Rcc = row.Rcc,
+                        Pm = row.Pm,
+                        IdRisorsa = row.IdRisorsa,
+                        NomeRisorsa = row.NomeRisorsa,
+                        RisorsaInForza = row.RisorsaInForza,
+                        OreTotali = row.OreTotali,
+                        FatturatoInBaseAdOre = row.FatturatoInBaseAdOre,
+                        FatturatoInBaseACosto = row.FatturatoInBaseACosto,
+                        UtileInBaseAdOre = row.UtileInBaseAdOre,
+                        UtileInBaseACosto = row.UtileInBaseACosto,
+                        CostoSpecificoRisorsa = row.CostoSpecificoRisorsa,
+                        IdOu = row.IdOu,
+                        NomeRuolo = row.NomeRuolo,
+                        PercentualeUtilizzo = row.PercentualeUtilizzo,
+                        Area = row.Area,
+                        OuProduzione = row.OuProduzione,
+                        CodiceSocieta = row.CodiceSocieta
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/risorse/valutazione.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/risorse/valutazione.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero risultati risorse."
             });
         }
     }
@@ -937,9 +1198,18 @@ public sealed class CommesseController(
         }
     }
 
+    private Task<(bool IsValid, UserExecutionContextData? Context, IActionResult? ErrorResponse, string? Profile)> ResolveContextAndProfileAsync(
+        string profile,
+        string? actAsUsername,
+        CancellationToken cancellationToken)
+    {
+        return ResolveContextAndProfileAsync(profile, actAsUsername, AllowedProfiles, cancellationToken);
+    }
+
     private async Task<(bool IsValid, UserExecutionContextData? Context, IActionResult? ErrorResponse, string? Profile)> ResolveContextAndProfileAsync(
         string profile,
         string? actAsUsername,
+        IReadOnlyCollection<string> allowedProfiles,
         CancellationToken cancellationToken)
     {
         var resolution = await executionContextService.ResolveAsync(User, actAsUsername, cancellationToken);
@@ -955,6 +1225,14 @@ public sealed class CommesseController(
         if (!ProfileCatalog.IsKnown(normalizedProfile))
         {
             return (false, null, BadRequest(new { message = $"Profilo non riconosciuto: {profile}" }), null);
+        }
+
+        if (!allowedProfiles.Contains(normalizedProfile, StringComparer.OrdinalIgnoreCase))
+        {
+            return (false, null, StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = $"Profilo '{normalizedProfile}' non autorizzato alla consultazione in Commesse."
+            }), null);
         }
 
         var normalizedAllowedProfiles = UserExecutionContextService.BuildAvailableProfiles(

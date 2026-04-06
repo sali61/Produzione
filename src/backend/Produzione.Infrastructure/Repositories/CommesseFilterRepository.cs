@@ -132,6 +132,17 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
     private const string SintesiCommesseStoredProcedure = "produzione.spSintesiCommesse";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
+    private const string AnalisiCommesseStoredProcedure = "CDG.BIXeniaAnalisiCommesse";
+    private const string RisorseLookupQuery = """
+        SELECT
+            CAST(r.id AS INT) AS IdRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(CASE WHEN r.DataFine IS NULL THEN 1 ELSE 0 END AS BIT) AS InForza
+        FROM dbo.Risorse r
+        ORDER BY
+            LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))),
+            r.id;
+        """;
     private const string DettaglioCommesseFatturatoStoredProcedure = "produzione.spDettaglioCommesseFatturato";
     private const string CommessaRequisitiOreQuery = """
         DECLARE @IdCommessa INT =
@@ -550,6 +561,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         Array.Empty<CommesseSintesiFilterOption>(),
         Array.Empty<CommesseSintesiFilterOption>());
 
+    private static readonly CommesseRisorseFilters EmptyRisorseFilters = new(
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseRisorsaFilterOption>());
+
     public async Task<UserContext?> ResolveUserContextAsync(string username, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(username))
@@ -955,6 +978,245 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             businessUnitOptions,
             rccOptions,
             pmOptions);
+    }
+
+    public async Task<CommesseRisorseFilters> GetRisorseValutazioneFiltersAsync(
+        UserContext user,
+        string profile,
+        bool mensile,
+        IReadOnlyCollection<int>? anni,
+        bool analisiOu = false,
+        bool analisiOuPivot = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return EmptyRisorseFilters;
+        }
+
+        var selectedAnni = (anni ?? [])
+            .Where(value => value > 0)
+            .Distinct()
+            .OrderByDescending(value => value)
+            .ToArray();
+
+        var request = new CommesseRisorseSearchRequest(
+            mensile,
+            selectedAnni,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            100000,
+            analisiOu,
+            analisiOuPivot);
+
+        var rows = await SearchRisorseValutazioneAsync(
+            user,
+            profile,
+            request,
+            cancellationToken);
+
+        var anniOptions = rows
+            .Where(row => row.AnnoCompetenza > 0)
+            .Select(row => row.AnnoCompetenza.ToString())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(value => int.TryParse(value, out var parsed) ? parsed : int.MinValue)
+            .Select(value => new CommesseSintesiFilterOption(value, value))
+            .ToArray();
+
+        var commessaOptions = rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.Commessa))
+            .Select(row =>
+            {
+                var commessa = row.Commessa.Trim();
+                var descrizione = row.DescrizioneCommessa.Trim();
+                return new CommesseSintesiFilterOption(
+                    commessa,
+                    string.IsNullOrWhiteSpace(descrizione) ? commessa : $"{commessa} - {descrizione}");
+            })
+            .GroupBy(option => option.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var tipologiaOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.TipologiaCommessa));
+        var statoOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Stato));
+        var macroOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.MacroTipologia));
+        var controparteOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Controparte));
+        var businessUnitOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.BusinessUnit));
+        var rccOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Rcc));
+        var pmOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Pm));
+        var risorseOptions = rows
+            .Where(row => row.IdRisorsa > 0)
+            .GroupBy(row => row.IdRisorsa)
+            .Select(group =>
+            {
+                var first = group
+                    .OrderByDescending(item => item.RisorsaInForza)
+                    .ThenBy(item => item.NomeRisorsa, StringComparer.OrdinalIgnoreCase)
+                    .First();
+                var nomeRisorsa = first.NomeRisorsa.Trim();
+                return new CommesseRisorsaFilterOption(first.IdRisorsa, nomeRisorsa, first.RisorsaInForza);
+            })
+            .OrderBy(item => item.NomeRisorsa, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new CommesseRisorseFilters(
+            anniOptions,
+            commessaOptions,
+            tipologiaOptions,
+            statoOptions,
+            macroOptions,
+            controparteOptions,
+            businessUnitOptions,
+            rccOptions,
+            pmOptions,
+            risorseOptions);
+    }
+
+    public async Task<IReadOnlyCollection<CommessaRisorseValutazioneRow>> SearchRisorseValutazioneAsync(
+        UserContext user,
+        string profile,
+        CommesseRisorseSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var normalizedTake = Math.Clamp(request.Take, 1, 100000);
+        var filterClause = request.AnalisiOuPivot
+            ? BuildRisorseValutazioneOuPivotFilterClause(user, visibility, request)
+            : BuildRisorseValutazioneFilterClause(user, visibility, request);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            var risorseLookup = request.AnalisiOuPivot
+                ? new Dictionary<int, (string NomeRisorsa, bool InForza)>()
+                : await LoadRisorseLookupAsync(connection, cancellationToken);
+
+            var storedProcedure = request.AnalisiOu || request.AnalisiOuPivot
+                ? "CDG.BIXeniaAnalisiOU"
+                : (request.Mensile ? MensileCommesseStoredProcedure : AnalisiCommesseStoredProcedure);
+            var tipoRicerca = request.AnalisiOuPivot
+                ? "ValutazioneEconomicaPersonaleOUPivot"
+                : (request.AnalisiOu ? "ValutazioneEconomicaPersonaleOU" : "ValutazioneEconomicaPersonale");
+
+            await using var command = new SqlCommand(
+                storedProcedure,
+                connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", AnalisiCommesseIdRisorsa);
+            command.Parameters.AddWithValue("@tiporicerca", tipoRicerca);
+            command.Parameters.AddWithValue(
+                "@FiltroDaApplicare",
+                string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
+            command.Parameters.AddWithValue("@CampoAggregazione", request.AnalisiOu && !request.AnalisiOuPivot ? "RCC" : DBNull.Value);
+
+            var rows = new List<CommessaRisorseValutazioneRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var annoCompetenza = ReadNullableInt(reader, ordinals, "anno_competenza") ?? 0;
+                if (annoCompetenza <= 0)
+                {
+                    continue;
+                }
+
+                var meseCompetenza = request.Mensile
+                    ? ReadNullableInt(reader, ordinals, "mese_competenza")
+                    : null;
+
+                var idRisorsa = ReadNullableInt(reader, ordinals, "idRisorsa", "idrisorsa")
+                    ?? 0;
+
+                if (request.IdRisorsa.HasValue && request.IdRisorsa.Value > 0 && idRisorsa != request.IdRisorsa.Value)
+                {
+                    continue;
+                }
+
+                var idOu = ReadString(reader, ordinals, "idOU", "idOu", "idou");
+                var nomeRisorsa = ReadString(reader, ordinals, "nome_risorsa", "nomeRisorsa", "Nome Risorsa");
+                var risorsaInForza = true;
+                if (idRisorsa > 0 && risorseLookup.TryGetValue(idRisorsa, out var risorsaInfo))
+                {
+                    if (!string.IsNullOrWhiteSpace(risorsaInfo.NomeRisorsa))
+                    {
+                        nomeRisorsa = risorsaInfo.NomeRisorsa;
+                    }
+                    risorsaInForza = risorsaInfo.InForza;
+                }
+                else if (request.AnalisiOuPivot)
+                {
+                    nomeRisorsa = string.IsNullOrWhiteSpace(idOu) ? "OU non definita" : idOu;
+                }
+
+                var businessUnit = ReadString(reader, ordinals, "idbusinessunit");
+                if (string.IsNullOrWhiteSpace(businessUnit))
+                {
+                    businessUnit = idOu;
+                }
+
+                var rcc = ReadString(reader, ordinals, "RCC");
+                if (request.AnalisiOuPivot && string.IsNullOrWhiteSpace(rcc))
+                {
+                    rcc = idOu;
+                }
+
+                rows.Add(new CommessaRisorseValutazioneRow(
+                    annoCompetenza,
+                    meseCompetenza,
+                    ReadString(reader, ordinals, "commessa"),
+                    ReadString(reader, ordinals, "descrizione"),
+                    ReadString(reader, ordinals, "tipo_commessa"),
+                    ReadString(reader, ordinals, "stato"),
+                    ReadString(reader, ordinals, "macrotipologia"),
+                    ReadString(reader, ordinals, "Nomeprodotto"),
+                    ReadString(reader, ordinals, "controparte"),
+                    businessUnit,
+                    rcc,
+                    ReadString(reader, ordinals, "PM"),
+                    idRisorsa,
+                    nomeRisorsa,
+                    risorsaInForza,
+                    ReadDecimal(reader, ordinals, "OreTotali"),
+                    ReadDecimal(reader, ordinals, "FatturatoInBaseAdOre", "FatturatoInBaseAdOreRilEcon"),
+                    ReadDecimal(reader, ordinals, "FatturatoInBaseACosto"),
+                    ReadDecimal(reader, ordinals, "UtileInBaseAdOre", "UtileInBaseAdOreRilEcon"),
+                    ReadDecimal(reader, ordinals, "UtileInBaseACosto"),
+                    ReadDecimal(reader, ordinals, "CostoSpecificoRisorsa"),
+                    idOu,
+                    ReadString(reader, ordinals, "NomeRuolo"),
+                    ReadDecimal(reader, ordinals, "PercentualeUtilizzo"),
+                    ReadString(reader, ordinals, "area"),
+                    ReadBoolean(reader, ordinals, "ou_produzione"),
+                    ReadString(reader, ordinals, "codicesocieta")));
+            }
+
+            return rows
+                .OrderByDescending(item => item.AnnoCompetenza)
+                .ThenByDescending(item => item.MeseCompetenza ?? 0)
+                .ThenBy(item => item.NomeRisorsa, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
+                .Take(normalizedTake)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<IReadOnlyCollection<CommessaSintesiRow>> SearchSintesiAsync(
@@ -2289,7 +2551,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             normalizedProfile.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
-            normalizedProfile.Equals(ProfileCatalog.GeneralProjectManager, StringComparison.OrdinalIgnoreCase);
+            normalizedProfile.Equals(ProfileCatalog.GeneralProjectManager, StringComparison.OrdinalIgnoreCase) ||
+            normalizedProfile.Equals(ProfileCatalog.RisorseUmane, StringComparison.OrdinalIgnoreCase);
 
         var isPm = normalizedProfile.Equals(ProfileCatalog.ProjectManager, StringComparison.OrdinalIgnoreCase);
         var isRcc = normalizedProfile.Equals(ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase);
@@ -2469,6 +2732,162 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return string.Join(" AND ", clauses);
     }
 
+    private static string BuildRisorseValutazioneFilterClause(
+        UserContext user,
+        VisibilityFlags visibility,
+        CommesseRisorseSearchRequest request)
+    {
+        var clauses = new List<string>();
+        var selectedAnni = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        if (request.Mensile)
+        {
+            var monthlyClause = BuildMensileCompetenzaClause(selectedAnni);
+            if (!string.IsNullOrWhiteSpace(monthlyClause))
+            {
+                clauses.Add(monthlyClause);
+            }
+        }
+        else if (selectedAnni.Length > 0)
+        {
+            if (selectedAnni.Length == 1)
+            {
+                clauses.Add($"anno_competenza = {selectedAnni[0]}");
+            }
+            else
+            {
+                clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
+            }
+        }
+
+        AddStringClause(clauses, "commessa", request.Commessa);
+        AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
+        AddStringClause(clauses, "stato", request.Stato);
+        AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
+        AddStringClause(clauses, "controparte", request.Controparte);
+        AddStringClause(clauses, request.AnalisiOu ? "idOU" : "idbusinessunit", request.BusinessUnit);
+        AddStringClause(clauses, "RCC", request.Rcc);
+        AddStringClause(clauses, "PM", request.Pm);
+
+        if (request.IdRisorsa.HasValue && request.IdRisorsa.Value > 0)
+        {
+            clauses.Add($"idRisorsa = {request.IdRisorsa.Value}");
+        }
+
+        var visibilityClause = BuildVisibilityClause(user, visibility, request.AnalisiOu);
+        if (!string.IsNullOrWhiteSpace(visibilityClause))
+        {
+            clauses.Add(visibilityClause);
+        }
+
+        return string.Join(" AND ", clauses);
+    }
+
+    private static string BuildRisorseValutazioneOuPivotFilterClause(
+        UserContext user,
+        VisibilityFlags visibility,
+        CommesseRisorseSearchRequest request)
+    {
+        var clauses = new List<string>();
+        var selectedAnni = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        if (selectedAnni.Length == 1)
+        {
+            clauses.Add($"anno_competenza = {selectedAnni[0]}");
+        }
+        else if (selectedAnni.Length > 1)
+        {
+            clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
+        }
+
+        AddStringClause(clauses, "idOU", request.BusinessUnit);
+
+        var visibilityClause = BuildVisibilityClause(user, visibility, true);
+        if (!string.IsNullOrWhiteSpace(visibilityClause))
+        {
+            clauses.Add(visibilityClause);
+        }
+
+        return string.Join(" AND ", clauses);
+    }
+
+    private static string BuildMensileCompetenzaClause(IReadOnlyCollection<int> selectedAnni)
+    {
+        var now = DateTime.Now;
+        var currentYear = now.Year;
+        var currentMonth = Math.Clamp(now.Month, 1, 12);
+
+        var years = (selectedAnni.Count == 0
+                ? new[] { currentYear - 1, currentYear }
+                : selectedAnni.Where(value => value > 0).Distinct().OrderBy(value => value).ToArray())
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        if (years.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var clauses = new List<string>();
+        foreach (var year in years)
+        {
+            if (year == currentYear)
+            {
+                clauses.Add($"(anno_competenza = {year} AND mese_competenza < {currentMonth})");
+            }
+            else
+            {
+                clauses.Add($"anno_competenza = {year}");
+            }
+        }
+
+        if (clauses.Count == 1)
+        {
+            return clauses[0];
+        }
+
+        return $"({string.Join(" OR ", clauses)})";
+    }
+
+    private static async Task<Dictionary<int, (string NomeRisorsa, bool InForza)>> LoadRisorseLookupAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<int, (string NomeRisorsa, bool InForza)>();
+
+        await using var command = new SqlCommand(RisorseLookupQuery, connection);
+        command.CommandType = CommandType.Text;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var idRisorsa = ReadNullableInt(reader, "IdRisorsa") ?? 0;
+            if (idRisorsa <= 0)
+            {
+                continue;
+            }
+
+            var nomeRisorsa = ReadString(reader, "NomeRisorsa");
+            if (string.IsNullOrWhiteSpace(nomeRisorsa))
+            {
+                continue;
+            }
+
+            var inForza = ReadBoolean(reader, "InForza");
+            result[idRisorsa] = (nomeRisorsa, inForza);
+        }
+
+        return result;
+    }
+
     private static IReadOnlyCollection<CommesseSintesiFilterOption> BuildDistinctOptionsFromRows(IEnumerable<string> values)
     {
         return values
@@ -2491,7 +2910,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return normalized is not "NON DEFINITO" and not "NON DEFINTO";
     }
 
-    private static string BuildVisibilityClause(UserContext user, VisibilityFlags visibility)
+    private static string BuildVisibilityClause(UserContext user, VisibilityFlags visibility, bool useIdOuColumn = false)
     {
         var clauses = new List<string>();
 
@@ -2507,8 +2926,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
         if (visibility.IsResponsabileOu)
         {
+            var scopeColumn = useIdOuColumn ? "idou" : "idbusinessunit";
             clauses.Add(
-                $"EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = {user.IdRisorsa} AND ou.sigla COLLATE DATABASE_DEFAULT = idbusinessunit COLLATE DATABASE_DEFAULT)");
+                $"EXISTS (SELECT 1 FROM [orga].[vw_OU_OrganigrammaAncestor] ou WHERE ou.id_responsabile_ou_ancestor = {user.IdRisorsa} AND ou.sigla COLLATE DATABASE_DEFAULT = {scopeColumn} COLLATE DATABASE_DEFAULT)");
         }
 
         return string.Join(" AND ", clauses);
@@ -2532,6 +2952,83 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
     private static string NormalizeCommessaKey(string value)
     {
         return value.Trim().ToUpperInvariant();
+    }
+
+    private static Dictionary<string, int> BuildColumnOrdinals(SqlDataReader reader)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < reader.FieldCount; index += 1)
+        {
+            var columnName = reader.GetName(index);
+            if (string.IsNullOrWhiteSpace(columnName) || result.ContainsKey(columnName))
+            {
+                continue;
+            }
+
+            result[columnName] = index;
+        }
+
+        return result;
+    }
+
+    private static int? ReadNullableInt(SqlDataReader reader, IReadOnlyDictionary<string, int> ordinals, params string[] columnNames)
+    {
+        foreach (var columnName in columnNames)
+        {
+            if (!ordinals.TryGetValue(columnName, out var ordinal) || reader.IsDBNull(ordinal))
+            {
+                continue;
+            }
+
+            return Convert.ToInt32(reader.GetValue(ordinal));
+        }
+
+        return null;
+    }
+
+    private static string ReadString(SqlDataReader reader, IReadOnlyDictionary<string, int> ordinals, params string[] columnNames)
+    {
+        foreach (var columnName in columnNames)
+        {
+            if (!ordinals.TryGetValue(columnName, out var ordinal) || reader.IsDBNull(ordinal))
+            {
+                continue;
+            }
+
+            return reader.GetValue(ordinal)?.ToString()?.Trim() ?? string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    private static decimal ReadDecimal(SqlDataReader reader, IReadOnlyDictionary<string, int> ordinals, params string[] columnNames)
+    {
+        foreach (var columnName in columnNames)
+        {
+            if (!ordinals.TryGetValue(columnName, out var ordinal) || reader.IsDBNull(ordinal))
+            {
+                continue;
+            }
+
+            return Convert.ToDecimal(reader.GetValue(ordinal));
+        }
+
+        return 0m;
+    }
+
+    private static bool ReadBoolean(SqlDataReader reader, IReadOnlyDictionary<string, int> ordinals, params string[] columnNames)
+    {
+        foreach (var columnName in columnNames)
+        {
+            if (!ordinals.TryGetValue(columnName, out var ordinal) || reader.IsDBNull(ordinal))
+            {
+                continue;
+            }
+
+            return Convert.ToBoolean(reader.GetValue(ordinal));
+        }
+
+        return false;
     }
 
     private static int? ReadNullableInt(SqlDataReader reader, string columnName)

@@ -126,6 +126,18 @@ BEGIN
             ON ml.IsGenerale = 0
            AND la.CodiceSocieta IS NOT NULL
         WHERE ra.NomeRuolo = 'GPM'
+
+        UNION ALL
+
+        SELECT
+            N'Risorse Umane' AS Profilo,
+            CASE WHEN ml.IsGenerale = 1 THEN NULL ELSE la.CodiceSocieta END AS CodiceSocieta
+        FROM RuoliAttivi ra
+        CROSS JOIN ModalitaLimite ml
+        LEFT JOIN LimitiAziendali la
+            ON ml.IsGenerale = 0
+           AND la.CodiceSocieta IS NOT NULL
+        WHERE ra.NomeRuolo = 'HR'
     ) q
     ORDER BY q.Profilo, q.CodiceSocieta;
 END

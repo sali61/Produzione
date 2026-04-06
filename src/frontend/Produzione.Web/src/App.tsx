@@ -35,12 +35,19 @@ type SessionProbeResult =
   | { state: 'forbidden'; message: string }
   | { state: 'error'; message: string }
 
-type MenuKey = 'sintesi' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
+type MenuKey = 'sintesi' | 'risorse' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
 type AppPage =
   | 'none'
   | 'commesse-sintesi'
   | 'commesse-andamento-mensile'
   | 'commesse-dati-annuali-aggregati'
+  | 'risorse-risultati'
+  | 'risorse-risultati-pivot'
+  | 'risorse-risultati-mensile'
+  | 'risorse-risultati-mensile-pivot'
+  | 'risorse-ou-risorse'
+  | 'risorse-ou-risorse-pivot'
+  | 'risorse-ou'
   | 'prodotti-sintesi'
   | 'analisi-rcc-risultato-mensile'
   | 'analisi-rcc-pivot-fatturato'
@@ -539,6 +546,109 @@ type DatiContabiliAcquistoResponse = {
   items: DatiContabiliAcquistoRow[]
 }
 
+type CommesseRisorseFilterOption = {
+  idRisorsa: number
+  value: string
+  label: string
+  inForza: boolean
+}
+
+type CommesseRisorseFiltersResponse = {
+  profile: string
+  mensile: boolean
+  anni: FilterOption[]
+  commesse: FilterOption[]
+  tipologieCommessa: FilterOption[]
+  stati: FilterOption[]
+  macroTipologie: FilterOption[]
+  controparti: FilterOption[]
+  businessUnits: FilterOption[]
+  rcc: FilterOption[]
+  pm: FilterOption[]
+  risorse: CommesseRisorseFilterOption[]
+}
+
+type CommessaRisorseValutazioneRow = {
+  annoCompetenza: number
+  meseCompetenza?: number | null
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  stato: string
+  macroTipologia: string
+  prodotto: string
+  controparte: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  idRisorsa: number
+  nomeRisorsa: string
+  risorsaInForza: boolean
+  oreTotali: number
+  fatturatoInBaseAdOre: number
+  fatturatoInBaseACosto: number
+  utileInBaseAdOre: number
+  utileInBaseACosto: number
+  costoSpecificoRisorsa: number
+  idOu?: string
+  nomeRuolo?: string
+  percentualeUtilizzo?: number
+  area?: string
+  ouProduzione?: boolean
+  codiceSocieta?: string
+}
+
+type CommesseRisorseValutazioneResponse = {
+  profile: string
+  mensile: boolean
+  count: number
+  anni: number[]
+  items: CommessaRisorseValutazioneRow[]
+}
+
+type RisorseFiltersForm = {
+  anni: string[]
+  commessa: string
+  tipologiaCommessa: string
+  stato: string
+  macroTipologia: string
+  controparte: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  idRisorsa: string
+  vistaCosto: boolean
+}
+
+type RisorsePivotFieldKey =
+  | 'anno'
+  | 'mese'
+  | 'commessa'
+  | 'tipologiaCommessa'
+  | 'stato'
+  | 'macroTipologia'
+  | 'prodotto'
+  | 'controparte'
+  | 'businessUnit'
+  | 'rcc'
+  | 'pm'
+  | 'risorsa'
+
+type CommesseRisorsePivotMetrics = {
+  numeroCommesse: number
+  oreTotali: number
+  costoSpecificoRisorsa: number
+  fatturato: number
+  utile: number
+}
+
+type CommesseRisorsePivotRow = CommesseRisorsePivotMetrics & {
+  key: string
+  level: number
+  label: string
+  kind: 'gruppo' | 'totale'
+}
+
 type SintesiMode = 'dettaglio' | 'aggregato'
 type SortDirection = 'asc' | 'desc'
 type SortColumn =
@@ -837,6 +947,9 @@ const redirectGuardKey = 'produzione.sso.redirecting'
 const impersonationStorageKey = 'produzione.sso.actas'
 const impersonationHeaderName = 'X-Act-As-Username'
 const sintesiStateStorageKey = 'produzione.sintesi.state'
+const analisiCommesseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
+const datiContabiliAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
+const risultatiRisorseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU', 'Risorse Umane']
 const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa']
 const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale']
 const analisiBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
@@ -855,6 +968,13 @@ const analisiPianoFatturazioneSelectableProfiles = ['Supervisore', 'Responsabile
 const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 const analisiSearchCollapsiblePages = new Set<AppPage>([
   'commesse-andamento-mensile',
+  'risorse-risultati',
+  'risorse-risultati-pivot',
+  'risorse-risultati-mensile',
+  'risorse-risultati-mensile-pivot',
+  'risorse-ou-risorse',
+  'risorse-ou-risorse-pivot',
+  'risorse-ou',
   'processo-offerta-offerte',
   'processo-offerta-sintesi-rcc',
   'processo-offerta-sintesi-bu',
@@ -885,6 +1005,23 @@ const datiAnnualiPivotFieldOptions: Array<{ key: DatiAnnualiPivotFieldKey; label
 ]
 const datiAnnualiPivotFieldSet = new Set<DatiAnnualiPivotFieldKey>(
   datiAnnualiPivotFieldOptions.map((option) => option.key),
+)
+const risorsePivotFieldOptions: Array<{ key: RisorsePivotFieldKey; label: string }> = [
+  { key: 'anno', label: 'Anno' },
+  { key: 'mese', label: 'Mese' },
+  { key: 'risorsa', label: 'Risorsa' },
+  { key: 'businessUnit', label: 'BU' },
+  { key: 'rcc', label: 'RCC' },
+  { key: 'pm', label: 'PM' },
+  { key: 'macroTipologia', label: 'Macrotipologia' },
+  { key: 'controparte', label: 'Controparte' },
+  { key: 'tipologiaCommessa', label: 'Tipologia Commessa' },
+  { key: 'prodotto', label: 'Prodotto' },
+  { key: 'commessa', label: 'Commessa' },
+  { key: 'stato', label: 'Stato' },
+]
+const risorsePivotFieldSet = new Set<RisorsePivotFieldKey>(
+  risorsePivotFieldOptions.map((option) => option.key),
 )
 
 type SintesiPersistedState = {
@@ -927,6 +1064,35 @@ const emptyFiltersCatalog: CommesseSintesiFiltersResponse = {
   businessUnits: [],
   rcc: [],
   pm: [],
+}
+
+const emptyRisorseFiltersForm: RisorseFiltersForm = {
+  anni: [],
+  commessa: '',
+  tipologiaCommessa: '',
+  stato: '',
+  macroTipologia: '',
+  controparte: '',
+  businessUnit: '',
+  rcc: '',
+  pm: '',
+  idRisorsa: '',
+  vistaCosto: false,
+}
+
+const emptyRisorseFiltersCatalog: CommesseRisorseFiltersResponse = {
+  profile: '',
+  mensile: false,
+  anni: [],
+  commesse: [],
+  tipologieCommessa: [],
+  stati: [],
+  macroTipologie: [],
+  controparti: [],
+  businessUnits: [],
+  rcc: [],
+  pm: [],
+  risorse: [],
 }
 
 const normalizeDateKey = (value?: string | Date | null) => {
@@ -1269,6 +1435,85 @@ const buildDatiAnnualiPivotMetrics = (rows: CommessaSintesiRow[]): CommesseDatiA
   }
 }
 
+const asRisorsePivotFieldKeys = (values: string[]) => (
+  values.filter((value): value is RisorsePivotFieldKey => (
+    risorsePivotFieldSet.has(value as RisorsePivotFieldKey)
+  ))
+)
+
+const normalizeRisorsaLabel = (row: CommessaRisorseValutazioneRow) => {
+  const nome = (row.nomeRisorsa ?? '').trim()
+  if (!nome) {
+    return row.idRisorsa > 0 ? `ID ${row.idRisorsa}` : ''
+  }
+  return row.risorsaInForza ? nome : `^ ${nome}`
+}
+
+const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, fieldKey: RisorsePivotFieldKey) => {
+  switch (fieldKey) {
+    case 'anno':
+      return Number.isFinite(row.annoCompetenza) && row.annoCompetenza > 0
+        ? row.annoCompetenza.toString()
+        : ''
+    case 'mese':
+      return Number.isFinite(row.meseCompetenza ?? NaN) && (row.meseCompetenza ?? 0) > 0
+        ? (row.meseCompetenza ?? 0).toString().padStart(2, '0')
+        : ''
+    case 'commessa':
+      return row.commessa
+    case 'tipologiaCommessa':
+      return row.tipologiaCommessa
+    case 'stato':
+      return row.stato
+    case 'macroTipologia':
+      return row.macroTipologia
+    case 'prodotto':
+      return row.prodotto
+    case 'controparte':
+      return row.controparte
+    case 'businessUnit':
+      return row.businessUnit
+    case 'rcc':
+      return row.rcc
+    case 'pm':
+      return row.pm
+    case 'risorsa':
+      return normalizeRisorsaLabel(row)
+    default:
+      return ''
+  }
+}
+
+const buildRisorsePivotMetrics = (
+  rows: CommessaRisorseValutazioneRow[],
+  vistaCosto: boolean,
+): CommesseRisorsePivotMetrics => {
+  const commesse = new Set<string>()
+  let oreTotali = 0
+  let costoSpecificoRisorsa = 0
+  let fatturato = 0
+  let utile = 0
+
+  rows.forEach((row) => {
+    const commessa = row.commessa.trim()
+    if (commessa) {
+      commesse.add(commessa.toUpperCase())
+    }
+    oreTotali += row.oreTotali
+    costoSpecificoRisorsa += row.costoSpecificoRisorsa
+    fatturato += vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre
+    utile += vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre
+  })
+
+  return {
+    numeroCommesse: commesse.size,
+    oreTotali,
+    costoSpecificoRisorsa,
+    fatturato,
+    utile,
+  }
+}
+
 const normalizePivotFunnelResponse = (raw: unknown): AnalisiRccPivotFunnelResponse => {
   const source = (raw ?? {}) as Partial<AnalisiRccPivotFunnelResponse> & { [key: string]: unknown }
   const righeRaw = Array.isArray(source.righe) ? source.righe : []
@@ -1355,6 +1600,41 @@ const appInfoVoicesDefault: AppInfoVoice[] = [
     menu: 'Analisi Commesse',
     voce: 'Utile Mensile BU',
     sintesi: 'Riepiloga per Business Unit i valori economici consuntivi fino al mese di riferimento. Include totali annuali e filtri per anno, BU e produzione.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Valutazione Annuale',
+    sintesi: 'Vista analitica annuale per risorsa su commesse visibili al profilo, con filtri estesi e confronto economico per ore o per costo.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Pivot Annuale',
+    sintesi: 'Pivot dinamica annuale con livelli selezionabili (inclusa Risorsa) e totali per gruppo, utile per analisi aggregate delle performance.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Valutazione Mensile',
+    sintesi: 'Vista analitica mensile per risorsa con default su anno corrente e precedente, per monitorare progressivo economico e operativo.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Pivot Mensile',
+    sintesi: 'Pivot dinamica mensile con gli stessi filtri della vista analitica e aggregazioni multilivello fino al totale complessivo.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Analisi OU Risorse',
+    sintesi: 'Analisi economica risorse su perimetro OU con filtri annuali e regole di visibilita per profilo, inclusa limitazione ROU sulla propria OU.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Analisi OU Risorse Pivot',
+    sintesi: 'Vista pivot dei risultati OU Risorse con aggregazioni multilivello e totali per gruppo, utile per confronto sintetico tra aree e responsabili.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Analisi OU',
+    sintesi: 'Vista OU aggregata per monitorare l andamento economico del perimetro organizzativo con dettaglio coerente alle regole di accesso del profilo.',
   },
   {
     menu: 'Analisi Proiezioni',
@@ -1535,6 +1815,16 @@ function App() {
   const [commesseDatiAnnualiSelectedSelection, setCommesseDatiAnnualiSelectedSelection] = useState<DatiAnnualiPivotFieldKey[]>([])
   const [commesseDatiAnnualiData, setCommesseDatiAnnualiData] = useState<CommesseDatiAnnualiPivotData | null>(null)
   const [commesseDatiAnnualiFiltersCollapsed, setCommesseDatiAnnualiFiltersCollapsed] = useState(false)
+  const [risorseFiltersForm, setRisorseFiltersForm] = useState<RisorseFiltersForm>(emptyRisorseFiltersForm)
+  const [risorseFiltersCatalog, setRisorseFiltersCatalog] = useState<CommesseRisorseFiltersResponse>(emptyRisorseFiltersCatalog)
+  const [risorseRows, setRisorseRows] = useState<CommessaRisorseValutazioneRow[]>([])
+  const [risorseSearched, setRisorseSearched] = useState(false)
+  const [risorseLoadingFilters, setRisorseLoadingFilters] = useState(false)
+  const [risorseCommessaSearch, setRisorseCommessaSearch] = useState('')
+  const [risorseRisorsaSearch, setRisorseRisorsaSearch] = useState('')
+  const [risorsePivotSelectedFields, setRisorsePivotSelectedFields] = useState<RisorsePivotFieldKey[]>(['anno', 'risorsa'])
+  const [risorsePivotAvailableSelection, setRisorsePivotAvailableSelection] = useState<RisorsePivotFieldKey[]>([])
+  const [risorsePivotSelectedSelection, setRisorsePivotSelectedSelection] = useState<RisorsePivotFieldKey[]>([])
   const [previsioniUtileMensileRccAnno, setPrevisioniUtileMensileRccAnno] = useState(new Date().getFullYear().toString())
   const [previsioniUtileMensileRccMeseRiferimento, setPrevisioniUtileMensileRccMeseRiferimento] = useState(getDefaultReferenceMonth().toString())
   const [previsioniUtileMensileRcc, setPrevisioniUtileMensileRcc] = useState('')
@@ -1587,6 +1877,31 @@ function App() {
   const toBackendUrl = (path: string) => `${backendBaseUrl}${path}`
   const isCommesseSintesiPage = activePage === 'commesse-sintesi'
   const isProdottiSintesiPage = activePage === 'prodotti-sintesi'
+  const isRisorseRisultatiPage = activePage === 'risorse-risultati'
+  const isRisorseRisultatiPivotPage = activePage === 'risorse-risultati-pivot'
+  const isRisorseRisultatiMensilePage = activePage === 'risorse-risultati-mensile'
+  const isRisorseRisultatiMensilePivotPage = activePage === 'risorse-risultati-mensile-pivot'
+  const isRisorseOuRisorsePage = activePage === 'risorse-ou-risorse'
+  const isRisorseOuRisorsePivotPage = activePage === 'risorse-ou-risorse-pivot'
+  const isRisorseOuPage = activePage === 'risorse-ou'
+  const isRisorseOuMode = isRisorseOuRisorsePage || isRisorseOuRisorsePivotPage || isRisorseOuPage
+  const isRisorseOuPivotMode = isRisorseOuPage
+  const isRisorsePivotPage = (
+    isRisorseRisultatiPivotPage
+    || isRisorseRisultatiMensilePivotPage
+    || isRisorseOuRisorsePivotPage
+    || isRisorseOuPage
+  )
+  const isRisorseMensilePage = isRisorseRisultatiMensilePage || isRisorseRisultatiMensilePivotPage
+  const isRisorsePage = (
+    isRisorseRisultatiPage
+    || isRisorseRisultatiPivotPage
+    || isRisorseRisultatiMensilePage
+    || isRisorseRisultatiMensilePivotPage
+    || isRisorseOuRisorsePage
+    || isRisorseOuRisorsePivotPage
+    || isRisorseOuPage
+  )
   const isDatiContabiliVenditaPage = activePage === 'dati-contabili-vendita'
   const isDatiContabiliAcquistiPage = activePage === 'dati-contabili-acquisti'
   const isDatiContabiliPage = isDatiContabiliVenditaPage || isDatiContabiliAcquistiPage
@@ -1616,6 +1931,15 @@ function App() {
       : (isProdottiSintesiPage ? 'Prodotti - Sintesi' : 'Commesse - Sintesi'))
   const currentProfile = selectedProfile || profiles[0] || ''
   const canEditAppInfo = currentProfile.localeCompare('Supervisore', 'it', { sensitivity: 'base' }) === 0
+  const canAccessAnalisiCommesseMenu = analisiCommesseAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessRisultatiRisorseMenu = risultatiRisorseAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessDatiContabiliMenu = datiContabiliAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
   const appInfoByMenu = useMemo(() => {
     const grouped = new Map<string, AppInfoVoice[]>()
     appInfoVoices.forEach((item) => {
@@ -1768,6 +2092,16 @@ function App() {
     setCommesseDatiAnnualiSelectedSelection([])
     setCommesseDatiAnnualiData(null)
     setCommesseDatiAnnualiFiltersCollapsed(false)
+    setRisorseFiltersForm(emptyRisorseFiltersForm)
+    setRisorseFiltersCatalog(emptyRisorseFiltersCatalog)
+    setRisorseRows([])
+    setRisorseSearched(false)
+    setRisorseLoadingFilters(false)
+    setRisorseCommessaSearch('')
+    setRisorseRisorsaSearch('')
+    setRisorsePivotSelectedFields(['anno', 'risorsa'])
+    setRisorsePivotAvailableSelection([])
+    setRisorsePivotSelectedSelection([])
     setPrevisioniUtileMensileRccAnno(new Date().getFullYear().toString())
     setPrevisioniUtileMensileRccMeseRiferimento(getDefaultReferenceMonth().toString())
     setPrevisioniUtileMensileRcc('')
@@ -3379,6 +3713,251 @@ function App() {
     }
   }
 
+  const loadRisorseFilters = async (
+    mensile: boolean,
+    requestedAnni: string[] = [],
+    analisiOu: boolean = isRisorseOuMode,
+    analisiOuPivot: boolean = isRisorseOuPivotMode,
+  ) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      return false
+    }
+
+    if (!canAccessRisultatiRisorseMenu) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Risultati Risorse.`)
+      setRisorseFiltersCatalog(emptyRisorseFiltersCatalog)
+      return false
+    }
+
+    const selectedYears = [...new Set(
+      requestedAnni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => right - left)
+
+    setRisorseLoadingFilters(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('mensile', mensile ? 'true' : 'false')
+      if (analisiOu) {
+        params.set('analisiOu', 'true')
+      }
+      if (analisiOuPivot) {
+        params.set('analisiOuPivot', 'true')
+      }
+      selectedYears.forEach((value) => params.append('anni', value.toString()))
+
+      const response = await fetch(toBackendUrl(`/api/commesse/risorse/filters?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return false
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setRisorseFiltersCatalog(emptyRisorseFiltersCatalog)
+        setRisorseRows([])
+        setRisorseSearched(false)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato sui filtri Risultati Risorse.`)
+        return false
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setStatusMessage(message || `Errore caricamento filtri Risultati Risorse (${response.status}).`)
+        return false
+      }
+
+      const payload = (await response.json()) as CommesseRisorseFiltersResponse
+      setRisorseFiltersCatalog(payload)
+      setRisorseFiltersForm((current) => {
+        const allowedAnni = new Set(
+          payload.anni
+            .map((option) => normalizeFilterText(option.value))
+            .filter((value) => value.length > 0),
+        )
+        const currentYear = new Date().getFullYear().toString()
+        const previousYear = (new Date().getFullYear() - 1).toString()
+        const requestedAnniNormalized = requestedAnni
+          .map((value) => normalizeFilterText(value))
+          .filter((value) => value.length > 0 && allowedAnni.has(value))
+        let nextAnni = current.anni
+          .map((value) => normalizeFilterText(value))
+          .filter((value) => value.length > 0 && allowedAnni.has(value))
+        if (!mensile && requestedAnniNormalized.length === 0) {
+          nextAnni = []
+        }
+        if (nextAnni.length === 0 && requestedAnniNormalized.length > 0) {
+          nextAnni = requestedAnniNormalized
+        }
+        if (nextAnni.length === 0 && mensile) {
+          const defaultMensili = [currentYear, previousYear].filter((value) => allowedAnni.has(value))
+          nextAnni = defaultMensili.length > 0
+            ? defaultMensili
+            : payload.anni
+              .map((option) => normalizeFilterText(option.value))
+              .filter((value) => value.length > 0)
+              .slice(0, 2)
+        }
+
+        const risorseValues = new Set(
+          payload.risorse
+            .map((option) => normalizeFilterText(option.value))
+            .filter((value) => value.length > 0),
+        )
+        const normalizedIdRisorsa = normalizeFilterText(current.idRisorsa)
+
+        return {
+          ...current,
+          anni: [...new Set(nextAnni)],
+          commessa: keepIfPresent(current.commessa, payload.commesse),
+          tipologiaCommessa: keepIfPresent(current.tipologiaCommessa, payload.tipologieCommessa),
+          stato: keepIfPresent(current.stato, payload.stati),
+          macroTipologia: keepIfPresent(current.macroTipologia, payload.macroTipologie),
+          controparte: keepIfPresent(current.controparte, payload.controparti),
+          businessUnit: keepIfPresent(current.businessUnit, payload.businessUnits),
+          rcc: keepIfPresent(current.rcc, payload.rcc),
+          pm: keepIfPresent(current.pm, payload.pm),
+          idRisorsa: risorseValues.has(normalizedIdRisorsa) ? normalizedIdRisorsa : '',
+        }
+      })
+
+      setStatusMessage('')
+      return true
+    } finally {
+      setRisorseLoadingFilters(false)
+    }
+  }
+
+  const loadRisorseValutazione = async (
+    mensile: boolean,
+    analisiOu: boolean = isRisorseOuMode,
+    analisiOuPivot: boolean = isRisorseOuPivotMode,
+  ) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessRisultatiRisorseMenu) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Risultati Risorse.`)
+      setRisorseRows([])
+      setRisorseSearched(false)
+      return
+    }
+
+    const selectedYears = [...new Set(
+      risorseFiltersForm.anni
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('mensile', mensile ? 'true' : 'false')
+      if (analisiOu) {
+        params.set('analisiOu', 'true')
+      }
+      if (analisiOuPivot) {
+        params.set('analisiOuPivot', 'true')
+      }
+      params.set('take', '100000')
+      selectedYears.forEach((value) => params.append('anni', value.toString()))
+      const commessa = risorseFiltersForm.commessa.trim()
+      if (commessa) {
+        params.set('commessa', commessa)
+      }
+      const tipologiaCommessa = risorseFiltersForm.tipologiaCommessa.trim()
+      if (tipologiaCommessa) {
+        params.set('tipologiaCommessa', tipologiaCommessa)
+      }
+      const stato = risorseFiltersForm.stato.trim()
+      if (stato) {
+        params.set('stato', stato)
+      }
+      const macroTipologia = risorseFiltersForm.macroTipologia.trim()
+      if (macroTipologia) {
+        params.set('macroTipologia', macroTipologia)
+      }
+      const controparte = risorseFiltersForm.controparte.trim()
+      if (controparte) {
+        params.set('controparte', controparte)
+      }
+      const businessUnit = risorseFiltersForm.businessUnit.trim()
+      if (businessUnit) {
+        params.set('businessUnit', businessUnit)
+      }
+      const rcc = risorseFiltersForm.rcc.trim()
+      if (rcc) {
+        params.set('rcc', rcc)
+      }
+      const pm = risorseFiltersForm.pm.trim()
+      if (pm) {
+        params.set('pm', pm)
+      }
+      const idRisorsa = Number.parseInt(risorseFiltersForm.idRisorsa.trim(), 10)
+      if (Number.isFinite(idRisorsa) && idRisorsa > 0) {
+        params.set('idRisorsa', idRisorsa.toString())
+      }
+
+      const response = await fetch(toBackendUrl(`/api/commesse/risorse/valutazione?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setRisorseRows([])
+        setRisorseSearched(true)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato alla consultazione Risultati Risorse.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setRisorseRows([])
+        setRisorseSearched(true)
+        setStatusMessage(message || `Errore caricamento Risultati Risorse (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseRisorseValutazioneResponse
+      setRisorseRows(payload.items ?? [])
+      setRisorseSearched(true)
+
+      if (mensile && selectedYears.length === 0 && Array.isArray(payload.anni) && payload.anni.length > 0) {
+        const payloadYears = payload.anni
+          .filter((value) => Number.isFinite(value) && value > 0)
+          .sort((left, right) => right - left)
+          .slice(0, 2)
+          .map((value) => value.toString())
+        if (payloadYears.length > 0) {
+          setRisorseFiltersForm((current) => ({
+            ...current,
+            anni: payloadYears,
+          }))
+        }
+      }
+
+      const modalita = mensile ? 'mensile' : 'annuale'
+      setStatusMessage(`Risultati Risorse (${modalita}) caricati: ${payload.count} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
   const loadPrevisioniUtileMensileRcc = async () => {
     if (!token.trim() || !currentProfile.trim()) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -4225,6 +4804,35 @@ function App() {
     void loadSintesiFilters(token, activeImpersonation, currentProfile, [], sintesiScope)
   }
 
+  const refreshRisorseFilters = () => {
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadRisorseFilters(isRisorseMensilePage, risorseFiltersForm.anni)
+  }
+
+  const resetRisorseFilters = () => {
+    const defaultYears = isRisorseMensilePage
+      ? [new Date().getFullYear().toString(), (new Date().getFullYear() - 1).toString()]
+      : []
+
+    setRisorseFiltersForm({
+      ...emptyRisorseFiltersForm,
+      anni: defaultYears,
+    })
+    setRisorseRows([])
+    setRisorseSearched(false)
+    setRisorseCommessaSearch('')
+    setRisorseRisorsaSearch('')
+
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadRisorseFilters(isRisorseMensilePage, defaultYears)
+  }
+
   const activateSintesiPage = () => {
     setOpenMenu(null)
     setLastSintesiPage('commesse-sintesi')
@@ -4317,6 +4925,82 @@ function App() {
     })
   }
 
+  const addRisorsePivotSelectedFields = () => {
+    if (risorsePivotAvailableSelection.length === 0) {
+      return
+    }
+
+    setRisorsePivotSelectedFields((current) => {
+      const next = [...current]
+      risorsePivotAvailableSelection.forEach((field) => {
+        if (!next.includes(field)) {
+          next.push(field)
+        }
+      })
+      return next
+    })
+    setRisorsePivotSelectedSelection(risorsePivotAvailableSelection)
+    setRisorsePivotAvailableSelection([])
+  }
+
+  const removeRisorsePivotSelectedFields = () => {
+    if (risorsePivotSelectedSelection.length === 0) {
+      return
+    }
+
+    setRisorsePivotSelectedFields((current) => (
+      current.filter((field) => !risorsePivotSelectedSelection.includes(field))
+    ))
+    setRisorsePivotAvailableSelection(risorsePivotSelectedSelection)
+    setRisorsePivotSelectedSelection([])
+  }
+
+  const moveRisorsePivotField = (direction: 'up' | 'down') => {
+    if (risorsePivotSelectedSelection.length !== 1) {
+      return
+    }
+
+    const movingField = risorsePivotSelectedSelection[0]
+    setRisorsePivotSelectedFields((current) => {
+      const index = current.indexOf(movingField)
+      if (index < 0) {
+        return current
+      }
+
+      const targetIndex = direction === 'up' ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= current.length) {
+        return current
+      }
+
+      const next = [...current]
+      const [item] = next.splice(index, 1)
+      next.splice(targetIndex, 0, item)
+      return next
+    })
+  }
+
+  const activateRisorsePage = (page: AppPage, mensile: boolean, analisiOu = false, analisiOuPivot = false) => {
+    setOpenMenu(null)
+    setActivePage(page)
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    const yearsToRequest = mensile
+      ? (
+        risorseFiltersForm.anni.length > 0
+          ? risorseFiltersForm.anni
+          : [new Date().getFullYear().toString(), (new Date().getFullYear() - 1).toString()]
+      )
+      : []
+
+    void loadRisorseFilters(mensile, yearsToRequest, analisiOu, analisiOuPivot).then((ok) => {
+      if (ok) {
+        void loadRisorseValutazione(mensile, analisiOu, analisiOuPivot)
+      }
+    })
+  }
+
   const activateProdottiPage = () => {
     setOpenMenu(null)
     setLastSintesiPage('prodotti-sintesi')
@@ -4329,6 +5013,34 @@ function App() {
     }
 
     void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'prodotti')
+  }
+
+  const activateRisorseRisultatiPage = () => {
+    activateRisorsePage('risorse-risultati', false)
+  }
+
+  const activateRisorseRisultatiPivotPage = () => {
+    activateRisorsePage('risorse-risultati-pivot', false)
+  }
+
+  const activateRisorseRisultatiMensilePage = () => {
+    activateRisorsePage('risorse-risultati-mensile', true)
+  }
+
+  const activateRisorseRisultatiMensilePivotPage = () => {
+    activateRisorsePage('risorse-risultati-mensile-pivot', true)
+  }
+
+  const activateRisorseOuRisorsePage = () => {
+    activateRisorsePage('risorse-ou-risorse', false, true, false)
+  }
+
+  const activateRisorseOuRisorsePivotPage = () => {
+    activateRisorsePage('risorse-ou-risorse-pivot', false, true, false)
+  }
+
+  const activateRisorseOuPage = () => {
+    activateRisorsePage('risorse-ou', false, true, true)
   }
 
   const activateAnalisiRccRisultatoMensilePage = () => {
@@ -4561,6 +5273,11 @@ function App() {
 
   const handleAnalisiSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isRisorsePage) {
+      void loadRisorseValutazione(isRisorseMensilePage)
+      return
+    }
+
     if (activePage === 'commesse-andamento-mensile') {
       void loadCommesseAndamentoMensile()
       return
@@ -4802,6 +5519,16 @@ function App() {
       return
     }
 
+    if (!canAccessAnalisiCommesseMenu) {
+      setSintesiRows([])
+      setSintesiSearched(false)
+      setCommessaSearch('')
+      setSortColumn('commessa')
+      setSortDirection('asc')
+      setSintesiFiltersForm(emptySintesiFiltersForm)
+      return
+    }
+
     const persisted = tryReadPersistedSintesiState()
     if (
       persisted &&
@@ -4845,7 +5572,7 @@ function App() {
     setSortDirection('asc')
     setSintesiFiltersForm(emptySintesiFiltersForm)
     void loadSintesiFilters(token, activeImpersonation, currentProfile, [], 'commesse')
-  }, [token, activeImpersonation, currentProfile])
+  }, [token, activeImpersonation, currentProfile, canAccessAnalisiCommesseMenu])
 
   useEffect(() => {
     if (
@@ -4907,6 +5634,34 @@ function App() {
     routeRequest.profile,
     detailRouteProcessed,
   ])
+
+  useEffect(() => {
+    if (!currentProfile) {
+      return
+    }
+
+    const isAnalisiCommessePage = (
+      activePage === 'commesse-sintesi' ||
+      activePage === 'prodotti-sintesi' ||
+      activePage === 'commessa-dettaglio' ||
+      activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-dati-annuali-aggregati'
+    )
+    if (isAnalisiCommessePage && !canAccessAnalisiCommesseMenu) {
+      setActivePage('none')
+      return
+    }
+
+    const isDatiContabiliAreaPage = activePage === 'dati-contabili-vendita' || activePage === 'dati-contabili-acquisti'
+    if (isDatiContabiliAreaPage && !canAccessDatiContabiliMenu) {
+      setActivePage('none')
+      return
+    }
+
+    if (isRisorsePage && !canAccessRisultatiRisorseMenu) {
+      setActivePage('none')
+    }
+  }, [activePage, currentProfile, canAccessAnalisiCommesseMenu, canAccessDatiContabiliMenu, isRisorsePage, canAccessRisultatiRisorseMenu])
 
   useEffect(() => {
     if (!token.trim() || !currentProfile) {
@@ -5931,6 +6686,278 @@ function App() {
 
     return pivotRows
   }, [commesseDatiAnnualiMacroTipologie, commesseDatiAnnualiRows, commesseDatiAnnualiSelectedFields])
+  const risorseRowsSorted = useMemo(() => (
+    [...risorseRows].sort((left, right) => {
+      if (left.annoCompetenza !== right.annoCompetenza) {
+        return right.annoCompetenza - left.annoCompetenza
+      }
+      const leftMonth = left.meseCompetenza ?? 0
+      const rightMonth = right.meseCompetenza ?? 0
+      if (leftMonth !== rightMonth) {
+        return rightMonth - leftMonth
+      }
+      const risorsaCompare = normalizeRisorsaLabel(left).localeCompare(normalizeRisorsaLabel(right), 'it', { sensitivity: 'base' })
+      if (risorsaCompare !== 0) {
+        return risorsaCompare
+      }
+      return left.commessa.localeCompare(right.commessa, 'it', { sensitivity: 'base' })
+    })
+  ), [risorseRows])
+  const risorseAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    risorseFiltersCatalog.anni.forEach((option) => {
+      const value = normalizeFilterText(option.value)
+      if (value) {
+        years.add(value)
+      }
+    })
+    risorseFiltersForm.anni.forEach((value) => {
+      const normalized = normalizeFilterText(value)
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    risorseRowsSorted.forEach((row) => {
+      if (Number.isFinite(row.annoCompetenza) && row.annoCompetenza > 0) {
+        years.add(row.annoCompetenza.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [risorseFiltersCatalog.anni, risorseFiltersForm.anni, risorseRowsSorted])
+  const risorseCommessaOptions = useMemo(() => {
+    const map = new Map<string, FilterOption>()
+    const searchTerm = normalizeFilterText(risorseCommessaSearch).toLowerCase()
+    risorseFiltersCatalog.commesse.forEach((option) => {
+      const value = normalizeFilterText(option.value)
+      const label = normalizeFilterText(option.label || option.value)
+      if (!value) {
+        return
+      }
+      if (searchTerm && !label.toLowerCase().includes(searchTerm) && !value.toLowerCase().includes(searchTerm)) {
+        return
+      }
+      map.set(value.toUpperCase(), { value, label: label || value })
+    })
+    risorseRowsSorted.forEach((row) => {
+      const value = normalizeFilterText(row.commessa)
+      if (!value) {
+        return
+      }
+      const label = normalizeFilterText(`${row.commessa} - ${row.descrizioneCommessa}`)
+      if (searchTerm && !label.toLowerCase().includes(searchTerm) && !value.toLowerCase().includes(searchTerm)) {
+        return
+      }
+      if (!map.has(value.toUpperCase())) {
+        map.set(value.toUpperCase(), { value, label: label || value })
+      }
+    })
+    return [...map.values()].sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
+  }, [risorseCommessaSearch, risorseFiltersCatalog.commesse, risorseRowsSorted])
+  const risorseTipologiaOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.tipologieCommessa,
+      ...risorseRowsSorted.map((row) => ({ value: row.tipologiaCommessa, label: row.tipologiaCommessa })),
+    ])
+  ), [risorseFiltersCatalog.tipologieCommessa, risorseRowsSorted])
+  const risorseStatoOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.stati,
+      ...risorseRowsSorted.map((row) => ({ value: row.stato, label: row.stato })),
+    ])
+  ), [risorseFiltersCatalog.stati, risorseRowsSorted])
+  const risorseMacroOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.macroTipologie,
+      ...risorseRowsSorted.map((row) => ({ value: row.macroTipologia, label: row.macroTipologia })),
+    ])
+  ), [risorseFiltersCatalog.macroTipologie, risorseRowsSorted])
+  const risorseControparteOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.controparti,
+      ...risorseRowsSorted.map((row) => ({ value: row.controparte, label: row.controparte })),
+    ])
+  ), [risorseFiltersCatalog.controparti, risorseRowsSorted])
+  const risorseBusinessUnitOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.businessUnits,
+      ...risorseRowsSorted.map((row) => ({ value: row.businessUnit, label: row.businessUnit })),
+    ])
+  ), [risorseFiltersCatalog.businessUnits, risorseRowsSorted])
+  const risorseRccOptions = useMemo(() => (
+    distinctPersonFilterOptionsForUi([
+      ...risorseFiltersCatalog.rcc,
+      ...risorseRowsSorted.map((row) => ({ value: row.rcc, label: row.rcc })),
+    ])
+  ), [risorseFiltersCatalog.rcc, risorseRowsSorted])
+  const risorsePmOptions = useMemo(() => (
+    distinctPersonFilterOptionsForUi([
+      ...risorseFiltersCatalog.pm,
+      ...risorseRowsSorted.map((row) => ({ value: row.pm, label: row.pm })),
+    ])
+  ), [risorseFiltersCatalog.pm, risorseRowsSorted])
+  const risorseRisorsaOptions = useMemo(() => {
+    const options = new Map<string, CommesseRisorseFilterOption>()
+    risorseFiltersCatalog.risorse.forEach((option) => {
+      const normalizedValue = normalizeFilterText(option.value)
+      if (!normalizedValue) {
+        return
+      }
+      options.set(normalizedValue, {
+        ...option,
+        value: normalizedValue,
+        label: normalizeFilterText(option.label),
+      })
+    })
+    risorseRowsSorted.forEach((row) => {
+      const idRisorsa = row.idRisorsa
+      if (!Number.isFinite(idRisorsa) || idRisorsa <= 0) {
+        return
+      }
+      const key = idRisorsa.toString()
+      if (!options.has(key)) {
+        options.set(key, {
+          idRisorsa,
+          value: key,
+          label: normalizeRisorsaLabel(row),
+          inForza: row.risorsaInForza,
+        })
+      }
+    })
+
+    const searchTerm = normalizeFilterText(risorseRisorsaSearch).toLowerCase()
+    return [...options.values()]
+      .filter((option) => {
+        if (!searchTerm) {
+          return true
+        }
+        const label = normalizeFilterText(option.label).toLowerCase()
+        const value = normalizeFilterText(option.value).toLowerCase()
+        return label.includes(searchTerm) || value.includes(searchTerm)
+      })
+      .sort((left, right) => {
+        if (left.inForza !== right.inForza) {
+          return left.inForza ? -1 : 1
+        }
+        const leftLabel = left.label.replace(/^\^\s*/, '')
+        const rightLabel = right.label.replace(/^\^\s*/, '')
+        return leftLabel.localeCompare(rightLabel, 'it', { sensitivity: 'base' })
+      })
+  }, [risorseFiltersCatalog.risorse, risorseRowsSorted, risorseRisorsaSearch])
+  const risorseTotals = useMemo(
+    () => buildRisorsePivotMetrics(risorseRowsSorted, risorseFiltersForm.vistaCosto),
+    [risorseRowsSorted, risorseFiltersForm.vistaCosto],
+  )
+  const risorsePivotSelectedFieldOptions = useMemo(
+    () => risorsePivotSelectedFields
+      .map((key) => risorsePivotFieldOptions.find((option) => option.key === key))
+      .filter((option): option is { key: RisorsePivotFieldKey; label: string } => Boolean(option)),
+    [risorsePivotSelectedFields],
+  )
+  const risorsePivotAvailableFieldOptions = useMemo(
+    () => risorsePivotFieldOptions.filter((option) => !risorsePivotSelectedFields.includes(option.key)),
+    [risorsePivotSelectedFields],
+  )
+  const risorsePivotRows = useMemo(() => {
+    if (risorseRowsSorted.length === 0) {
+      return [] as CommesseRisorsePivotRow[]
+    }
+
+    const fieldLabels = new Map(risorsePivotFieldOptions.map((option) => [option.key, option.label]))
+    const pivotRows: CommesseRisorsePivotRow[] = []
+
+    const buildGroupRows = (
+      rowsAtLevel: CommessaRisorseValutazioneRow[],
+      level: number,
+      pathKey: string,
+    ) => {
+      const fieldKey = risorsePivotSelectedFields[level]
+      if (!fieldKey) {
+        return
+      }
+
+      const grouped = new Map<string, { value: string; rows: CommessaRisorseValutazioneRow[] }>()
+      rowsAtLevel.forEach((row) => {
+        const rawValue = extractRisorsePivotFieldValue(row, fieldKey)
+        const value = normalizePivotGroupValue(rawValue)
+        const key = value.toUpperCase()
+        const current = grouped.get(key)
+        if (current) {
+          current.rows.push(row)
+        } else {
+          grouped.set(key, { value, rows: [row] })
+        }
+      })
+
+      const sortedGroups = [...grouped.values()].sort((left, right) => {
+        if (fieldKey === 'anno' || fieldKey === 'mese') {
+          const leftNumber = Number.parseInt(left.value, 10)
+          const rightNumber = Number.parseInt(right.value, 10)
+          if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+            return leftNumber - rightNumber
+          }
+        }
+        return left.value.localeCompare(right.value, 'it', { sensitivity: 'base' })
+      })
+
+      sortedGroups.forEach((group) => {
+        const metrics = buildRisorsePivotMetrics(group.rows, risorseFiltersForm.vistaCosto)
+        const groupLabel = `${fieldLabels.get(fieldKey) ?? fieldKey}: ${group.value}`
+        const groupKey = `${pathKey}|${fieldKey}|${group.value.toUpperCase()}`
+        pivotRows.push({
+          key: groupKey,
+          kind: 'gruppo',
+          level,
+          label: groupLabel,
+          ...metrics,
+        })
+
+        if (level + 1 < risorsePivotSelectedFields.length) {
+          buildGroupRows(group.rows, level + 1, groupKey)
+        }
+      })
+    }
+
+    if (risorsePivotSelectedFields.length > 0) {
+      buildGroupRows(risorseRowsSorted, 0, 'root')
+    } else {
+      pivotRows.push({
+        key: 'dati-risorse',
+        kind: 'gruppo',
+        level: 0,
+        label: 'Dati',
+        ...buildRisorsePivotMetrics(risorseRowsSorted, risorseFiltersForm.vistaCosto),
+      })
+    }
+
+    pivotRows.push({
+      key: 'totale-complessivo-risorse',
+      kind: 'totale',
+      level: 0,
+      label: 'Totale complessivo',
+      ...buildRisorsePivotMetrics(risorseRowsSorted, risorseFiltersForm.vistaCosto),
+    })
+
+    return pivotRows
+  }, [risorseRowsSorted, risorsePivotSelectedFields, risorseFiltersForm.vistaCosto])
+  const risorseSelects: Array<{
+    id: string
+    label: string
+    key: keyof Omit<RisorseFiltersForm, 'anni' | 'idRisorsa' | 'vistaCosto'>
+    options: FilterOption[]
+  }> = [
+    { id: 'risorse-tipologia', label: 'Tipologia Commessa', key: 'tipologiaCommessa', options: risorseTipologiaOptions },
+    { id: 'risorse-stato', label: 'Stato', key: 'stato', options: risorseStatoOptions },
+    { id: 'risorse-macro', label: 'Macrotipologia', key: 'macroTipologia', options: risorseMacroOptions },
+    { id: 'risorse-controparte', label: 'Controparte', key: 'controparte', options: risorseControparteOptions },
+    { id: 'risorse-business-unit', label: 'Business Unit', key: 'businessUnit', options: risorseBusinessUnitOptions },
+    { id: 'risorse-rcc', label: 'RCC', key: 'rcc', options: risorseRccOptions },
+    { id: 'risorse-pm', label: 'PM', key: 'pm', options: risorsePmOptions },
+  ]
   const previsioniUtileMensileRccRows = previsioniUtileMensileRccData?.righe ?? []
   const previsioniUtileMensileRccTotaliPerAnno = previsioniUtileMensileRccData?.totaliPerAnno ?? []
   const previsioniUtileMensileRccAnnoOptions = useMemo(() => {
@@ -7601,6 +8628,35 @@ function App() {
   const datiContabiliAcquistoCountLabel = datiContabiliAcquistoLoading
     ? 'Caricamento dati...'
     : `${datiContabiliAcquistoSortedRows.length} righe`
+  const risorseCountLabel = analisiRccLoading
+    ? 'Caricamento dati...'
+    : `${isRisorsePivotPage ? risorsePivotRows.length : risorseRowsSorted.length} righe`
+  const risorseTitle = isRisorseOuRisorsePage
+    ? 'Analisi OU Risorse'
+    : (
+      isRisorseOuRisorsePivotPage
+        ? 'Analisi OU Risorse Pivot'
+        : (
+          isRisorseOuPage
+            ? 'Analisi OU'
+            : (
+              isRisorseRisultatiPage
+    ? 'Risultati Risorse - Valutazione Annuale'
+    : (
+      isRisorseRisultatiPivotPage
+        ? 'Risultati Risorse - Pivot Annuale'
+        : (
+          isRisorseRisultatiMensilePage
+            ? 'Risultati Risorse - Valutazione Mensile'
+            : 'Risultati Risorse - Pivot Mensile'
+        )
+    )
+            )
+        )
+    )
+  const risorseFatturatoLabel = risorseFiltersForm.vistaCosto ? 'Fatturato in base a costo' : 'Fatturato in base ad ore'
+  const risorseUtileLabel = risorseFiltersForm.vistaCosto ? 'Utile in base a costo' : 'Utile in base ad ore'
+  const risorseFormDisabled = risorseLoadingFilters || analisiRccLoading
   const datiContabiliCountLabel = isDatiContabiliVenditaPage
     ? datiContabiliVenditaCountLabel
     : datiContabiliAcquistoCountLabel
@@ -7726,6 +8782,13 @@ function App() {
         activePage === 'commesse-dati-annuali-aggregati'
           ? commesseDatiAnnualiPivotRows.length
           : (
+            isRisorsePage
+              ? (
+                isRisorsePivotPage
+                  ? risorsePivotRows.length
+                  : risorseRowsSorted.length
+              )
+              : (
             activePage === 'analisi-rcc-risultato-mensile'
               ? (analisiRccData?.risultatoPesato.righe.length ?? 0)
               : (
@@ -7776,6 +8839,7 @@ function App() {
                           )
                       )
                   )
+              )
               )
           )
       )
@@ -8369,6 +9433,98 @@ function App() {
         filenamePrefix = 'Commesse_AndamentoMensile'
         break
       }
+      case 'risorse-risultati':
+      case 'risorse-risultati-mensile':
+      case 'risorse-ou-risorse':
+      case 'risorse-ou': {
+        appendSheet(risorseRowsSorted.map((row) => ({
+          AnnoCompetenza: row.annoCompetenza,
+          MeseCompetenza: row.meseCompetenza ?? null,
+          Commessa: row.commessa,
+          Descrizione: row.descrizioneCommessa,
+          Tipologia: row.tipologiaCommessa,
+          Stato: row.stato,
+          Macrotipologia: row.macroTipologia,
+          Prodotto: row.prodotto,
+          Controparte: row.controparte,
+          BusinessUnit: row.businessUnit,
+          RCC: row.rcc,
+          PM: row.pm,
+          IdRisorsa: row.idRisorsa,
+          NomeRisorsa: normalizeRisorsaLabel(row),
+          OreTotali: row.oreTotali,
+          CostoSpecificoRisorsa: row.costoSpecificoRisorsa,
+          Fatturato: risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre,
+          Utile: risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre,
+          VistaCalcolo: risorseFiltersForm.vistaCosto ? 'Costo' : 'Ore',
+          IdOU: row.idOu ?? '',
+          NomeRuolo: row.nomeRuolo ?? '',
+          PercentualeUtilizzo: row.percentualeUtilizzo ?? 0,
+          Area: row.area ?? '',
+          OUProduzione: row.ouProduzione ? 1 : 0,
+          CodiceSocieta: row.codiceSocieta ?? '',
+        })), (
+          activePage === 'risorse-risultati'
+            ? 'RisorseAnnuale'
+            : (
+              activePage === 'risorse-risultati-mensile'
+                ? 'RisorseMensile'
+                : (
+                  activePage === 'risorse-ou-risorse'
+                    ? 'AnalisiOURisorse'
+                    : 'AnalisiOU'
+                )
+            )
+        ))
+        appendSheet([{
+          OreTotali: risorseTotals.oreTotali,
+          CostoSpecificoRisorsa: risorseTotals.costoSpecificoRisorsa,
+          Fatturato: risorseTotals.fatturato,
+          Utile: risorseTotals.utile,
+          VistaCalcolo: risorseFiltersForm.vistaCosto ? 'Costo' : 'Ore',
+        }], 'Totali')
+        filenamePrefix = activePage === 'risorse-risultati'
+          ? 'Risorse_ValutazioneAnnuale'
+          : (
+            activePage === 'risorse-risultati-mensile'
+              ? 'Risorse_ValutazioneMensile'
+              : (
+                activePage === 'risorse-ou-risorse'
+                  ? 'AnalisiOU_Risorse'
+                  : 'AnalisiOU'
+              )
+          )
+        break
+      }
+      case 'risorse-risultati-pivot':
+      case 'risorse-risultati-mensile-pivot':
+      case 'risorse-ou-risorse-pivot': {
+        appendSheet(risorsePivotRows.map((row) => ({
+          TipoRiga: row.kind === 'totale' ? 'Totale complessivo' : 'Gruppo',
+          Livello: row.level,
+          Etichetta: row.label,
+          NumeroCommesse: row.numeroCommesse,
+          OreTotali: row.oreTotali,
+          CostoSpecificoRisorsa: row.costoSpecificoRisorsa,
+          Fatturato: row.fatturato,
+          Utile: row.utile,
+          VistaCalcolo: risorseFiltersForm.vistaCosto ? 'Costo' : 'Ore',
+        })), activePage === 'risorse-risultati-pivot'
+          ? 'PivotRisorseAnnuale'
+          : (
+            activePage === 'risorse-risultati-mensile-pivot'
+              ? 'PivotRisorseMensile'
+              : 'AnalisiOURisorsePivot'
+          ))
+        filenamePrefix = activePage === 'risorse-risultati-pivot'
+          ? 'Risorse_PivotAnnuale'
+          : (
+            activePage === 'risorse-risultati-mensile-pivot'
+              ? 'Risorse_PivotMensile'
+              : 'AnalisiOU_RisorsePivot'
+          )
+        break
+      }
       case 'analisi-rcc-risultato-mensile': {
         analisiRccGrids.forEach((grid, index) => appendSheet(
           buildGridRows(grid),
@@ -8942,40 +10098,77 @@ function App() {
         </div>
 
         <nav className="menu main-nav" aria-label="Menu applicativo">
-          <div className={`menu-dropdown ${openMenu === 'sintesi' ? 'is-open' : ''}`}>
-            <button
-              type="button"
-              className="menu-trigger"
-              onClick={() => toggleMenu('sintesi')}
-              aria-expanded={openMenu === 'sintesi'}
-            >
-              Analisi Commesse
-            </button>
-            <div className="menu-dropdown-panel">
-              <button type="button" className="menu-action" onClick={activateSintesiPage}>
-                Commesse
+          {canAccessAnalisiCommesseMenu && (
+            <div className={`menu-dropdown ${openMenu === 'sintesi' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('sintesi')}
+                aria-expanded={openMenu === 'sintesi'}
+              >
+                Analisi Commesse
               </button>
-              <button type="button" className="menu-action" onClick={activateProdottiPage}>
-                Prodotti
-              </button>
-              <button type="button" className="menu-action" onClick={activateCommesseAndamentoMensilePage}>
-                Andamento Mensile
-              </button>
-              <button type="button" className="menu-action" onClick={activateCommesseDatiAnnualiAggregatiPage}>
-                Dati Annuali Aggregati
-              </button>
-              {canAccessPrevisioniUtileMensileRccPage && (
-                <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileRccPage}>
-                  Utile Mensile RCC
+              <div className="menu-dropdown-panel">
+                <button type="button" className="menu-action" onClick={activateSintesiPage}>
+                  Commesse
                 </button>
-              )}
-              {canAccessPrevisioniUtileMensileBuPage && (
-                <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileBuPage}>
-                  Utile Mensile BU
+                <button type="button" className="menu-action" onClick={activateProdottiPage}>
+                  Prodotti
                 </button>
-              )}
+                <button type="button" className="menu-action" onClick={activateCommesseAndamentoMensilePage}>
+                  Andamento Mensile
+                </button>
+                <button type="button" className="menu-action" onClick={activateCommesseDatiAnnualiAggregatiPage}>
+                  Dati Annuali Aggregati
+                </button>
+                {canAccessPrevisioniUtileMensileRccPage && (
+                  <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileRccPage}>
+                    Utile Mensile RCC
+                  </button>
+                )}
+                {canAccessPrevisioniUtileMensileBuPage && (
+                  <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileBuPage}>
+                    Utile Mensile BU
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+          {canAccessRisultatiRisorseMenu && (
+            <div className={`menu-dropdown ${openMenu === 'risorse' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('risorse')}
+                aria-expanded={openMenu === 'risorse'}
+              >
+                Analisi Risorse
+              </button>
+              <div className="menu-dropdown-panel">
+                <button type="button" className="menu-action" onClick={activateRisorseRisultatiPage}>
+                  Valutazione Annuale
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseRisultatiPivotPage}>
+                  Pivot Annuale
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseRisultatiMensilePage}>
+                  Valutazione Mensile
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseRisultatiMensilePivotPage}>
+                  Pivot Mensile
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseOuRisorsePage}>
+                  Analisi OU Risorse
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseOuRisorsePivotPage}>
+                  Analisi OU Risorse Pivot
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseOuPage}>
+                  Analisi OU
+                </button>
+              </div>
+            </div>
+          )}
           {canAccessAnalisiProiezioniMenu && (
             <div className={`menu-dropdown ${openMenu === 'analisi-proiezioni' ? 'is-open' : ''}`}>
               <button
@@ -9089,24 +10282,26 @@ function App() {
               </div>
             </div>
           )}
-          <div className={`menu-dropdown ${openMenu === 'dati-contabili' ? 'is-open' : ''}`}>
-            <button
-              type="button"
-              className="menu-trigger"
-              onClick={() => toggleMenu('dati-contabili')}
-              aria-expanded={openMenu === 'dati-contabili'}
-            >
-              Dati Contabili
-            </button>
-            <div className="menu-dropdown-panel">
-              <button type="button" className="menu-action" onClick={activateDatiContabiliVenditaPage}>
-                Vendite
+          {canAccessDatiContabiliMenu && (
+            <div className={`menu-dropdown ${openMenu === 'dati-contabili' ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="menu-trigger"
+                onClick={() => toggleMenu('dati-contabili')}
+                aria-expanded={openMenu === 'dati-contabili'}
+              >
+                Dati Contabili
               </button>
-              <button type="button" className="menu-action" onClick={activateDatiContabiliAcquistiPage}>
-                Acquisti
-              </button>
+              <div className="menu-dropdown-panel">
+                <button type="button" className="menu-action" onClick={activateDatiContabiliVenditaPage}>
+                  Vendite
+                </button>
+                <button type="button" className="menu-action" onClick={activateDatiContabiliAcquistiPage}>
+                  Acquisti
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </nav>
 
         <div className="top-actions">
@@ -10224,6 +11419,397 @@ function App() {
                 </div>
               )}
             </section>
+          </section>
+        )}
+
+        {isRisorsePage && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>{risorseTitle}</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            {!canAccessRisultatiRisorseMenu && (
+              <p className="empty-state">
+                Il profilo corrente non e' abilitato a Risultati Risorse.
+              </p>
+            )}
+
+            {canAccessRisultatiRisorseMenu && (
+              <>
+                <section className="panel sintesi-filter-panel">
+                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
+                    {!isAnalisiSearchCollapsed && (
+                      <>
+                        <label className="analisi-rcc-year-field" htmlFor="risorse-anni">
+                          <span>{isRisorseMensilePage ? 'Anni competenza (corrente + precedente)' : 'Anni competenza'}</span>
+                          <select
+                            id="risorse-anni"
+                            multiple
+                            size={4}
+                            value={risorseFiltersForm.anni}
+                            disabled={risorseFormDisabled}
+                            onChange={(event) => setRisorseFiltersForm((current) => ({
+                              ...current,
+                              anni: Array.from(event.target.selectedOptions).map((option) => option.value),
+                            }))}
+                          >
+                            {risorseAnnoOptions.map((year) => (
+                              <option key={`risorse-anno-${year}`} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="analisi-rcc-year-field" htmlFor="risorse-commessa-search">
+                          <span>Ricerca Commessa</span>
+                          <div className="commessa-inline-controls">
+                            <input
+                              id="risorse-commessa-search"
+                              value={risorseCommessaSearch}
+                              disabled={risorseFormDisabled}
+                              onChange={(event) => setRisorseCommessaSearch(event.target.value)}
+                              placeholder="Cerca commessa..."
+                            />
+                            <select
+                              id="risorse-commessa"
+                              value={risorseFiltersForm.commessa}
+                              disabled={risorseFormDisabled}
+                              onChange={(event) => setRisorseFiltersForm((current) => ({
+                                ...current,
+                                commessa: event.target.value,
+                              }))}
+                            >
+                              <option value="">Tutte</option>
+                              {risorseCommessaOptions.map((option) => (
+                                <option key={`risorse-commessa-${option.value}`} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </label>
+
+                        {risorseSelects.map((selectField) => (
+                          <label
+                            key={selectField.id}
+                            className="analisi-rcc-year-field"
+                            htmlFor={selectField.id}
+                          >
+                            <span>{selectField.label}</span>
+                            <select
+                              id={selectField.id}
+                              value={risorseFiltersForm[selectField.key]}
+                              disabled={risorseFormDisabled}
+                              onChange={(event) => setRisorseFiltersForm((current) => ({
+                                ...current,
+                                [selectField.key]: event.target.value,
+                              }))}
+                            >
+                              <option value="">Tutti</option>
+                              {selectField.options.map((option) => (
+                                <option key={`${selectField.id}-${option.value}`} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ))}
+
+                        <label className="analisi-rcc-year-field" htmlFor="risorse-risorsa-search">
+                          <span>Filtro Risorsa</span>
+                          <input
+                            id="risorse-risorsa-search"
+                            value={risorseRisorsaSearch}
+                            disabled={risorseFormDisabled}
+                            onChange={(event) => setRisorseRisorsaSearch(event.target.value)}
+                            placeholder="Cerca risorsa..."
+                          />
+                        </label>
+
+                        <label className="analisi-rcc-year-field" htmlFor="risorse-id-risorsa">
+                          <span>Risorsa</span>
+                          <select
+                            id="risorse-id-risorsa"
+                            value={risorseFiltersForm.idRisorsa}
+                            disabled={risorseFormDisabled}
+                            onChange={(event) => setRisorseFiltersForm((current) => ({
+                              ...current,
+                              idRisorsa: event.target.value,
+                            }))}
+                          >
+                            <option value="">Tutte</option>
+                            {risorseRisorsaOptions.map((option) => (
+                              <option key={`risorse-anagrafica-${option.value}`} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="checkbox-label" htmlFor="risorse-vista-costo">
+                          <input
+                            id="risorse-vista-costo"
+                            type="checkbox"
+                            checked={risorseFiltersForm.vistaCosto}
+                            disabled={risorseFormDisabled}
+                            onChange={(event) => setRisorseFiltersForm((current) => ({
+                              ...current,
+                              vistaCosto: event.target.checked,
+                            }))}
+                          />
+                          Visualizza valori su costo
+                        </label>
+                      </>
+                    )}
+
+                    <div className="inline-actions analisi-inline-actions">
+                      <button type="submit" disabled={risorseFormDisabled}>
+                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={refreshRisorseFilters}
+                        disabled={risorseFormDisabled}
+                      >
+                        Aggiorna Filtri
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetRisorseFilters}
+                        disabled={risorseFormDisabled}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={exportAnalisiExcel}
+                        disabled={risorseFormDisabled || !canExportAnalisiPage}
+                      >
+                        Export Excel
+                      </button>
+                      {isAnalisiSearchCollapsible && (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={toggleAnalisiSearchCollapsed}
+                        >
+                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
+                        </button>
+                      )}
+                      <span className="status-badge neutral sintesi-inline-count-badge">
+                        {risorseCountLabel}
+                      </span>
+                    </div>
+                  </form>
+                  <div className="sintesi-toolbar-row">
+                    <p className="sintesi-toolbar-message">
+                      {risorseSearched
+                        ? `Ricerca completata (${isRisorseMensilePage ? 'mensile' : 'annuale'}, ${risorseFiltersForm.vistaCosto ? 'base costo' : 'base ore'}).`
+                        : statusMessageVisible}
+                    </p>
+                  </div>
+                </section>
+
+                {isRisorsePivotPage && !isAnalisiSearchCollapsed && (
+                  <section className="panel analisi-rcc-grid-card dati-annuali-pivot-config-panel">
+                    <header className="panel-header">
+                      <h3>Configurazione Pivot Risorse</h3>
+                    </header>
+                    <div className="dati-annuali-pivot-config-grid">
+                      <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="risorse-pivot-fields-available">
+                        <span>Campi disponibili</span>
+                        <select
+                          id="risorse-pivot-fields-available"
+                          multiple
+                          size={8}
+                          value={risorsePivotAvailableSelection}
+                          onChange={(event) => setRisorsePivotAvailableSelection(
+                            asRisorsePivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
+                          )}
+                        >
+                          {risorsePivotAvailableFieldOptions.map((option) => (
+                            <option key={`risorse-pivot-available-${option.key}`} value={option.key}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="dati-annuali-pivot-config-actions">
+                        <button
+                          type="button"
+                          onClick={addRisorsePivotSelectedFields}
+                          disabled={risorsePivotAvailableSelection.length === 0}
+                        >
+                          Aggiungi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={removeRisorsePivotSelectedFields}
+                          disabled={risorsePivotSelectedSelection.length === 0}
+                        >
+                          Rimuovi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveRisorsePivotField('up')}
+                          disabled={risorsePivotSelectedSelection.length !== 1}
+                        >
+                          Su
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveRisorsePivotField('down')}
+                          disabled={risorsePivotSelectedSelection.length !== 1}
+                        >
+                          Giu
+                        </button>
+                      </div>
+                      <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="risorse-pivot-fields-selected">
+                        <span>Livelli aggregazione (ordine pivot)</span>
+                        <select
+                          id="risorse-pivot-fields-selected"
+                          multiple
+                          size={8}
+                          value={risorsePivotSelectedSelection}
+                          onChange={(event) => setRisorsePivotSelectedSelection(
+                            asRisorsePivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
+                          )}
+                        >
+                          {risorsePivotSelectedFieldOptions.map((option) => (
+                            <option key={`risorse-pivot-selected-${option.key}`} value={option.key}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+                )}
+
+                <section className="panel analisi-rcc-grid-card">
+                  <header className="panel-header">
+                    <h3>{isRisorsePivotPage ? 'Risultati Risorse (Pivot)' : 'Risultati Risorse'}</h3>
+                  </header>
+
+                  {!risorseSearched && !analisiRccLoading && (
+                    <p className="empty-state">Imposta i filtri e premi Cerca.</p>
+                  )}
+
+                  {risorseSearched && !analisiRccLoading && (isRisorsePivotPage ? risorsePivotRows.length : risorseRowsSorted.length) === 0 && (
+                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
+                  )}
+
+                  {isRisorsePivotPage && risorsePivotRows.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Etichette di riga</th>
+                            <th className="num">Numero Commesse</th>
+                            <th className="num">Ore Totali</th>
+                            <th className="num">Costo Specifico Risorsa</th>
+                            <th className="num">{risorseFatturatoLabel}</th>
+                            <th className="num">{risorseUtileLabel}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {risorsePivotRows.map((row) => (
+                            <tr key={row.key} className={row.kind === 'totale' ? 'table-totals-row' : 'table-group-summary-row'}>
+                              <td className="table-group-summary-label">
+                                <span className={`dati-annuali-pivot-label level-${Math.min(row.level, 6)}`}>
+                                  {row.label}
+                                </span>
+                              </td>
+                              <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
+                              <td className="num">{formatNumber(row.oreTotali)}</td>
+                              <td className={`num ${row.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoSpecificoRisorsa)}</td>
+                              <td className={`num ${row.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturato)}</td>
+                              <td className={`num ${row.utile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utile)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {!isRisorsePivotPage && risorseRowsSorted.length > 0 && (
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                      <table className="bonifici-table">
+                        <thead>
+                          <tr>
+                            <th>Anno</th>
+                            {isRisorseMensilePage && <th>Mese</th>}
+                            <th>Commessa</th>
+                            <th>Descrizione</th>
+                            <th>Tipologia</th>
+                            <th>Stato</th>
+                            <th>Macrotipologia</th>
+                            <th>Controparte</th>
+                            <th>Business Unit</th>
+                            <th>RCC</th>
+                            <th>PM</th>
+                            <th>Risorsa</th>
+                            <th className="num">Ore Totali</th>
+                            <th className="num">Costo Specifico Risorsa</th>
+                            <th className="num">{risorseFatturatoLabel}</th>
+                            <th className="num">{risorseUtileLabel}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {risorseRowsSorted.map((row, index) => (
+                            <tr key={`risorse-row-${row.annoCompetenza}-${row.meseCompetenza ?? 0}-${row.commessa}-${row.idRisorsa}-${index}`}>
+                              <td>{row.annoCompetenza}</td>
+                              {isRisorseMensilePage && <td>{row.meseCompetenza ? row.meseCompetenza.toString().padStart(2, '0') : ''}</td>}
+                              <td>
+                                <button
+                                  type="button"
+                                  className="inline-link-button"
+                                  onClick={() => openCommessaDetail(row.commessa)}
+                                  title={`Apri dettaglio commessa ${row.commessa}`}
+                                >
+                                  {row.commessa}
+                                </button>
+                              </td>
+                              <td>{row.descrizioneCommessa}</td>
+                              <td>{row.tipologiaCommessa}</td>
+                              <td>{row.stato}</td>
+                              <td>{row.macroTipologia}</td>
+                              <td>{row.controparte}</td>
+                              <td>{row.businessUnit}</td>
+                              <td>{row.rcc}</td>
+                              <td>{row.pm}</td>
+                              <td>{normalizeRisorsaLabel(row)}</td>
+                              <td className="num">{formatNumber(row.oreTotali)}</td>
+                              <td className={`num ${row.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoSpecificoRisorsa)}</td>
+                              <td className={`num ${(risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre) < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre)}
+                              </td>
+                              <td className={`num ${(risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre) < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="table-totals-row">
+                            <td colSpan={isRisorseMensilePage ? 12 : 11} className="table-totals-label">Totale</td>
+                            <td className="num">{formatNumber(risorseTotals.oreTotali)}</td>
+                            <td className={`num ${risorseTotals.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.costoSpecificoRisorsa)}</td>
+                            <td className={`num ${risorseTotals.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.fatturato)}</td>
+                            <td className={`num ${risorseTotals.utile < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.utile)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </section>
         )}
 

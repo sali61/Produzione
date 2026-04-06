@@ -9,6 +9,7 @@ public static class ProfileCatalog
     public const string ResponsabileCommercialeCommessa = "Responsabile Commerciale Commessa";
     public const string GeneralProjectManager = "General Project Manager";
     public const string ResponsabileOu = "Responsabile OU";
+    public const string RisorseUmane = "Risorse Umane";
 
     private static readonly IReadOnlyDictionary<string, string> Map =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -20,13 +21,15 @@ public static class ProfileCatalog
             ["PM"] = ProjectManager,
             ["RCC"] = ResponsabileCommercialeCommessa,
             ["GPM"] = GeneralProjectManager,
+            ["HR"] = RisorseUmane,
             [Supervisore] = Supervisore,
             [ResponsabileProduzione] = ResponsabileProduzione,
             [ResponsabileCommerciale] = ResponsabileCommerciale,
             [ProjectManager] = ProjectManager,
             [ResponsabileCommercialeCommessa] = ResponsabileCommercialeCommessa,
             [GeneralProjectManager] = GeneralProjectManager,
-            [ResponsabileOu] = ResponsabileOu
+            [ResponsabileOu] = ResponsabileOu,
+            [RisorseUmane] = RisorseUmane
         };
 
     public static IReadOnlyCollection<string> All { get; } =
@@ -37,7 +40,8 @@ public static class ProfileCatalog
         ProjectManager,
         ResponsabileCommercialeCommessa,
         GeneralProjectManager,
-        ResponsabileOu
+        ResponsabileOu,
+        RisorseUmane
     ];
 
     public static string Normalize(string profile)
