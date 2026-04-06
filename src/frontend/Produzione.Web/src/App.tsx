@@ -47,7 +47,8 @@ type AppPage =
   | 'risorse-risultati-mensile-pivot'
   | 'risorse-ou-risorse'
   | 'risorse-ou-risorse-pivot'
-  | 'risorse-ou'
+  | 'risorse-ou-risorse-mensile'
+  | 'risorse-ou-risorse-mensile-pivot'
   | 'prodotti-sintesi'
   | 'analisi-rcc-risultato-mensile'
   | 'analisi-rcc-pivot-fatturato'
@@ -557,12 +558,14 @@ type CommesseRisorseFiltersResponse = {
   profile: string
   mensile: boolean
   anni: FilterOption[]
+  mesi: FilterOption[]
   commesse: FilterOption[]
   tipologieCommessa: FilterOption[]
   stati: FilterOption[]
   macroTipologie: FilterOption[]
   controparti: FilterOption[]
   businessUnits: FilterOption[]
+  ous: FilterOption[]
   rcc: FilterOption[]
   pm: FilterOption[]
   risorse: CommesseRisorseFilterOption[]
@@ -608,12 +611,14 @@ type CommesseRisorseValutazioneResponse = {
 
 type RisorseFiltersForm = {
   anni: string[]
+  mesi: string[]
   commessa: string
   tipologiaCommessa: string
   stato: string
   macroTipologia: string
   controparte: string
   businessUnit: string
+  ou: string
   rcc: string
   pm: string
   idRisorsa: string
@@ -630,6 +635,7 @@ type RisorsePivotFieldKey =
   | 'prodotto'
   | 'controparte'
   | 'businessUnit'
+  | 'ou'
   | 'rcc'
   | 'pm'
   | 'risorsa'
@@ -974,7 +980,8 @@ const analisiSearchCollapsiblePages = new Set<AppPage>([
   'risorse-risultati-mensile-pivot',
   'risorse-ou-risorse',
   'risorse-ou-risorse-pivot',
-  'risorse-ou',
+  'risorse-ou-risorse-mensile',
+  'risorse-ou-risorse-mensile-pivot',
   'processo-offerta-offerte',
   'processo-offerta-sintesi-rcc',
   'processo-offerta-sintesi-bu',
@@ -1011,6 +1018,7 @@ const risorsePivotFieldOptions: Array<{ key: RisorsePivotFieldKey; label: string
   { key: 'mese', label: 'Mese' },
   { key: 'risorsa', label: 'Risorsa' },
   { key: 'businessUnit', label: 'BU' },
+  { key: 'ou', label: 'OU' },
   { key: 'rcc', label: 'RCC' },
   { key: 'pm', label: 'PM' },
   { key: 'macroTipologia', label: 'Macrotipologia' },
@@ -1068,12 +1076,14 @@ const emptyFiltersCatalog: CommesseSintesiFiltersResponse = {
 
 const emptyRisorseFiltersForm: RisorseFiltersForm = {
   anni: [],
+  mesi: [],
   commessa: '',
   tipologiaCommessa: '',
   stato: '',
   macroTipologia: '',
   controparte: '',
   businessUnit: '',
+  ou: '',
   rcc: '',
   pm: '',
   idRisorsa: '',
@@ -1084,12 +1094,14 @@ const emptyRisorseFiltersCatalog: CommesseRisorseFiltersResponse = {
   profile: '',
   mensile: false,
   anni: [],
+  mesi: [],
   commesse: [],
   tipologieCommessa: [],
   stati: [],
   macroTipologie: [],
   controparti: [],
   businessUnits: [],
+  ous: [],
   rcc: [],
   pm: [],
   risorse: [],
@@ -1449,6 +1461,14 @@ const normalizeRisorsaLabel = (row: CommessaRisorseValutazioneRow) => {
   return row.risorsaInForza ? nome : `^ ${nome}`
 }
 
+const resolveOuValue = (row: CommessaRisorseValutazioneRow) => {
+  const idOu = (row.idOu ?? '').trim()
+  if (idOu) {
+    return idOu
+  }
+  return (row.businessUnit ?? '').trim()
+}
+
 const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, fieldKey: RisorsePivotFieldKey) => {
   switch (fieldKey) {
     case 'anno':
@@ -1473,6 +1493,8 @@ const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, field
       return row.controparte
     case 'businessUnit':
       return row.businessUnit
+    case 'ou':
+      return resolveOuValue(row)
     case 'rcc':
       return row.rcc
     case 'pm':
@@ -1633,8 +1655,13 @@ const appInfoVoicesDefault: AppInfoVoice[] = [
   },
   {
     menu: 'Analisi Risorse',
-    voce: 'Analisi OU',
-    sintesi: 'Vista OU aggregata per monitorare l andamento economico del perimetro organizzativo con dettaglio coerente alle regole di accesso del profilo.',
+    voce: 'Analisi Mensile OU Risorse',
+    sintesi: 'Vista OU Risorse su base mensile con selezione multipla dei mesi di competenza e dettaglio completo per commessa, OU e risorsa.',
+  },
+  {
+    menu: 'Analisi Risorse',
+    voce: 'Analisi Mensile OU Risorse Pivot',
+    sintesi: 'Pivot mensile OU Risorse con campi aggregabili (incluso mese competenza) e totale complessivo, utile per confronto rapido OU-BU.',
   },
   {
     menu: 'Analisi Proiezioni',
@@ -1883,16 +1910,27 @@ function App() {
   const isRisorseRisultatiMensilePivotPage = activePage === 'risorse-risultati-mensile-pivot'
   const isRisorseOuRisorsePage = activePage === 'risorse-ou-risorse'
   const isRisorseOuRisorsePivotPage = activePage === 'risorse-ou-risorse-pivot'
-  const isRisorseOuPage = activePage === 'risorse-ou'
-  const isRisorseOuMode = isRisorseOuRisorsePage || isRisorseOuRisorsePivotPage || isRisorseOuPage
-  const isRisorseOuPivotMode = isRisorseOuPage
+  const isRisorseOuRisorseMensilePage = activePage === 'risorse-ou-risorse-mensile'
+  const isRisorseOuRisorseMensilePivotPage = activePage === 'risorse-ou-risorse-mensile-pivot'
+  const isRisorseOuMode = (
+    isRisorseOuRisorsePage
+    || isRisorseOuRisorsePivotPage
+    || isRisorseOuRisorseMensilePage
+    || isRisorseOuRisorseMensilePivotPage
+  )
+  const isRisorseOuPivotMode = false
   const isRisorsePivotPage = (
     isRisorseRisultatiPivotPage
     || isRisorseRisultatiMensilePivotPage
     || isRisorseOuRisorsePivotPage
-    || isRisorseOuPage
+    || isRisorseOuRisorseMensilePivotPage
   )
-  const isRisorseMensilePage = isRisorseRisultatiMensilePage || isRisorseRisultatiMensilePivotPage
+  const isRisorseMensilePage = (
+    isRisorseRisultatiMensilePage
+    || isRisorseRisultatiMensilePivotPage
+    || isRisorseOuRisorseMensilePage
+    || isRisorseOuRisorseMensilePivotPage
+  )
   const isRisorsePage = (
     isRisorseRisultatiPage
     || isRisorseRisultatiPivotPage
@@ -1900,7 +1938,8 @@ function App() {
     || isRisorseRisultatiMensilePivotPage
     || isRisorseOuRisorsePage
     || isRisorseOuRisorsePivotPage
-    || isRisorseOuPage
+    || isRisorseOuRisorseMensilePage
+    || isRisorseOuRisorseMensilePivotPage
   )
   const isDatiContabiliVenditaPage = activePage === 'dati-contabili-vendita'
   const isDatiContabiliAcquistiPage = activePage === 'dati-contabili-acquisti'
@@ -2397,6 +2436,9 @@ function App() {
 
       const key = appInfoVoiceKey(menu, voce)
       const fallback = map.get(key)
+      if (!fallback) {
+        return
+      }
       map.set(key, {
         menu,
         voce,
@@ -3804,6 +3846,19 @@ function App() {
               .filter((value) => value.length > 0)
               .slice(0, 2)
         }
+        const allowedMesi = new Set(
+          payload.mesi
+            .map((option) => parseReferenceMonthStrict(option.value))
+            .filter((value): value is number => value !== null)
+            .map((value) => value.toString()),
+        )
+        const nextMesi = mensile
+          ? current.mesi
+            .map((value) => parseReferenceMonthStrict(value))
+            .filter((value): value is number => value !== null)
+            .map((value) => value.toString())
+            .filter((value) => allowedMesi.has(value))
+          : []
 
         const risorseValues = new Set(
           payload.risorse
@@ -3815,12 +3870,14 @@ function App() {
         return {
           ...current,
           anni: [...new Set(nextAnni)],
+          mesi: [...new Set(nextMesi)],
           commessa: keepIfPresent(current.commessa, payload.commesse),
           tipologiaCommessa: keepIfPresent(current.tipologiaCommessa, payload.tipologieCommessa),
           stato: keepIfPresent(current.stato, payload.stati),
           macroTipologia: keepIfPresent(current.macroTipologia, payload.macroTipologie),
           controparte: keepIfPresent(current.controparte, payload.controparti),
           businessUnit: keepIfPresent(current.businessUnit, payload.businessUnits),
+          ou: keepIfPresent(current.ou, payload.ous),
           rcc: keepIfPresent(current.rcc, payload.rcc),
           pm: keepIfPresent(current.pm, payload.pm),
           idRisorsa: risorseValues.has(normalizedIdRisorsa) ? normalizedIdRisorsa : '',
@@ -3856,6 +3913,11 @@ function App() {
         .map((value) => Number.parseInt(value.trim(), 10))
         .filter((value) => Number.isFinite(value) && value > 0),
     )].sort((left, right) => left - right)
+    const selectedMonths = [...new Set(
+      risorseFiltersForm.mesi
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value >= 1 && value <= 12),
+    )].sort((left, right) => left - right)
 
     setAnalisiRccLoading(true)
     try {
@@ -3870,6 +3932,9 @@ function App() {
       }
       params.set('take', '100000')
       selectedYears.forEach((value) => params.append('anni', value.toString()))
+      if (mensile) {
+        selectedMonths.forEach((value) => params.append('mesi', value.toString()))
+      }
       const commessa = risorseFiltersForm.commessa.trim()
       if (commessa) {
         params.set('commessa', commessa)
@@ -3893,6 +3958,10 @@ function App() {
       const businessUnit = risorseFiltersForm.businessUnit.trim()
       if (businessUnit) {
         params.set('businessUnit', businessUnit)
+      }
+      const ou = risorseFiltersForm.ou.trim()
+      if (ou) {
+        params.set('ou', ou)
       }
       const rcc = risorseFiltersForm.rcc.trim()
       if (rcc) {
@@ -4833,6 +4902,125 @@ function App() {
     void loadRisorseFilters(isRisorseMensilePage, defaultYears)
   }
 
+  const resetAnalisiFilters = () => {
+    const currentYear = new Date().getFullYear().toString()
+    const previousYear = (new Date().getFullYear() - 1).toString()
+    const defaultReferenceMonth = getDefaultReferenceMonth().toString()
+
+    if (isRisorsePage) {
+      resetRisorseFilters()
+      return
+    }
+
+    switch (activePage) {
+      case 'commesse-andamento-mensile':
+        setCommesseAndamentoMensileAnni([currentYear])
+        setCommesseAndamentoMensileMese('')
+        setCommesseAndamentoMensileTipologia('')
+        setCommesseAndamentoMensileBusinessUnit('')
+        setCommesseAndamentoMensileRcc('')
+        setCommesseAndamentoMensilePm('')
+        setCommesseAndamentoMensileData(null)
+        break
+      case 'commesse-dati-annuali-aggregati':
+        setCommesseDatiAnnualiAnni([currentYear])
+        setCommesseDatiAnnualiMacroTipologie([])
+        setCommesseDatiAnnualiSelectedFields(['anno'])
+        setCommesseDatiAnnualiAvailableSelection([])
+        setCommesseDatiAnnualiSelectedSelection([])
+        setCommesseDatiAnnualiData(null)
+        break
+      case 'analisi-rcc-risultato-mensile':
+        setAnalisiRccAnno(currentYear)
+        setAnalisiRccData(null)
+        break
+      case 'analisi-rcc-pivot-fatturato':
+        setAnalisiRccPivotAnni([currentYear])
+        setAnalisiRccPivotRcc('')
+        setAnalisiRccPivotData(null)
+        break
+      case 'analisi-bu-risultato-mensile':
+        setAnalisiBuAnno(currentYear)
+        setAnalisiBuData(null)
+        break
+      case 'analisi-bu-pivot-fatturato':
+        setAnalisiBuPivotAnni([currentYear])
+        setAnalisiBuPivotBusinessUnit('')
+        setAnalisiBuPivotData(null)
+        break
+      case 'analisi-burcc-risultato-mensile':
+        setAnalisiBurccAnno(currentYear)
+        setAnalisiBurccBusinessUnit('')
+        setAnalisiBurccRcc('')
+        setAnalisiBurccData(null)
+        break
+      case 'analisi-burcc-pivot-fatturato':
+        setAnalisiBurccPivotAnni([currentYear])
+        setAnalisiBurccPivotBusinessUnit('')
+        setAnalisiBurccPivotRcc('')
+        setAnalisiBurccPivotData(null)
+        break
+      case 'analisi-piano-fatturazione':
+        setAnalisiPianoFatturazioneAnno(currentYear)
+        setAnalisiPianoFatturazioneMesiSnapshot([])
+        setAnalisiPianoFatturazioneTipoCalcolo('complessivo')
+        setAnalisiPianoFatturazioneRcc('')
+        setAnalisiPianoFatturazioneData(null)
+        break
+      case 'previsioni-funnel':
+        setPrevisioniFunnelAnni([currentYear])
+        setPrevisioniFunnelRcc('')
+        setPrevisioniFunnelTipo('')
+        setPrevisioniFunnelStatoDocumento('')
+        setPrevisioniFunnelData(null)
+        break
+      case 'previsioni-report-funnel-rcc':
+        setPrevisioniReportFunnelRccAnni([currentYear])
+        setPrevisioniReportFunnelRcc('')
+        setPrevisioniReportFunnelRccData(null)
+        break
+      case 'previsioni-report-funnel-bu':
+        setPrevisioniReportFunnelBuAnni([currentYear])
+        setPrevisioniReportFunnelBu('')
+        setPrevisioniReportFunnelBuRcc('')
+        setPrevisioniReportFunnelBuData(null)
+        break
+      case 'previsioni-utile-mensile-rcc':
+        setPrevisioniUtileMensileRccAnno(currentYear)
+        setPrevisioniUtileMensileRccMeseRiferimento(defaultReferenceMonth)
+        setPrevisioniUtileMensileRcc('')
+        setPrevisioniUtileMensileRccProduzione('')
+        setPrevisioniUtileMensileRccData(null)
+        break
+      case 'previsioni-utile-mensile-bu':
+        setPrevisioniUtileMensileBuAnno(currentYear)
+        setPrevisioniUtileMensileBuMeseRiferimento(defaultReferenceMonth)
+        setPrevisioniUtileMensileBu('')
+        setPrevisioniUtileMensileBuProduzione('')
+        setPrevisioniUtileMensileBuData(null)
+        break
+      case 'processo-offerta-offerte':
+      case 'processo-offerta-sintesi-rcc':
+      case 'processo-offerta-sintesi-bu':
+      case 'processo-offerta-percentuale-successo-rcc':
+      case 'processo-offerta-percentuale-successo-bu':
+      case 'processo-offerta-incidenza-rcc':
+      case 'processo-offerta-incidenza-bu':
+        setProcessoOffertaAnni([currentYear, previousYear])
+        setProcessoOffertaEsiti([])
+        setProcessoOffertaPercentualeRcc('')
+        setProcessoOffertaPercentualeBu('')
+        setProcessoOffertaOfferteData(null)
+        setProcessoOffertaSintesiRccData(null)
+        setProcessoOffertaSintesiBuData(null)
+        break
+      default:
+        break
+    }
+
+    setStatusMessage('Filtri reimpostati. Premi Cerca per ricaricare i dati.')
+  }
+
   const activateSintesiPage = () => {
     setOpenMenu(null)
     setLastSintesiPage('commesse-sintesi')
@@ -5039,8 +5227,12 @@ function App() {
     activateRisorsePage('risorse-ou-risorse-pivot', false, true, false)
   }
 
-  const activateRisorseOuPage = () => {
-    activateRisorsePage('risorse-ou', false, true, true)
+  const activateRisorseOuRisorseMensilePage = () => {
+    activateRisorsePage('risorse-ou-risorse-mensile', true, true, false)
+  }
+
+  const activateRisorseOuRisorseMensilePivotPage = () => {
+    activateRisorsePage('risorse-ou-risorse-mensile-pivot', true, true, false)
   }
 
   const activateAnalisiRccRisultatoMensilePage = () => {
@@ -6729,6 +6921,33 @@ function App() {
     }
     return [...years].sort((left, right) => Number(right) - Number(left))
   }, [risorseFiltersCatalog.anni, risorseFiltersForm.anni, risorseRowsSorted])
+  const risorseMeseOptions = useMemo(() => {
+    const months = new Set<number>()
+    risorseFiltersCatalog.mesi.forEach((option) => {
+      const parsed = parseReferenceMonthStrict(option.value)
+      if (parsed !== null) {
+        months.add(parsed)
+      }
+    })
+    risorseFiltersForm.mesi.forEach((value) => {
+      const parsed = parseReferenceMonthStrict(value)
+      if (parsed !== null) {
+        months.add(parsed)
+      }
+    })
+    risorseRowsSorted.forEach((row) => {
+      const parsed = parseReferenceMonthStrict(row.meseCompetenza)
+      if (parsed !== null) {
+        months.add(parsed)
+      }
+    })
+    return [...months]
+      .sort((left, right) => left - right)
+      .map((value) => ({
+        value: value.toString(),
+        label: formatReferenceMonthLabel(value),
+      }))
+  }, [risorseFiltersCatalog.mesi, risorseFiltersForm.mesi, risorseRowsSorted])
   const risorseCommessaOptions = useMemo(() => {
     const map = new Map<string, FilterOption>()
     const searchTerm = normalizeFilterText(risorseCommessaSearch).toLowerCase()
@@ -6785,9 +7004,21 @@ function App() {
   const risorseBusinessUnitOptions = useMemo(() => (
     distinctFilterOptionsForUi([
       ...risorseFiltersCatalog.businessUnits,
-      ...risorseRowsSorted.map((row) => ({ value: row.businessUnit, label: row.businessUnit })),
+      ...risorseRowsSorted.map((row) => {
+        const bu = normalizeFilterText(row.businessUnit)
+        return { value: bu, label: bu }
+      }),
     ])
   ), [risorseFiltersCatalog.businessUnits, risorseRowsSorted])
+  const risorseOuOptions = useMemo(() => (
+    distinctFilterOptionsForUi([
+      ...risorseFiltersCatalog.ous,
+      ...risorseRowsSorted.map((row) => {
+        const ou = resolveOuValue(row)
+        return { value: ou, label: ou }
+      }),
+    ])
+  ), [risorseFiltersCatalog.ous, risorseRowsSorted])
   const risorseRccOptions = useMemo(() => (
     distinctPersonFilterOptionsForUi([
       ...risorseFiltersCatalog.rcc,
@@ -6852,22 +7083,27 @@ function App() {
     () => buildRisorsePivotMetrics(risorseRowsSorted, risorseFiltersForm.vistaCosto),
     [risorseRowsSorted, risorseFiltersForm.vistaCosto],
   )
+  const risorseEntityFilterLabel = 'Risorsa'
+  const getRisorsePivotFieldLabel = (_key: RisorsePivotFieldKey, fallback: string) => fallback
   const risorsePivotSelectedFieldOptions = useMemo(
     () => risorsePivotSelectedFields
       .map((key) => risorsePivotFieldOptions.find((option) => option.key === key))
-      .filter((option): option is { key: RisorsePivotFieldKey; label: string } => Boolean(option)),
-    [risorsePivotSelectedFields],
+      .filter((option): option is { key: RisorsePivotFieldKey; label: string } => Boolean(option))
+      .map((option) => ({ ...option, label: getRisorsePivotFieldLabel(option.key, option.label) })),
+    [getRisorsePivotFieldLabel, risorsePivotSelectedFields],
   )
   const risorsePivotAvailableFieldOptions = useMemo(
-    () => risorsePivotFieldOptions.filter((option) => !risorsePivotSelectedFields.includes(option.key)),
-    [risorsePivotSelectedFields],
+    () => risorsePivotFieldOptions
+      .filter((option) => !risorsePivotSelectedFields.includes(option.key))
+      .map((option) => ({ ...option, label: getRisorsePivotFieldLabel(option.key, option.label) })),
+    [getRisorsePivotFieldLabel, risorsePivotSelectedFields],
   )
   const risorsePivotRows = useMemo(() => {
     if (risorseRowsSorted.length === 0) {
       return [] as CommesseRisorsePivotRow[]
     }
 
-    const fieldLabels = new Map(risorsePivotFieldOptions.map((option) => [option.key, option.label]))
+    const fieldLabels = new Map(risorsePivotFieldOptions.map((option) => [option.key, getRisorsePivotFieldLabel(option.key, option.label)]))
     const pivotRows: CommesseRisorsePivotRow[] = []
 
     const buildGroupRows = (
@@ -6943,11 +7179,11 @@ function App() {
     })
 
     return pivotRows
-  }, [risorseRowsSorted, risorsePivotSelectedFields, risorseFiltersForm.vistaCosto])
+  }, [getRisorsePivotFieldLabel, risorseRowsSorted, risorsePivotSelectedFields, risorseFiltersForm.vistaCosto])
   const risorseSelects: Array<{
     id: string
     label: string
-    key: keyof Omit<RisorseFiltersForm, 'anni' | 'idRisorsa' | 'vistaCosto'>
+    key: keyof Omit<RisorseFiltersForm, 'anni' | 'mesi' | 'idRisorsa' | 'vistaCosto'>
     options: FilterOption[]
   }> = [
     { id: 'risorse-tipologia', label: 'Tipologia Commessa', key: 'tipologiaCommessa', options: risorseTipologiaOptions },
@@ -6955,6 +7191,7 @@ function App() {
     { id: 'risorse-macro', label: 'Macrotipologia', key: 'macroTipologia', options: risorseMacroOptions },
     { id: 'risorse-controparte', label: 'Controparte', key: 'controparte', options: risorseControparteOptions },
     { id: 'risorse-business-unit', label: 'Business Unit', key: 'businessUnit', options: risorseBusinessUnitOptions },
+    { id: 'risorse-ou', label: 'OU', key: 'ou', options: risorseOuOptions },
     { id: 'risorse-rcc', label: 'RCC', key: 'rcc', options: risorseRccOptions },
     { id: 'risorse-pm', label: 'PM', key: 'pm', options: risorsePmOptions },
   ]
@@ -8637,20 +8874,24 @@ function App() {
       isRisorseOuRisorsePivotPage
         ? 'Analisi OU Risorse Pivot'
         : (
-          isRisorseOuPage
-            ? 'Analisi OU'
+          isRisorseOuRisorseMensilePage
+            ? 'Analisi Mensile OU Risorse'
             : (
-              isRisorseRisultatiPage
-    ? 'Risultati Risorse - Valutazione Annuale'
-    : (
-      isRisorseRisultatiPivotPage
-        ? 'Risultati Risorse - Pivot Annuale'
-        : (
-          isRisorseRisultatiMensilePage
-            ? 'Risultati Risorse - Valutazione Mensile'
-            : 'Risultati Risorse - Pivot Mensile'
-        )
-    )
+              isRisorseOuRisorseMensilePivotPage
+                ? 'Analisi Mensile OU Risorse Pivot'
+                : (
+                  isRisorseRisultatiPage
+                    ? 'Risultati Risorse - Valutazione Annuale'
+                    : (
+                      isRisorseRisultatiPivotPage
+                        ? 'Risultati Risorse - Pivot Annuale'
+                        : (
+                          isRisorseRisultatiMensilePage
+                            ? 'Risultati Risorse - Valutazione Mensile'
+                            : 'Risultati Risorse - Pivot Mensile'
+                        )
+                    )
+                )
             )
         )
     )
@@ -9436,7 +9677,7 @@ function App() {
       case 'risorse-risultati':
       case 'risorse-risultati-mensile':
       case 'risorse-ou-risorse':
-      case 'risorse-ou': {
+      case 'risorse-ou-risorse-mensile': {
         appendSheet(risorseRowsSorted.map((row) => ({
           AnnoCompetenza: row.annoCompetenza,
           MeseCompetenza: row.meseCompetenza ?? null,
@@ -9447,7 +9688,8 @@ function App() {
           Macrotipologia: row.macroTipologia,
           Prodotto: row.prodotto,
           Controparte: row.controparte,
-          BusinessUnit: row.businessUnit,
+          BusinessUnitCommessa: row.businessUnit,
+          OURisorsa: resolveOuValue(row),
           RCC: row.rcc,
           PM: row.pm,
           IdRisorsa: row.idRisorsa,
@@ -9457,7 +9699,6 @@ function App() {
           Fatturato: risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre,
           Utile: risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre,
           VistaCalcolo: risorseFiltersForm.vistaCosto ? 'Costo' : 'Ore',
-          IdOU: row.idOu ?? '',
           NomeRuolo: row.nomeRuolo ?? '',
           PercentualeUtilizzo: row.percentualeUtilizzo ?? 0,
           Area: row.area ?? '',
@@ -9470,9 +9711,9 @@ function App() {
               activePage === 'risorse-risultati-mensile'
                 ? 'RisorseMensile'
                 : (
-                  activePage === 'risorse-ou-risorse'
-                    ? 'AnalisiOURisorse'
-                    : 'AnalisiOU'
+                activePage === 'risorse-ou-risorse'
+                  ? 'AnalisiOURisorse'
+                    : 'AnalisiMensileOURisorse'
                 )
             )
         ))
@@ -9491,14 +9732,15 @@ function App() {
               : (
                 activePage === 'risorse-ou-risorse'
                   ? 'AnalisiOU_Risorse'
-                  : 'AnalisiOU'
+                  : 'AnalisiOU_RisorseMensile'
               )
           )
         break
       }
       case 'risorse-risultati-pivot':
       case 'risorse-risultati-mensile-pivot':
-      case 'risorse-ou-risorse-pivot': {
+      case 'risorse-ou-risorse-pivot':
+      case 'risorse-ou-risorse-mensile-pivot': {
         appendSheet(risorsePivotRows.map((row) => ({
           TipoRiga: row.kind === 'totale' ? 'Totale complessivo' : 'Gruppo',
           Livello: row.level,
@@ -9514,14 +9756,22 @@ function App() {
           : (
             activePage === 'risorse-risultati-mensile-pivot'
               ? 'PivotRisorseMensile'
-              : 'AnalisiOURisorsePivot'
+              : (
+                activePage === 'risorse-ou-risorse-mensile-pivot'
+                  ? 'AnalisiMensileOURisorsePivot'
+                  : 'AnalisiOURisorsePivot'
+              )
           ))
         filenamePrefix = activePage === 'risorse-risultati-pivot'
           ? 'Risorse_PivotAnnuale'
           : (
             activePage === 'risorse-risultati-mensile-pivot'
               ? 'Risorse_PivotMensile'
-              : 'AnalisiOU_RisorsePivot'
+              : (
+                activePage === 'risorse-ou-risorse-mensile-pivot'
+                  ? 'AnalisiOU_RisorsePivotMensile'
+                  : 'AnalisiOU_RisorsePivot'
+              )
           )
         break
       }
@@ -10163,8 +10413,11 @@ function App() {
                 <button type="button" className="menu-action" onClick={activateRisorseOuRisorsePivotPage}>
                   Analisi OU Risorse Pivot
                 </button>
-                <button type="button" className="menu-action" onClick={activateRisorseOuPage}>
-                  Analisi OU
+                <button type="button" className="menu-action" onClick={activateRisorseOuRisorseMensilePage}>
+                  Analisi Mensile OU Risorse
+                </button>
+                <button type="button" className="menu-action" onClick={activateRisorseOuRisorseMensilePivotPage}>
+                  Analisi Mensile OU Risorse Pivot
                 </button>
               </div>
             </div>
@@ -11086,6 +11339,14 @@ function App() {
                     {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
                   </button>
                   <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
                     type="button"
                     className="ghost-button"
                     onClick={exportAnalisiExcel}
@@ -11262,6 +11523,14 @@ function App() {
                 <div className="inline-actions">
                   <button type="submit" disabled={analisiRccLoading}>
                     {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={resetAnalisiFilters}
+                    disabled={analisiRccLoading}
+                  >
+                    Reset
                   </button>
                   <button
                     type="button"
@@ -11462,6 +11731,29 @@ function App() {
                           </select>
                         </label>
 
+                        {isRisorseMensilePage && (
+                          <label className="analisi-rcc-year-field" htmlFor="risorse-mesi">
+                            <span>Mesi competenza</span>
+                            <select
+                              id="risorse-mesi"
+                              multiple
+                              size={4}
+                              value={risorseFiltersForm.mesi}
+                              disabled={risorseFormDisabled}
+                              onChange={(event) => setRisorseFiltersForm((current) => ({
+                                ...current,
+                                mesi: Array.from(event.target.selectedOptions).map((option) => option.value),
+                              }))}
+                            >
+                              {risorseMeseOptions.map((option) => (
+                                <option key={`risorse-mese-${option.value}`} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+
                         <label className="analisi-rcc-year-field" htmlFor="risorse-commessa-search">
                           <span>Ricerca Commessa</span>
                           <div className="commessa-inline-controls">
@@ -11517,36 +11809,40 @@ function App() {
                           </label>
                         ))}
 
-                        <label className="analisi-rcc-year-field" htmlFor="risorse-risorsa-search">
-                          <span>Filtro Risorsa</span>
-                          <input
-                            id="risorse-risorsa-search"
-                            value={risorseRisorsaSearch}
-                            disabled={risorseFormDisabled}
-                            onChange={(event) => setRisorseRisorsaSearch(event.target.value)}
-                            placeholder="Cerca risorsa..."
-                          />
-                        </label>
+                        {!isRisorseOuMode && (
+                          <>
+                            <label className="analisi-rcc-year-field" htmlFor="risorse-risorsa-search">
+                              <span>{`Filtro ${risorseEntityFilterLabel}`}</span>
+                              <input
+                                id="risorse-risorsa-search"
+                                value={risorseRisorsaSearch}
+                                disabled={risorseFormDisabled}
+                                onChange={(event) => setRisorseRisorsaSearch(event.target.value)}
+                                placeholder="Cerca risorsa..."
+                              />
+                            </label>
 
-                        <label className="analisi-rcc-year-field" htmlFor="risorse-id-risorsa">
-                          <span>Risorsa</span>
-                          <select
-                            id="risorse-id-risorsa"
-                            value={risorseFiltersForm.idRisorsa}
-                            disabled={risorseFormDisabled}
-                            onChange={(event) => setRisorseFiltersForm((current) => ({
-                              ...current,
-                              idRisorsa: event.target.value,
-                            }))}
-                          >
-                            <option value="">Tutte</option>
-                            {risorseRisorsaOptions.map((option) => (
-                              <option key={`risorse-anagrafica-${option.value}`} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            <label className="analisi-rcc-year-field" htmlFor="risorse-id-risorsa">
+                              <span>{risorseEntityFilterLabel}</span>
+                              <select
+                                id="risorse-id-risorsa"
+                                value={risorseFiltersForm.idRisorsa}
+                                disabled={risorseFormDisabled}
+                                onChange={(event) => setRisorseFiltersForm((current) => ({
+                                  ...current,
+                                  idRisorsa: event.target.value,
+                                }))}
+                              >
+                                <option value="">Tutte</option>
+                                {risorseRisorsaOptions.map((option) => (
+                                  <option key={`risorse-anagrafica-${option.value}`} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </>
+                        )}
 
                         <label className="checkbox-label" htmlFor="risorse-vista-costo">
                           <input
@@ -11751,9 +12047,10 @@ function App() {
                             <th>Macrotipologia</th>
                             <th>Controparte</th>
                             <th>Business Unit</th>
+                            <th>OU</th>
                             <th>RCC</th>
                             <th>PM</th>
-                            <th>Risorsa</th>
+                            <th>{risorseEntityFilterLabel}</th>
                             <th className="num">Ore Totali</th>
                             <th className="num">Costo Specifico Risorsa</th>
                             <th className="num">{risorseFatturatoLabel}</th>
@@ -11781,6 +12078,7 @@ function App() {
                               <td>{row.macroTipologia}</td>
                               <td>{row.controparte}</td>
                               <td>{row.businessUnit}</td>
+                              <td>{resolveOuValue(row)}</td>
                               <td>{row.rcc}</td>
                               <td>{row.pm}</td>
                               <td>{normalizeRisorsaLabel(row)}</td>
@@ -11797,7 +12095,7 @@ function App() {
                         </tbody>
                         <tfoot>
                           <tr className="table-totals-row">
-                            <td colSpan={isRisorseMensilePage ? 12 : 11} className="table-totals-label">Totale</td>
+                            <td colSpan={isRisorseMensilePage ? 13 : 12} className="table-totals-label">Totale</td>
                             <td className="num">{formatNumber(risorseTotals.oreTotali)}</td>
                             <td className={`num ${risorseTotals.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.costoSpecificoRisorsa)}</td>
                             <td className={`num ${risorseTotals.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.fatturato)}</td>
@@ -11896,6 +12194,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -12421,6 +12727,14 @@ function App() {
                       <button
                         type="button"
                         className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
                         onClick={exportAnalisiExcel}
                         disabled={analisiRccLoading || !canExportAnalisiPage}
                       >
@@ -12580,6 +12894,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -12764,6 +13086,14 @@ function App() {
                       <button
                         type="button"
                         className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
                         onClick={exportAnalisiExcel}
                         disabled={analisiRccLoading || !canExportAnalisiPage}
                       >
@@ -12923,6 +13253,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -13141,6 +13479,14 @@ function App() {
                       <button
                         type="button"
                         className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
                         onClick={exportAnalisiExcel}
                         disabled={analisiRccLoading || !canExportAnalisiPage}
                       >
@@ -13319,6 +13665,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -13549,6 +13903,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -13785,6 +14147,14 @@ function App() {
                       <button
                         type="button"
                         className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
                         onClick={exportAnalisiExcel}
                         disabled={analisiRccLoading || !canExportAnalisiPage}
                       >
@@ -13949,6 +14319,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -14178,6 +14556,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -14425,6 +14811,14 @@ function App() {
                       <button
                         type="button"
                         className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
                         onClick={exportAnalisiExcel}
                         disabled={analisiRccLoading || !canExportAnalisiPage}
                       >
@@ -14637,6 +15031,14 @@ function App() {
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={resetAnalisiFilters}
+                        disabled={analisiRccLoading}
+                      >
+                        Reset
                       </button>
                       <button
                         type="button"
@@ -15569,6 +15971,9 @@ function App() {
 }
 
 export default App
+
+
+
 
 
 

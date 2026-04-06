@@ -431,12 +431,14 @@ public sealed class CommesseController(
                 Profile = profileResult,
                 Mensile = mensile,
                 Anni = filters.Anni.Select(ToFilterItemDto).ToArray(),
+                Mesi = filters.Mesi.Select(ToFilterItemDto).ToArray(),
                 Commesse = filters.Commesse.Select(ToFilterItemDto).ToArray(),
                 TipologieCommessa = filters.TipologieCommessa.Select(ToFilterItemDto).ToArray(),
                 Stati = filters.Stati.Select(ToFilterItemDto).ToArray(),
                 MacroTipologie = filters.MacroTipologie.Select(ToFilterItemDto).ToArray(),
                 Controparti = filters.Controparti.Select(ToFilterItemDto).ToArray(),
                 BusinessUnits = filters.BusinessUnits.Select(ToFilterItemDto).ToArray(),
+                Ous = filters.Ous.Select(ToFilterItemDto).ToArray(),
                 Rcc = filters.Rcc.Select(ToFilterItemDto).ToArray(),
                 Pm = filters.Pm.Select(ToFilterItemDto).ToArray(),
                 Risorse = filters.Risorse
@@ -488,12 +490,14 @@ public sealed class CommesseController(
         [FromQuery] bool analisiOuPivot = false,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery(Name = "mesi")] int[]? mesi = null,
         [FromQuery] string? commessa = null,
         [FromQuery] string? tipologiaCommessa = null,
         [FromQuery] string? stato = null,
         [FromQuery] string? macroTipologia = null,
         [FromQuery] string? controparte = null,
         [FromQuery] string? businessUnit = null,
+        [FromQuery] string? ou = null,
         [FromQuery] string? rcc = null,
         [FromQuery] string? pm = null,
         [FromQuery] int? idRisorsa = null,
@@ -530,15 +534,23 @@ public sealed class CommesseController(
                 selectedAnni = [currentYear - 1, currentYear];
             }
 
+            var selectedMesi = (mesi ?? Array.Empty<int>())
+                .Where(value => value is >= 1 and <= 12)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+
             var request = new CommesseRisorseSearchRequest(
                 mensile,
                 selectedAnni,
+                selectedMesi,
                 commessa,
                 tipologiaCommessa,
                 stato,
                 macroTipologia,
                 controparte,
                 businessUnit,
+                ou,
                 rcc,
                 pm,
                 idRisorsa is > 0 ? idRisorsa : null,

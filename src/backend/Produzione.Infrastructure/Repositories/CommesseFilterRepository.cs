@@ -571,6 +571,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         Array.Empty<CommesseSintesiFilterOption>(),
         Array.Empty<CommesseSintesiFilterOption>(),
         Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
+        Array.Empty<CommesseSintesiFilterOption>(),
         Array.Empty<CommesseRisorsaFilterOption>());
 
     public async Task<UserContext?> ResolveUserContextAsync(string username, CancellationToken cancellationToken = default)
@@ -1012,6 +1014,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             null,
             null,
             null,
+            null,
+            null,
             100000,
             analisiOu,
             analisiOuPivot);
@@ -1028,6 +1032,14 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(value => int.TryParse(value, out var parsed) ? parsed : int.MinValue)
             .Select(value => new CommesseSintesiFilterOption(value, value))
+            .ToArray();
+        var mesiOptions = rows
+            .Where(row => row.MeseCompetenza.HasValue)
+            .Select(row => row.MeseCompetenza!.Value)
+            .Where(value => value is >= 1 and <= 12)
+            .Distinct()
+            .OrderBy(value => value)
+            .Select(value => new CommesseSintesiFilterOption(value.ToString(), value.ToString("00")))
             .ToArray();
 
         var commessaOptions = rows
@@ -1050,6 +1062,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         var macroOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.MacroTipologia));
         var controparteOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Controparte));
         var businessUnitOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.BusinessUnit));
+        var ouOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.IdOu));
         var rccOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Rcc));
         var pmOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Pm));
         var risorseOptions = rows
@@ -1069,12 +1082,14 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
         return new CommesseRisorseFilters(
             anniOptions,
+            mesiOptions,
             commessaOptions,
             tipologiaOptions,
             statoOptions,
             macroOptions,
             controparteOptions,
             businessUnitOptions,
+            ouOptions,
             rccOptions,
             pmOptions,
             risorseOptions);
@@ -1111,7 +1126,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 : (request.Mensile ? MensileCommesseStoredProcedure : AnalisiCommesseStoredProcedure);
             var tipoRicerca = request.AnalisiOuPivot
                 ? "ValutazioneEconomicaPersonaleOUPivot"
-                : (request.AnalisiOu ? "ValutazioneEconomicaPersonaleOU" : "ValutazioneEconomicaPersonale");
+                : (request.AnalisiOu
+                    ? (request.Mensile ? "ValutazioneEconomicaPersonaleMensileOU" : "ValutazioneEconomicaPersonaleOU")
+                    : "ValutazioneEconomicaPersonale");
 
             await using var command = new SqlCommand(
                 storedProcedure,
@@ -1164,10 +1181,6 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 }
 
                 var businessUnit = ReadString(reader, ordinals, "idbusinessunit");
-                if (string.IsNullOrWhiteSpace(businessUnit))
-                {
-                    businessUnit = idOu;
-                }
 
                 var rcc = ReadString(reader, ordinals, "RCC");
                 if (request.AnalisiOuPivot && string.IsNullOrWhiteSpace(rcc))
@@ -2743,6 +2756,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .Distinct()
             .OrderBy(value => value)
             .ToArray();
+        var selectedMesi = (request.Mesi ?? [])
+            .Where(value => value is >= 1 and <= 12)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
 
         if (request.Mensile)
         {
@@ -2764,12 +2782,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             }
         }
 
+        if (request.Mensile && selectedMesi.Length > 0)
+        {
+            clauses.Add($"mese_competenza IN ({string.Join(", ", selectedMesi)})");
+        }
+
         AddStringClause(clauses, "commessa", request.Commessa);
         AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
         AddStringClause(clauses, "stato", request.Stato);
         AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
         AddStringClause(clauses, "controparte", request.Controparte);
-        AddStringClause(clauses, request.AnalisiOu ? "idOU" : "idbusinessunit", request.BusinessUnit);
+        AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
+        AddStringClause(clauses, "idOU", request.Ou);
         AddStringClause(clauses, "RCC", request.Rcc);
         AddStringClause(clauses, "PM", request.Pm);
 
@@ -2798,6 +2822,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .Distinct()
             .OrderBy(value => value)
             .ToArray();
+        var selectedMesi = (request.Mesi ?? [])
+            .Where(value => value is >= 1 and <= 12)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
 
         if (selectedAnni.Length == 1)
         {
@@ -2808,7 +2837,13 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
         }
 
-        AddStringClause(clauses, "idOU", request.BusinessUnit);
+        if (request.Mensile && selectedMesi.Length > 0)
+        {
+            clauses.Add($"mese_competenza IN ({string.Join(", ", selectedMesi)})");
+        }
+
+        AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
+        AddStringClause(clauses, "idOU", request.Ou);
 
         var visibilityClause = BuildVisibilityClause(user, visibility, true);
         if (!string.IsNullOrWhiteSpace(visibilityClause))
