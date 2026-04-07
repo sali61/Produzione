@@ -235,9 +235,12 @@ public sealed class CommesseController(
                         CostoPersonale = row.CostoPersonale,
                         Ricavi = row.Ricavi,
                         Costi = row.Costi,
+                        RicaviMaturati = row.RicaviMaturati,
                         UtileSpecifico = row.UtileSpecifico,
                         RicaviFuturi = row.RicaviFuturi,
-                        CostiFuturi = row.CostiFuturi
+                        CostiFuturi = row.CostiFuturi,
+                        OreFuture = row.OreFuture,
+                        CostoPersonaleFuturo = row.CostoPersonaleFuturo
                     })
                     .ToArray()
             };
@@ -347,6 +350,9 @@ public sealed class CommesseController(
                         CostoPersonale = row.CostoPersonale,
                         Ricavi = row.Ricavi,
                         Costi = row.Costi,
+                        RicaviMaturati = row.RicaviMaturati,
+                        OreFuture = row.OreFuture,
+                        CostoPersonaleFuturo = row.CostoPersonaleFuturo,
                         CostoGeneraleRibaltato = row.CostoGeneraleRibaltato,
                         UtileSpecifico = row.UtileSpecifico
                     })
@@ -895,6 +901,9 @@ public sealed class CommesseController(
                     CostiFuturi = group.Sum(item => item.CostiFuturi)
                 })
                 .FirstOrDefault();
+            var ricaviAnniSuccessivi = rows
+                .Where(row => row.Anno.HasValue && row.Anno.Value > currentYear)
+                .Sum(item => item.RicaviFuturi);
 
             var mesiAnnoCorrente = await commesseFilterRepository.GetCommessaMesiAnnoCorrenteAsync(
                 contextData.EffectiveUser,
@@ -1035,6 +1044,7 @@ public sealed class CommesseController(
                         OrdiniCollegati = item.OrdiniCollegati
                     })
                     .ToArray(),
+                RicaviAnniSuccessivi = ricaviAnniSuccessivi,
                 AvanzamentoSalvato = avanzamentoSalvato is null
                     ? null
                     : new CommessaAvanzamentoDto
@@ -1043,6 +1053,9 @@ public sealed class CommesseController(
                         IdCommessa = avanzamentoSalvato.IdCommessa,
                         PercentualeRaggiunto = avanzamentoSalvato.PercentualeRaggiunto,
                         ImportoRiferimento = avanzamentoSalvato.ImportoRiferimento,
+                        OreFuture = avanzamentoSalvato.OreFuture,
+                        OreRestanti = avanzamentoSalvato.OreRestanti,
+                        CostoPersonaleFuturo = avanzamentoSalvato.CostoPersonaleFuturo,
                         DataRiferimento = avanzamentoSalvato.DataRiferimento,
                         DataSalvataggio = avanzamentoSalvato.DataSalvataggio,
                         IdAutore = avanzamentoSalvato.IdAutore
@@ -1056,6 +1069,9 @@ public sealed class CommesseController(
                         IdCommessa = item.IdCommessa,
                         PercentualeRaggiunto = item.PercentualeRaggiunto,
                         ImportoRiferimento = item.ImportoRiferimento,
+                        OreFuture = item.OreFuture,
+                        OreRestanti = item.OreRestanti,
+                        CostoPersonaleFuturo = item.CostoPersonaleFuturo,
                         DataRiferimento = item.DataRiferimento,
                         DataSalvataggio = item.DataSalvataggio,
                         IdAutore = item.IdAutore
@@ -1165,11 +1181,20 @@ public sealed class CommesseController(
             }
 
             var percentuale = Math.Clamp(request.PercentualeRaggiunto, 0m, 100m);
+            var oreFuture = request.OreFuture;
+            if (oreFuture == 0m && request.OreRestanti != 0m)
+            {
+                oreFuture = request.OreRestanti;
+            }
+
             var saved = await commesseFilterRepository.SaveCommessaAvanzamentoAsync(
                 contextData.EffectiveUser,
                 normalizedCommessa,
                 percentuale,
                 request.ImportoRiferimento,
+                oreFuture,
+                request.OreRestanti,
+                request.CostoPersonaleFuturo,
                 dataRiferimento,
                 cancellationToken);
 
@@ -1187,6 +1212,9 @@ public sealed class CommesseController(
                 IdCommessa = saved.IdCommessa,
                 PercentualeRaggiunto = saved.PercentualeRaggiunto,
                 ImportoRiferimento = saved.ImportoRiferimento,
+                OreFuture = saved.OreFuture,
+                OreRestanti = saved.OreRestanti,
+                CostoPersonaleFuturo = saved.CostoPersonaleFuturo,
                 DataRiferimento = saved.DataRiferimento,
                 DataSalvataggio = saved.DataSalvataggio,
                 IdAutore = saved.IdAutore

@@ -15,6 +15,7 @@ public sealed class CommesseDettaglioResponseDto
     public IReadOnlyCollection<CommessaFatturatoPivotRowDto> FatturatoPivot { get; set; } = Array.Empty<CommessaFatturatoPivotRowDto>();
     public IReadOnlyCollection<CommessaOrdineDto> Ordini { get; set; } = Array.Empty<CommessaOrdineDto>();
     public IReadOnlyCollection<CommessaOffertaDto> Offerte { get; set; } = Array.Empty<CommessaOffertaDto>();
+    public decimal RicaviAnniSuccessivi { get; set; }
     public CommessaAvanzamentoDto? AvanzamentoSalvato { get; set; }
     public IReadOnlyCollection<CommessaAvanzamentoDto> AvanzamentoStorico { get; set; } = Array.Empty<CommessaAvanzamentoDto>();
     public DateTime DataConsuntivoAttivita { get; set; }

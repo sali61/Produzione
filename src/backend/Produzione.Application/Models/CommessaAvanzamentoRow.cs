@@ -5,6 +5,9 @@ public sealed record CommessaAvanzamentoRow(
     int IdCommessa,
     decimal PercentualeRaggiunto,
     decimal ImportoRiferimento,
+    decimal OreFuture,
+    decimal OreRestanti,
+    decimal CostoPersonaleFuturo,
     DateTime DataRiferimento,
     DateTime DataSalvataggio,
     int IdAutore);

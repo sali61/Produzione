@@ -1,4 +1,4 @@
-import { Fragment, type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
+﻿import { Fragment, type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 
@@ -35,7 +35,16 @@ type SessionProbeResult =
   | { state: 'forbidden'; message: string }
   | { state: 'error'; message: string }
 
+type AppHealthResponse = {
+  service?: string
+  status?: string
+  utcNow?: string
+  environment?: string
+  applicationVersion?: string
+}
+
 type MenuKey = 'sintesi' | 'risorse' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
+type DetailTabKey = 'storico' | 'dati-contabili' | 'commerciale' | 'personale'
 type AppPage =
   | 'none'
   | 'commesse-sintesi'
@@ -629,6 +638,7 @@ type RisorsePivotFieldKey =
   | 'anno'
   | 'mese'
   | 'commessa'
+  | 'descrizioneCommessa'
   | 'tipologiaCommessa'
   | 'stato'
   | 'macroTipologia'
@@ -673,9 +683,12 @@ type SortColumn =
   | 'costoPersonale'
   | 'ricavi'
   | 'costi'
+  | 'ricaviMaturati'
   | 'utileSpecifico'
   | 'ricaviFuturi'
   | 'costiFuturi'
+  | 'oreFuture'
+  | 'costoPersonaleFuturo'
 
 type SintesiFiltersForm = {
   anni: string[]
@@ -708,9 +721,12 @@ type CommessaSintesiRow = {
   costoPersonale: number
   ricavi: number
   costi: number
+  ricaviMaturati: number
   utileSpecifico: number
   ricaviFuturi: number
   costiFuturi: number
+  oreFuture: number
+  costoPersonaleFuturo: number
 }
 
 type CommesseSintesiResponse = {
@@ -737,6 +753,9 @@ type CommessaAndamentoMensileRow = {
   costoPersonale: number
   ricavi: number
   costi: number
+  ricaviMaturati: number
+  oreFuture: number
+  costoPersonaleFuturo: number
   costoGeneraleRibaltato: number
   utileSpecifico: number
 }
@@ -870,6 +889,9 @@ type CommessaAvanzamentoRow = {
   idCommessa: number
   percentualeRaggiunto: number
   importoRiferimento: number
+  oreFuture: number
+  oreRestanti: number
+  costoPersonaleFuturo: number
   dataRiferimento?: string | null
   dataSalvataggio?: string | null
   idAutore: number
@@ -889,6 +911,7 @@ type CommesseDettaglioResponse = {
   fatturatoPivot: CommessaFatturatoPivotRow[]
   ordini?: CommessaOrdineRow[]
   offerte?: CommessaOffertaRow[]
+  ricaviAnniSuccessivi?: number
   avanzamentoSalvato?: CommessaAvanzamentoRow | null
   avanzamentoStorico?: CommessaAvanzamentoRow[]
   dataConsuntivoAttivita?: string | null
@@ -926,9 +949,12 @@ type ProdottiGroupSummaryRow = {
   costoPersonale: number
   ricavi: number
   costi: number
+  ricaviMaturati: number
   utileSpecifico: number
   ricaviFuturi: number
   costiFuturi: number
+  oreFuture: number
+  costoPersonaleFuturo: number
 }
 
 type ProdottoGroup = {
@@ -1026,6 +1052,7 @@ const risorsePivotFieldOptions: Array<{ key: RisorsePivotFieldKey; label: string
   { key: 'tipologiaCommessa', label: 'Tipologia Commessa' },
   { key: 'prodotto', label: 'Prodotto' },
   { key: 'commessa', label: 'Commessa' },
+  { key: 'descrizioneCommessa', label: 'Descrizione Commessa' },
   { key: 'stato', label: 'Stato' },
 ]
 const risorsePivotFieldSet = new Set<RisorsePivotFieldKey>(
@@ -1481,6 +1508,8 @@ const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, field
         : ''
     case 'commessa':
       return row.commessa
+    case 'descrizioneCommessa':
+      return row.descrizioneCommessa
     case 'tipologiaCommessa':
       return row.tipologiaCommessa
     case 'stato':
@@ -1763,6 +1792,7 @@ const appInfoVoicesDefault: AppInfoVoice[] = [
 function App() {
   const [token, setToken] = useState('')
   const [apiHealth, setApiHealth] = useState('n/d')
+  const [appVersion, setAppVersion] = useState('n/d')
   const [statusMessage, setStatusMessage] = useState('')
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [profiles, setProfiles] = useState<string[]>([])
@@ -1802,6 +1832,9 @@ function App() {
   const [detailStatusMessage, setDetailStatusMessage] = useState('')
   const [detailRouteProcessed, setDetailRouteProcessed] = useState(false)
   const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
+  const [detailRicavoPrevistoInput, setDetailRicavoPrevistoInput] = useState('')
+  const [detailOreRestantiInput, setDetailOreRestantiInput] = useState('')
+  const [detailActiveTab, setDetailActiveTab] = useState<DetailTabKey>('storico')
   const [selectedRequisitoId, setSelectedRequisitoId] = useState<number | null>(null)
   const [collapsedProductKeys, setCollapsedProductKeys] = useState<string[]>([])
   const [analisiRccAnno, setAnalisiRccAnno] = useState(new Date().getFullYear().toString())
@@ -2091,6 +2124,9 @@ function App() {
     setDetailStatusMessage('')
     setDetailRouteProcessed(false)
     setDetailPercentRaggiuntoInput('')
+    setDetailRicavoPrevistoInput('')
+    setDetailOreRestantiInput('')
+    setDetailActiveTab('storico')
     setSelectedRequisitoId(null)
     setCollapsedProductKeys([])
     setAnalisiRccAnno(new Date().getFullYear().toString())
@@ -2268,8 +2304,22 @@ function App() {
   }
 
   const loadHealth = async () => {
-    const response = await fetch(toBackendUrl('/api/system/health'))
-    setApiHealth(response.ok ? 'OK' : `KO (${response.status})`)
+    try {
+      const response = await fetch(toBackendUrl('/api/system/health'))
+      if (!response.ok) {
+        setApiHealth(`KO (${response.status})`)
+        setAppVersion('n/d')
+        return
+      }
+
+      const payload = (await response.json()) as AppHealthResponse
+      setApiHealth('OK')
+      const version = payload.applicationVersion?.trim()
+      setAppVersion(version || 'n/d')
+    } catch {
+      setApiHealth('KO')
+      setAppVersion('n/d')
+    }
   }
 
   const loadCurrentUser = async (
@@ -2770,7 +2820,7 @@ function App() {
     try {
       const params = new URLSearchParams()
       params.set('profile', currentProfile)
-      const take = scope === 'prodotti' ? 5000 : 250
+      const take = scope === 'prodotti' ? 5000 : 100000
       params.set('take', take.toString())
       params.set('aggrega', isAggregated ? 'true' : 'false')
 
@@ -4715,6 +4765,9 @@ function App() {
     setDetailCommessa(normalizedCommessa)
     setDetailData(null)
     setDetailPercentRaggiuntoInput('')
+    setDetailRicavoPrevistoInput('')
+    setDetailOreRestantiInput('')
+    setDetailActiveTab('storico')
     setSelectedRequisitoId(null)
     try {
       const params = new URLSearchParams()
@@ -5949,7 +6002,7 @@ function App() {
   ), [sintesiFiltersCatalog.anni])
   const datiContabiliProvenienzaOptions = useMemo(() => {
     const merged = new Set<string>([
-      'Fattura in contabilitÃ ',
+      'Fattura in contabilita',
       'Fattura Futura',
       'Ricavo Ipotetico',
     ])
@@ -6043,12 +6096,18 @@ function App() {
         return row.ricavi
       case 'costi':
         return row.costi
+      case 'ricaviMaturati':
+        return row.ricaviMaturati
       case 'utileSpecifico':
         return row.utileSpecifico
       case 'ricaviFuturi':
         return row.ricaviFuturi
       case 'costiFuturi':
         return row.costiFuturi
+      case 'oreFuture':
+        return row.oreFuture
+      case 'costoPersonaleFuturo':
+        return row.costoPersonaleFuturo
       default:
         return ''
     }
@@ -6114,9 +6173,12 @@ function App() {
             costoPersonale: 0,
             ricavi: 0,
             costi: 0,
+            ricaviMaturati: 0,
             utileSpecifico: 0,
             ricaviFuturi: 0,
             costiFuturi: 0,
+            oreFuture: 0,
+            costoPersonaleFuturo: 0,
           },
           rows: [],
         })
@@ -6127,9 +6189,12 @@ function App() {
       current.summary.costoPersonale += row.costoPersonale
       current.summary.ricavi += row.ricavi
       current.summary.costi += row.costi
+      current.summary.ricaviMaturati += row.ricaviMaturati
       current.summary.utileSpecifico += row.utileSpecifico
       current.summary.ricaviFuturi += row.ricaviFuturi
       current.summary.costiFuturi += row.costiFuturi
+      current.summary.oreFuture += row.oreFuture
+      current.summary.costoPersonaleFuturo += row.costoPersonaleFuturo
       current.rows.push(row)
     }
 
@@ -6161,12 +6226,18 @@ function App() {
               return group.summary.ricavi
             case 'costi':
               return group.summary.costi
+            case 'ricaviMaturati':
+              return group.summary.ricaviMaturati
             case 'utileSpecifico':
               return group.summary.utileSpecifico
             case 'ricaviFuturi':
               return group.summary.ricaviFuturi
             case 'costiFuturi':
               return group.summary.costiFuturi
+            case 'oreFuture':
+              return group.summary.oreFuture
+            case 'costoPersonaleFuturo':
+              return group.summary.costoPersonaleFuturo
             case 'prodotto':
               return group.summary.prodotto
             default:
@@ -6276,17 +6347,23 @@ function App() {
       costoPersonale: acc.costoPersonale + row.costoPersonale,
       ricavi: acc.ricavi + row.ricavi,
       costi: acc.costi + row.costi,
+      ricaviMaturati: acc.ricaviMaturati + row.ricaviMaturati,
       utileSpecifico: acc.utileSpecifico + row.utileSpecifico,
       ricaviFuturi: acc.ricaviFuturi + row.ricaviFuturi,
       costiFuturi: acc.costiFuturi + row.costiFuturi,
+      oreFuture: acc.oreFuture + row.oreFuture,
+      costoPersonaleFuturo: acc.costoPersonaleFuturo + row.costoPersonaleFuturo,
     }), {
       oreLavorate: 0,
       costoPersonale: 0,
       ricavi: 0,
       costi: 0,
+      ricaviMaturati: 0,
       utileSpecifico: 0,
       ricaviFuturi: 0,
       costiFuturi: 0,
+      oreFuture: 0,
+      costoPersonaleFuturo: 0,
     })
   ), [sortedRows])
 
@@ -6617,6 +6694,9 @@ function App() {
       costoPersonale: acc.costoPersonale + row.costoPersonale,
       ricavi: acc.ricavi + row.ricavi,
       costi: acc.costi + row.costi,
+      ricaviMaturati: acc.ricaviMaturati + row.ricaviMaturati,
+      oreFuture: acc.oreFuture + row.oreFuture,
+      costoPersonaleFuturo: acc.costoPersonaleFuturo + row.costoPersonaleFuturo,
       costoGeneraleRibaltato: acc.costoGeneraleRibaltato + row.costoGeneraleRibaltato,
       utileSpecifico: acc.utileSpecifico + row.utileSpecifico,
     }), {
@@ -6624,6 +6704,9 @@ function App() {
       costoPersonale: 0,
       ricavi: 0,
       costi: 0,
+      ricaviMaturati: 0,
+      oreFuture: 0,
+      costoPersonaleFuturo: 0,
       costoGeneraleRibaltato: 0,
       utileSpecifico: 0,
     })
@@ -8741,6 +8824,29 @@ function App() {
       ? normalizePercentTo100(detailAvanzamentoRiferimentoCorrente.percentualeRaggiunto)
       : null
   ), [detailAvanzamentoRiferimentoCorrente])
+  const detailRicavoPrevistoSalvato = useMemo(() => (
+    detailAvanzamentoRiferimentoCorrente
+      ? (Number.isFinite(detailAvanzamentoRiferimentoCorrente.importoRiferimento)
+          ? detailAvanzamentoRiferimentoCorrente.importoRiferimento
+          : null)
+      : null
+  ), [detailAvanzamentoRiferimentoCorrente])
+  const detailOreRestantiSalvate = useMemo(() => (
+    detailAvanzamentoRiferimentoCorrente
+      ? (Number.isFinite(detailAvanzamentoRiferimentoCorrente.oreFuture)
+          ? detailAvanzamentoRiferimentoCorrente.oreFuture
+          : (Number.isFinite(detailAvanzamentoRiferimentoCorrente.oreRestanti)
+              ? detailAvanzamentoRiferimentoCorrente.oreRestanti
+              : null))
+      : null
+  ), [detailAvanzamentoRiferimentoCorrente])
+  const detailCostoPersonaleFuturoSalvato = useMemo(() => (
+    detailAvanzamentoRiferimentoCorrente
+      ? (Number.isFinite(detailAvanzamentoRiferimentoCorrente.costoPersonaleFuturo)
+          ? detailAvanzamentoRiferimentoCorrente.costoPersonaleFuturo
+          : null)
+      : null
+  ), [detailAvanzamentoRiferimentoCorrente])
 
   const detailAcquistiPassatiMesePrecedente = useMemo(() => {
     if (!detailLastDayPreviousMonth) {
@@ -8793,6 +8899,8 @@ function App() {
   )
 
   const detailRicaviFuturiAggregati = detailAggregatoAnnoCorrente?.ricaviFuturi ?? 0
+  const detailRicaviAnniSuccessivi = detailData?.ricaviAnniSuccessivi ?? 0
+  const detailRicaviFuturiComplessivi = detailRicaviFuturiAggregati + detailRicaviAnniSuccessivi
   const detailCostiFuturiAggregati = detailAggregatoAnnoCorrente?.costiFuturi ?? 0
 
   const detailPercentRaggiuntoMesePrecedenteAutomatico = useMemo(() => {
@@ -8838,8 +8946,28 @@ function App() {
     )
     : detailPercentRaggiuntoMesePrecedenteManuale / 100
 
+  const detailRicavoPrevistoManuale = useMemo(
+    () => parseDecimalInput(detailRicavoPrevistoInput),
+    [detailRicavoPrevistoInput],
+  )
+  const detailOreRestantiManuale = useMemo(
+    () => parseDecimalInput(detailOreRestantiInput),
+    [detailOreRestantiInput],
+  )
+  const detailCostoPersonaleMedioStorico = detailConsuntivoMesePrecedente.oreLavorate > 0
+    ? detailConsuntivoMesePrecedente.costoPersonale / detailConsuntivoMesePrecedente.oreLavorate
+    : 0
+  const detailOreRestantiProiezione = detailOreRestantiManuale
+    ?? detailOreRestantiSalvate
+    ?? detailOreFuture
+  const detailCostoPersonaleFuturoCalcolato = detailOreRestantiProiezione * detailCostoPersonaleMedioStorico
+  const detailCostoPersonaleFuturoProiezione = detailOreRestantiManuale === null
+    ? (detailCostoPersonaleFuturoSalvato ?? detailCostoPersonaleFuturoCalcolato)
+    : detailCostoPersonaleFuturoCalcolato
   const detailFatturatoPassato = detailConsuntivoMesePrecedente.ricavi
-  const detailRicavoPrevisto = detailRicaviFuturiAggregati
+  const detailRicavoPrevisto = detailRicavoPrevistoManuale
+    ?? detailRicavoPrevistoSalvato
+    ?? detailRicaviFuturiComplessivi
   const detailRicavoMaturatoAlMesePrecedente = detailRicavoPrevisto * detailPercentRaggiuntoMesePrecedente
   const detailUtileRicalcolatoMesePrecedente = (
     detailFatturatoPassato
@@ -8848,12 +8976,10 @@ function App() {
     - detailCostiPassatiRiconciliati
   )
   const detailUtileFineProgetto = (
-    detailFatturatoPassato
-    + detailRicaviFuturiAggregati
-    - detailCostiPassatiRiconciliati
+    detailUtileConsuntivatoRiconciliato
+    + detailRicaviFuturiComplessivi
     - detailCostiFuturiAggregati
-    - detailConsuntivoMesePrecedente.costoPersonale
-    - (detailConsuntivoMesePrecedente.costoPersonale * (1 - detailPercentRaggiuntoMesePrecedente))
+    - detailCostoPersonaleFuturoProiezione
   )
 
   const sintesiCountLabel = sintesiLoadingData
@@ -9143,7 +9269,7 @@ function App() {
   const formatCurrency = (value: number) => {
     const safeValue = Number.isFinite(value) ? value : 0
     const sign = safeValue < 0 ? '-' : ''
-    return `${sign}${currencyFormatter.format(Math.abs(safeValue))} €`
+    return `${sign}${currencyFormatter.format(Math.abs(safeValue))} EUR`
   }
 
   const formatDate = (value?: string | null) => {
@@ -9172,6 +9298,29 @@ function App() {
     const safeValue = Number.isFinite(value) ? value : 0
     const normalizedValue = Math.abs(safeValue) <= 1 ? safeValue * 100 : safeValue
     return `${percentFormatter.format(normalizedValue)}%`
+  }
+
+  function parseDecimalInput(rawValue: string) {
+    const compactValue = rawValue.trim().replace(/\s+/g, '')
+    if (!compactValue) {
+      return null
+    }
+
+    let normalized = compactValue
+    const hasComma = normalized.includes(',')
+    const hasDot = normalized.includes('.')
+    if (hasComma && hasDot) {
+      if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+        normalized = normalized.replace(/\./g, '').replace(',', '.')
+      } else {
+        normalized = normalized.replace(/,/g, '')
+      }
+    } else if (hasComma) {
+      normalized = normalized.replace(',', '.')
+    }
+
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : null
   }
 
   const handleDetailPercentRaggiuntoInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -9209,6 +9358,64 @@ function App() {
     setDetailPercentRaggiuntoInput(percentFormatter.format(clamped))
   }
 
+  const handleDetailRicavoPrevistoInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const compactValue = event.target.value.replace(/\s+/g, '')
+    if (!compactValue) {
+      setDetailRicavoPrevistoInput('')
+      return
+    }
+
+    if (!/^-?[0-9.,]*$/.test(compactValue)) {
+      return
+    }
+
+    setDetailRicavoPrevistoInput(compactValue)
+  }
+
+  const handleDetailRicavoPrevistoInputBlur = () => {
+    const normalized = detailRicavoPrevistoInput.trim()
+    if (!normalized) {
+      setDetailRicavoPrevistoInput(numberFormatter.format(detailRicavoPrevisto))
+      return
+    }
+
+    const parsed = parseDecimalInput(normalized)
+    if (parsed === null) {
+      return
+    }
+
+    setDetailRicavoPrevistoInput(numberFormatter.format(parsed))
+  }
+
+  const handleDetailOreRestantiInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const compactValue = event.target.value.replace(/\s+/g, '')
+    if (!compactValue) {
+      setDetailOreRestantiInput('')
+      return
+    }
+
+    if (!/^-?[0-9.,]*$/.test(compactValue)) {
+      return
+    }
+
+    setDetailOreRestantiInput(compactValue)
+  }
+
+  const handleDetailOreRestantiInputBlur = () => {
+    const normalized = detailOreRestantiInput.trim()
+    if (!normalized) {
+      setDetailOreRestantiInput(numberFormatter.format(detailOreRestantiProiezione))
+      return
+    }
+
+    const parsed = parseDecimalInput(normalized)
+    if (parsed === null) {
+      return
+    }
+
+    setDetailOreRestantiInput(numberFormatter.format(parsed))
+  }
+
   const handleSaveDetailPercentRaggiunto = async () => {
     if (!detailData?.commessa) {
       return
@@ -9239,6 +9446,28 @@ function App() {
     const clamped = Math.min(100, Math.max(0, parsed))
     setDetailPercentRaggiuntoInput(percentFormatter.format(clamped))
 
+    const parsedRicavo = parseDecimalInput(detailRicavoPrevistoInput)
+    const ricavoRiferimento = parsedRicavo === null
+      ? (detailRicavoPrevistoSalvato ?? detailRicaviFuturiComplessivi)
+      : parsedRicavo
+    if (!Number.isFinite(ricavoRiferimento)) {
+      setDetailStatusMessage('Valore Ricavo previsto non valido.')
+      return
+    }
+    setDetailRicavoPrevistoInput(numberFormatter.format(ricavoRiferimento))
+
+    const parsedOreRestanti = parseDecimalInput(detailOreRestantiInput)
+    const oreRestantiRiferimentoRaw = parsedOreRestanti === null
+      ? (detailOreRestantiSalvate ?? detailOreFuture)
+      : parsedOreRestanti
+    const oreRestantiRiferimento = Math.max(0, oreRestantiRiferimentoRaw)
+    if (!Number.isFinite(oreRestantiRiferimento)) {
+      setDetailStatusMessage('Valore Ore restanti non valido.')
+      return
+    }
+    setDetailOreRestantiInput(numberFormatter.format(oreRestantiRiferimento))
+    const costoPersonaleFuturoRiferimento = oreRestantiRiferimento * detailCostoPersonaleMedioStorico
+
     setDetailSaving(true)
     try {
       const params = new URLSearchParams()
@@ -9253,7 +9482,10 @@ function App() {
         body: JSON.stringify({
           commessa: detailData.commessa,
           percentualeRaggiunto: clamped,
-          importoRiferimento: detailRicavoPrevisto,
+          importoRiferimento: ricavoRiferimento,
+          oreFuture: oreRestantiRiferimento,
+          oreRestanti: oreRestantiRiferimento,
+          costoPersonaleFuturo: costoPersonaleFuturoRiferimento,
           dataRiferimento: normalizeDateKey(detailLastDayPreviousMonth),
         }),
       })
@@ -9307,6 +9539,9 @@ function App() {
         }
       })
       setDetailPercentRaggiuntoInput(percentFormatter.format(Math.min(100, Math.max(0, payload.percentualeRaggiunto))))
+      setDetailRicavoPrevistoInput(numberFormatter.format(payload.importoRiferimento))
+      const oreFutureSalvate = Number.isFinite(payload.oreFuture) ? payload.oreFuture : payload.oreRestanti
+      setDetailOreRestantiInput(numberFormatter.format(oreFutureSalvate))
       setDetailStatusMessage(
         `Avanzamento salvato (id ${payload.id}) su ${detailData.commessa} con riferimento ${formatDate(payload.dataRiferimento)}.`,
       )
@@ -9324,6 +9559,11 @@ function App() {
       return
     }
 
+    const ricavoDaImpostare = detailRicavoPrevistoSalvato ?? detailRicaviFuturiComplessivi
+    setDetailRicavoPrevistoInput(numberFormatter.format(ricavoDaImpostare))
+    const oreRestantiDaImpostare = detailOreRestantiSalvate ?? detailOreFuture
+    setDetailOreRestantiInput(numberFormatter.format(oreRestantiDaImpostare))
+
     if (detailPercentRaggiuntoSalvato !== null) {
       setDetailPercentRaggiuntoInput(percentFormatter.format(detailPercentRaggiuntoSalvato))
       return
@@ -9334,7 +9574,17 @@ function App() {
       Math.max(0, detailPercentRaggiuntoMesePrecedenteAutomatico * 100),
     )
     setDetailPercentRaggiuntoInput(percentFormatter.format(suggestedPercent))
-  }, [detailData?.commessa, detailPercentRaggiuntoMesePrecedenteAutomatico, detailPercentRaggiuntoSalvato, percentFormatter])
+  }, [
+    detailData?.commessa,
+    detailPercentRaggiuntoMesePrecedenteAutomatico,
+    detailPercentRaggiuntoSalvato,
+    detailRicavoPrevistoSalvato,
+    detailRicaviFuturiComplessivi,
+    detailOreRestantiSalvate,
+    detailOreFuture,
+    percentFormatter,
+    numberFormatter,
+  ])
 
   const toggleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -9457,9 +9707,12 @@ function App() {
             CostoPersonale: row.costoPersonale,
             Ricavi: row.ricavi,
             Costi: row.costi,
+            RicaviMaturati: row.ricaviMaturati,
             UtileSpecifico: row.utileSpecifico,
             RicaviFuturi: row.ricaviFuturi,
             CostiFuturi: row.costiFuturi,
+            OreFuture: row.oreFuture,
+            CostoPersonaleFuturo: row.costoPersonaleFuturo,
           }
         }
 
@@ -9480,16 +9733,19 @@ function App() {
           CostoPersonale: row.costoPersonale,
           Ricavi: row.ricavi,
           Costi: row.costi,
+          RicaviMaturati: row.ricaviMaturati,
           UtileSpecifico: row.utileSpecifico,
           RicaviFuturi: row.ricaviFuturi,
           CostiFuturi: row.costiFuturi,
+          OreFuture: row.oreFuture,
+          CostoPersonaleFuturo: row.costoPersonaleFuturo,
         }
       })
       const worksheet = XLSX.utils.json_to_sheet(rows)
       worksheet['!cols'] = [
         { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
         { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-        { wch: 16 }, { wch: 16 }, { wch: 16 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 },
       ]
       XLSX.utils.book_append_sheet(workbook, worksheet, 'SintesiProdotti')
     } else {
@@ -9509,15 +9765,18 @@ function App() {
         CostoPersonale: row.costoPersonale,
         Ricavi: row.ricavi,
         Costi: row.costi,
+        RicaviMaturati: row.ricaviMaturati,
         UtileSpecifico: row.utileSpecifico,
         RicaviFuturi: row.ricaviFuturi,
         CostiFuturi: row.costiFuturi,
+        OreFuture: row.oreFuture,
+        CostoPersonaleFuturo: row.costoPersonaleFuturo,
       }))
       const worksheet = XLSX.utils.json_to_sheet(rows)
       worksheet['!cols'] = [
         { wch: 8 }, { wch: 14 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
         { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-        { wch: 16 }, { wch: 16 }, { wch: 16 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 },
       ]
       XLSX.utils.book_append_sheet(workbook, worksheet, 'SintesiCommesse')
     }
@@ -9656,6 +9915,9 @@ function App() {
             CostoPersonale: row.costoPersonale,
             Ricavi: row.ricavi,
             Costi: row.costi,
+            RicaviMaturati: row.ricaviMaturati,
+            OreFuture: row.oreFuture,
+            CostoPersonaleFuturo: row.costoPersonaleFuturo,
             CostoGeneraleRibaltato: row.costoGeneraleRibaltato,
             UtileSpecifico: row.utileSpecifico,
           })),
@@ -9667,6 +9929,9 @@ function App() {
             CostoPersonale: commesseAndamentoMensileTotals.costoPersonale,
             Ricavi: commesseAndamentoMensileTotals.ricavi,
             Costi: commesseAndamentoMensileTotals.costi,
+            RicaviMaturati: commesseAndamentoMensileTotals.ricaviMaturati,
+            OreFuture: commesseAndamentoMensileTotals.oreFuture,
+            CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
             CostoGeneraleRibaltato: commesseAndamentoMensileTotals.costoGeneraleRibaltato,
             UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
           },
@@ -10580,6 +10845,9 @@ function App() {
           <div className={`status-badge ${apiHealth === 'OK' ? 'ok' : 'ko'}`}>
             API: {apiHealth}
           </div>
+          <div className="status-badge neutral">
+            Ver: {appVersion}
+          </div>
 
           {user && (
             <div className={`menu-dropdown menu-dropdown-right ${openMenu === 'user' ? 'is-open' : ''}`}>
@@ -10981,14 +11249,14 @@ function App() {
                             <th>Business Unit</th>
                             <th>RCC</th>
                             <th>PM</th>
-                            <th>Codice SocietÃ </th>
+                            <th>Codice Societa</th>
                             <th>Descrizione Fattura</th>
                             <th>Controparte Movimento</th>
                             <th>Provenienza</th>
                             <th>Temporale</th>
                             <th>Scaduta</th>
                             <th className="num">Importo Complessivo</th>
-                            <th className="num">Importo ContabilitÃ </th>
+                            <th className="num">Importo Contabilita</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -11123,6 +11391,11 @@ function App() {
                           </button>
                         </th>
                         <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricaviMaturati')}>
+                            Ricavi Maturati <span className="sort-indicator">{sortIndicator('ricaviMaturati')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
                           <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('utileSpecifico')}>
                             Utile Specifico <span className="sort-indicator">{sortIndicator('utileSpecifico')}</span>
                           </button>
@@ -11135,6 +11408,16 @@ function App() {
                         <th className="num">
                           <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costiFuturi')}>
                             Costi Futuri <span className="sort-indicator">{sortIndicator('costiFuturi')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('oreFuture')}>
+                            Ore Future <span className="sort-indicator">{sortIndicator('oreFuture')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costoPersonaleFuturo')}>
+                            Costo Personale Futuro <span className="sort-indicator">{sortIndicator('costoPersonaleFuturo')}</span>
                           </button>
                         </th>
                       </tr>
@@ -11167,9 +11450,12 @@ function App() {
                               <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
                               <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
                               <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                              <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
                               <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                               <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
                               <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                              <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
+                              <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
                             </tr>
                           )
                         }
@@ -11200,11 +11486,14 @@ function App() {
                             <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
                             <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
                             <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                            <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
                             <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                               {formatNumber(row.utileSpecifico)}
                             </td>
                             <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
                             <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                            <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
+                            <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
                           </tr>
                         )
                       })}
@@ -11216,11 +11505,14 @@ function App() {
                         <td className={`num ${totals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonale)}</td>
                         <td className={`num ${totals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricavi)}</td>
                         <td className={`num ${totals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costi)}</td>
+                        <td className={`num ${totals.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricaviMaturati)}</td>
                         <td className={`num ${totals.utileSpecifico < 0 ? 'num-negative' : ''}`}>
                           {formatNumber(totals.utileSpecifico)}
                         </td>
                         <td className={`num ${totals.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricaviFuturi)}</td>
                         <td className={`num ${totals.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costiFuturi)}</td>
+                        <td className={`num ${totals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.oreFuture)}</td>
+                        <td className={`num ${totals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonaleFuturo)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -11411,6 +11703,9 @@ function App() {
                         <th className="num">Costo Personale</th>
                         <th className="num">Ricavi</th>
                         <th className="num">Costi</th>
+                        <th className="num">Ricavi Maturati</th>
+                        <th className="num">Ore Future</th>
+                        <th className="num">Costo Personale Futuro</th>
                         <th className="num">Costo Generale Ribaltato</th>
                         <th className="num">Utile Specifico</th>
                       </tr>
@@ -11448,6 +11743,9 @@ function App() {
                           <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
                           <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
                           <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
+                          <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
+                          <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
                           <td className={`num ${row.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoGeneraleRibaltato)}</td>
                           <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                         </tr>
@@ -11460,6 +11758,9 @@ function App() {
                         <td className={`num ${commesseAndamentoMensileTotals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonale)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricavi)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costi)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricaviMaturati)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.oreFuture)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoGeneraleRibaltato)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
                       </tr>
@@ -15254,10 +15555,10 @@ function App() {
                       <th className="detail-kpi-group-head" colSpan={5}>
                         Consuntivato {detailLastDayPreviousMonth ? `${detailLastDayPreviousMonth.toLocaleDateString('it-IT')} (anni precedenti inclusi)` : 'mese precedente'}
                       </th>
-                      <th className="detail-kpi-group-head" colSpan={3}>
+                      <th className="detail-kpi-group-head" colSpan={4}>
                         {detailCurrentYear > 0 ? `Futuro ${detailCurrentYear}` : 'Futuro'}
                       </th>
-                      <th className="detail-kpi-group-head" colSpan={5}>
+                      <th className="detail-kpi-group-head" colSpan={7}>
                         Proiezione {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : 'mese precedente'}
                       </th>
                       <th className="detail-kpi-group-head detail-kpi-action-col" colSpan={1}>
@@ -15271,8 +15572,11 @@ function App() {
                       <th className="num">Costi passati</th>
                       <th className="num">Utile consuntivato</th>
                       <th className="num">Ricavi futuri</th>
+                      <th className="num">Ricavi anni successivi</th>
                       <th className="num">Costi futuri</th>
                       <th className="num">Ore future</th>
+                      <th className="num">Ore restanti</th>
+                      <th className="num">Costo personale futuro</th>
                       <th className="num">
                         <span className="detail-tooltip-label" title="Ricavo futuro da elaborare.">
                           Ricavo previsto
@@ -15294,7 +15598,7 @@ function App() {
                         </span>
                       </th>
                       <th className="num">
-                        <span className="detail-tooltip-label" title="Ricavo storico + Ricavo futuro - Costo storico - Costo futuro - Costo del personale storico - Costo del personale storico * (1 - % avanzamento).">
+                        <span className="detail-tooltip-label" title="Utile storico + Ricavi futuri complessivi - Costi futuri - Costo personale futuro.">
                           Utile fine progetto
                         </span>
                       </th>
@@ -15319,9 +15623,40 @@ function App() {
                         {formatNumber(detailUtileConsuntivatoRiconciliato)}
                       </td>
                       <td className={`num ${detailRicaviFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviFuturiAggregati)}</td>
+                      <td className={`num ${detailRicaviAnniSuccessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviAnniSuccessivi)}</td>
                       <td className={`num ${detailCostiFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailCostiFuturiAggregati)}</td>
                       <td className={`num ${detailOreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreFuture)}</td>
-                      <td className={`num ${detailRicavoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicavoPrevisto)}</td>
+                      <td className={`detail-kpi-amount-cell ${detailOreRestantiProiezione < 0 ? 'num-negative' : ''}`}>
+                        <label className="detail-kpi-amount-input-wrap">
+                          <input
+                            className="detail-kpi-amount-input"
+                            type="text"
+                            inputMode="decimal"
+                            value={detailOreRestantiInput}
+                            onChange={handleDetailOreRestantiInputChange}
+                            onBlur={handleDetailOreRestantiInputBlur}
+                            aria-label="Ore restanti"
+                          />
+                          <span className="detail-kpi-amount-suffix">h</span>
+                        </label>
+                      </td>
+                      <td className={`num ${detailCostoPersonaleFuturoProiezione < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailCostoPersonaleFuturoProiezione)}
+                      </td>
+                      <td className={`detail-kpi-amount-cell ${detailRicavoPrevisto < 0 ? 'num-negative' : ''}`}>
+                        <label className="detail-kpi-amount-input-wrap">
+                          <input
+                            className="detail-kpi-amount-input"
+                            type="text"
+                            inputMode="decimal"
+                            value={detailRicavoPrevistoInput}
+                            onChange={handleDetailRicavoPrevistoInputChange}
+                            onBlur={handleDetailRicavoPrevistoInputBlur}
+                            aria-label="Ricavo previsto"
+                          />
+                          <span className="detail-kpi-amount-suffix">EUR</span>
+                        </label>
+                      </td>
                       <td className="detail-kpi-percent-cell">
                         <label className="detail-kpi-percent-input-wrap">
                           <input
@@ -15362,8 +15697,38 @@ function App() {
             </section>
 
             <section className="detail-main-zone">
-            <section className="detail-grid-panels">
-              <section className="panel detail-card detail-card-consuntivo">
+            <section className="detail-tabs-bar" aria-label="Navigazione dettaglio commessa">
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'storico' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('storico')}
+              >
+                Storico
+              </button>
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'dati-contabili' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('dati-contabili')}
+              >
+                Dati contabili
+              </button>
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'commerciale' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('commerciale')}
+              >
+                Commerciale
+              </button>
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'personale' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('personale')}
+              >
+                Personale
+              </button>
+            </section>
+            <section className={`detail-grid-panels detail-grid-panels-tab-${detailActiveTab}`}>
+              <section className={`panel detail-card detail-card-consuntivo ${detailActiveTab !== 'storico' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Consuntivo storico</h3>
                 </header>
@@ -15417,7 +15782,7 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-vendite">
+              <section className={`panel detail-card detail-card-vendite ${detailActiveTab !== 'dati-contabili' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Vendite ordinate per data</h3>
                 </header>
@@ -15466,7 +15831,7 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-acquisti">
+              <section className={`panel detail-card detail-card-acquisti ${detailActiveTab !== 'dati-contabili' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Acquisti ordinati per data</h3>
                 </header>
@@ -15517,7 +15882,7 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-ordini">
+              <section className={`panel detail-card detail-card-ordini ${detailActiveTab !== 'commerciale' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Ordini</h3>
                 </header>
@@ -15534,11 +15899,11 @@ function App() {
                           <th>Stato</th>
                           <th>Posizione</th>
                           <th>Descrizione</th>
-                          <th className="num">QuantitÃ </th>
+                          <th className="num">Quantita</th>
                           <th className="num">Prezzo Unit.</th>
                           <th className="num">Importo Ordine</th>
-                          <th className="num">QtÃ  originale</th>
-                          <th className="num">QtÃ  fatture</th>
+                          <th className="num">Qta originale</th>
+                          <th className="num">Qta fatture</th>
                           <th className="num">% raggiung.</th>
                         </tr>
                       </thead>
@@ -15577,7 +15942,7 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-offerte">
+              <section className={`panel detail-card detail-card-offerte ${detailActiveTab !== 'commerciale' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Offerte</h3>
                 </header>
@@ -15625,7 +15990,7 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-percent">
+              <section className={`panel detail-card detail-card-percent ${detailActiveTab !== 'storico' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>% raggiungimento</h3>
                 </header>
@@ -15646,6 +16011,8 @@ function App() {
                             <th>Data riferimento</th>
                             <th className="num">% raggiunto</th>
                             <th className="num">Importo riferimento</th>
+                            <th className="num">Ore future</th>
+                            <th className="num">Costo personale futuro</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -15656,6 +16023,12 @@ function App() {
                               <td className={`num ${row.importoRiferimento < 0 ? 'num-negative' : ''}`}>
                                 {formatNumber(row.importoRiferimento)}
                               </td>
+                              <td className={`num ${(Number.isFinite(row.oreFuture) ? row.oreFuture : row.oreRestanti) < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(Number.isFinite(row.oreFuture) ? row.oreFuture : row.oreRestanti)}
+                              </td>
+                              <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>
+                                {formatNumber(row.costoPersonaleFuturo)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -15665,13 +16038,13 @@ function App() {
                 </div>
               </section>
 
-              <section className="panel detail-card detail-card-requisiti">
+              <section className={`panel detail-card detail-card-requisiti ${detailActiveTab !== 'personale' ? 'detail-card-hidden' : ''}`}>
                 <header className="panel-header">
                   <h3>Ore requisiti commessa</h3>
                 </header>
                 <div className="detail-card-body">
                   <p className="detail-kpi-caption">
-                    Speso attivitÃƒÂ  fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
+                    Speso attivita fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
                   </p>
 
                   {detailRequisitiOreRows.length === 0 && (
@@ -15865,6 +16238,9 @@ function App() {
                 Profilo attivo: {currentProfile || 'n/d'}.
                 {canEditAppInfo ? ' Modalita modifica descrizioni attiva.' : ' Modalita sola lettura.'}
               </p>
+              <p className="app-info-intro">
+                Versione applicazione: {appVersion}.
+              </p>
               {appInfoStatus && (
                 <p className="app-info-intro">{appInfoStatus}</p>
               )}
@@ -15971,6 +16347,7 @@ function App() {
 }
 
 export default App
+
 
 
 

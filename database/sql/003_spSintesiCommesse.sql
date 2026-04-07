@@ -100,6 +100,82 @@ BEGIN
         @FiltroDaApplicare = @FiltroFinale,
         @CampoAggregazione = NULL;
 
+    CREATE TABLE #RicaviMaturati
+    (
+        idcommessa INT NOT NULL,
+        anno_competenza INT NOT NULL,
+        ricavi_maturati DECIMAL(18, 2) NOT NULL
+    );
+
+    CREATE TABLE #AvanzamentoAnno
+    (
+        idcommessa INT NOT NULL,
+        anno_riferimento INT NOT NULL,
+        ore_future DECIMAL(18, 2) NOT NULL,
+        costo_personale_futuro DECIMAL(18, 2) NOT NULL
+    );
+
+    ;WITH RicaviMaturatiAnnuali AS
+    (
+        SELECT
+            a.idCommessa,
+            CAST(a.[Anno Competenza] AS INT) AS anno_competenza,
+            CAST(SUM(ISNULL(a.RicaviMaturati, 0)) AS DECIMAL(18, 2)) AS ricavi_maturati
+        FROM cdg.CdgAnalisiCommesse a
+        GROUP BY
+            a.idCommessa,
+            CAST(a.[Anno Competenza] AS INT)
+    ),
+    RicaviMaturatiMensili AS
+    (
+        SELECT
+            a.idCommessa,
+            CAST(a.[Anno Competenza] AS INT) AS anno_competenza,
+            CAST(SUM(ISNULL(a.RicaviMaturati, 0)) AS DECIMAL(18, 2)) AS ricavi_maturati
+        FROM cdg.CdgAnalisiCommesseMensile a
+        GROUP BY
+            a.idCommessa,
+            CAST(a.[Anno Competenza] AS INT)
+    )
+    INSERT INTO #RicaviMaturati (idcommessa, anno_competenza, ricavi_maturati)
+    SELECT
+        COALESCE(ra.idCommessa, rm.idCommessa) AS idcommessa,
+        COALESCE(ra.anno_competenza, rm.anno_competenza) AS anno_competenza,
+        CAST(
+            CASE
+                WHEN ISNULL(ra.ricavi_maturati, 0) <> 0
+                    THEN ISNULL(ra.ricavi_maturati, 0)
+                ELSE ISNULL(rm.ricavi_maturati, 0)
+            END
+            AS DECIMAL(18, 2)
+        ) AS ricavi_maturati
+    FROM RicaviMaturatiAnnuali ra
+    FULL OUTER JOIN RicaviMaturatiMensili rm
+        ON rm.idCommessa = ra.idCommessa
+       AND rm.anno_competenza = ra.anno_competenza;
+
+    ;WITH AvanzamentoOrdinato AS
+    (
+        SELECT
+            a.idcommessa,
+            YEAR(a.data_riferimento) AS anno_riferimento,
+            CAST(ISNULL(a.OreFuture, a.ore_restanti) AS DECIMAL(18, 2)) AS ore_future,
+            CAST(ISNULL(a.CostoPersonaleFuturo, a.costo_personale_futuro) AS DECIMAL(18, 2)) AS costo_personale_futuro,
+            ROW_NUMBER() OVER (
+                PARTITION BY a.idcommessa, YEAR(a.data_riferimento)
+                ORDER BY a.data_riferimento DESC, a.data_salvataggio DESC, a.id DESC
+            ) AS rn
+        FROM produzione.avanzamento a
+    )
+    INSERT INTO #AvanzamentoAnno (idcommessa, anno_riferimento, ore_future, costo_personale_futuro)
+    SELECT
+        ao.idcommessa,
+        ao.anno_riferimento,
+        ao.ore_future,
+        ao.costo_personale_futuro
+    FROM AvanzamentoOrdinato ao
+    WHERE ao.rn = 1;
+
     IF ISNULL(@Aggrega, 0) = 0
     BEGIN
         SELECT TOP (@TakeClamped)
@@ -124,10 +200,19 @@ BEGIN
             CAST(ISNULL(a.costo_personale, 0) AS DECIMAL(18, 2)) AS costo_personale,
             CAST(ISNULL(a.ricavi, 0) AS DECIMAL(18, 2)) AS ricavi,
             CAST(ISNULL(a.costi, 0) AS DECIMAL(18, 2)) AS costi,
-            CAST(ISNULL(a.utile_specifico, 0) AS DECIMAL(18, 2)) AS utile_specifico,
+            CAST(ISNULL(rm.ricavi_maturati, 0) AS DECIMAL(18, 2)) AS ricavi_maturati,
+            CAST(ISNULL(a.utile_specifico, 0) + ISNULL(rm.ricavi_maturati, 0) AS DECIMAL(18, 2)) AS utile_specifico,
             CAST(ISNULL(a.ricavi_futuri, 0) AS DECIMAL(18, 2)) AS ricavi_futuri,
-            CAST(ISNULL(a.costi_futuri, 0) AS DECIMAL(18, 2)) AS costi_futuri
+            CAST(ISNULL(a.costi_futuri, 0) AS DECIMAL(18, 2)) AS costi_futuri,
+            CAST(ISNULL(av.ore_future, 0) AS DECIMAL(18, 2)) AS ore_future,
+            CAST(ISNULL(av.costo_personale_futuro, 0) AS DECIMAL(18, 2)) AS costo_personale_futuro
         FROM #AnalisiCommesse a
+        LEFT JOIN #RicaviMaturati rm
+            ON rm.idcommessa = a.idcommessa
+           AND rm.anno_competenza = a.anno_competenza
+        LEFT JOIN #AvanzamentoAnno av
+            ON av.idcommessa = a.idcommessa
+           AND av.anno_riferimento = a.anno_competenza
         ORDER BY
             a.commessa,
             a.anno_competenza;
@@ -135,6 +220,14 @@ BEGIN
         RETURN;
     END
 
+    ;WITH UltimoAnnoCommessa AS
+    (
+        SELECT
+            a.commessa,
+            MAX(a.anno_competenza) AS anno_ultimo
+        FROM #AnalisiCommesse a
+        GROUP BY a.commessa
+    )
     SELECT TOP (@TakeClamped)
         CAST(NULL AS INT) AS anno_competenza,
         CAST(ISNULL(a.commessa, N'') AS NVARCHAR(128)) AS commessa,
@@ -157,10 +250,25 @@ BEGIN
         CAST(SUM(ISNULL(a.costo_personale, 0)) AS DECIMAL(18, 2)) AS costo_personale,
         CAST(SUM(ISNULL(a.ricavi, 0)) AS DECIMAL(18, 2)) AS ricavi,
         CAST(SUM(ISNULL(a.costi, 0)) AS DECIMAL(18, 2)) AS costi,
-        CAST(SUM(ISNULL(a.utile_specifico, 0)) AS DECIMAL(18, 2)) AS utile_specifico,
+        CAST(SUM(CASE WHEN a.anno_competenza = ua.anno_ultimo THEN ISNULL(rm.ricavi_maturati, 0) ELSE 0 END) AS DECIMAL(18, 2)) AS ricavi_maturati,
+        CAST(
+            SUM(ISNULL(a.utile_specifico, 0))
+            + SUM(CASE WHEN a.anno_competenza = ua.anno_ultimo THEN ISNULL(rm.ricavi_maturati, 0) ELSE 0 END)
+            AS DECIMAL(18, 2)
+        ) AS utile_specifico,
         CAST(SUM(ISNULL(a.ricavi_futuri, 0)) AS DECIMAL(18, 2)) AS ricavi_futuri,
-        CAST(SUM(ISNULL(a.costi_futuri, 0)) AS DECIMAL(18, 2)) AS costi_futuri
+        CAST(SUM(ISNULL(a.costi_futuri, 0)) AS DECIMAL(18, 2)) AS costi_futuri,
+        CAST(SUM(CASE WHEN a.anno_competenza = ua.anno_ultimo THEN ISNULL(av.ore_future, 0) ELSE 0 END) AS DECIMAL(18, 2)) AS ore_future,
+        CAST(SUM(CASE WHEN a.anno_competenza = ua.anno_ultimo THEN ISNULL(av.costo_personale_futuro, 0) ELSE 0 END) AS DECIMAL(18, 2)) AS costo_personale_futuro
     FROM #AnalisiCommesse a
+    INNER JOIN UltimoAnnoCommessa ua
+        ON ua.commessa = a.commessa
+    LEFT JOIN #RicaviMaturati rm
+        ON rm.idcommessa = a.idcommessa
+       AND rm.anno_competenza = a.anno_competenza
+    LEFT JOIN #AvanzamentoAnno av
+        ON av.idcommessa = a.idcommessa
+       AND av.anno_riferimento = a.anno_competenza
     GROUP BY
         a.commessa,
         a.descrizione,
@@ -175,7 +283,8 @@ BEGIN
         a.controparte,
         a.idbusinessunit,
         a.RCC,
-        a.PM
+        a.PM,
+        ua.anno_ultimo
     ORDER BY
         a.commessa;
 END

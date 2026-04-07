@@ -17,7 +17,10 @@ public sealed class CommessaSintesiRowDto
     public decimal CostoPersonale { get; set; }
     public decimal Ricavi { get; set; }
     public decimal Costi { get; set; }
+    public decimal RicaviMaturati { get; set; }
     public decimal UtileSpecifico { get; set; }
     public decimal RicaviFuturi { get; set; }
     public decimal CostiFuturi { get; set; }
+    public decimal OreFuture { get; set; }
+    public decimal CostoPersonaleFuturo { get; set; }
 }

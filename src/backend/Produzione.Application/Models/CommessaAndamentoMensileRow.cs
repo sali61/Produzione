@@ -18,5 +18,8 @@ public sealed record CommessaAndamentoMensileRow(
     decimal CostoPersonale,
     decimal Ricavi,
     decimal Costi,
+    decimal RicaviMaturati,
+    decimal OreFuture,
+    decimal CostoPersonaleFuturo,
     decimal CostoGeneraleRibaltato,
     decimal UtileSpecifico);

@@ -281,9 +281,12 @@ public sealed class ProdottiController(
             CostoPersonale = row.CostoPersonale,
             Ricavi = row.Ricavi,
             Costi = row.Costi,
+            RicaviMaturati = row.RicaviMaturati,
             UtileSpecifico = row.UtileSpecifico,
             RicaviFuturi = row.RicaviFuturi,
-            CostiFuturi = row.CostiFuturi
+            CostiFuturi = row.CostiFuturi,
+            OreFuture = row.OreFuture,
+            CostoPersonaleFuturo = row.CostoPersonaleFuturo
         };
     }
 }

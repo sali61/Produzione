@@ -16,6 +16,9 @@ public sealed record CommessaSintesiRow(
     decimal CostoPersonale,
     decimal Ricavi,
     decimal Costi,
+    decimal RicaviMaturati,
     decimal UtileSpecifico,
     decimal RicaviFuturi,
-    decimal CostiFuturi);
+    decimal CostiFuturi,
+    decimal OreFuture,
+    decimal CostoPersonaleFuturo);

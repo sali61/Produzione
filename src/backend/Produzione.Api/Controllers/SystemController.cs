@@ -6,6 +6,7 @@ using Produzione.Api.Security;
 using Produzione.Application.Abstractions.Persistence;
 using Produzione.Application.Common.Profiles;
 using Produzione.Application.Contracts.System;
+using System.Reflection;
 
 namespace Produzione.Api.Controllers;
 
@@ -22,11 +23,14 @@ public sealed class SystemController(
     [AllowAnonymous]
     public IActionResult Health()
     {
+        var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
         return Ok(new
         {
             service = "Produzione.Api",
             status = "Healthy",
-            utcNow = DateTime.UtcNow
+            utcNow = DateTime.UtcNow,
+            environment = environmentName,
+            applicationVersion = ResolveApplicationVersion()
         });
     }
 
@@ -259,5 +263,28 @@ public sealed class SystemController(
         }
 
         return (true, resolution.Context, null, normalizedProfile);
+    }
+
+    private static string ResolveApplicationVersion()
+    {
+        var assembly = typeof(SystemController).Assembly;
+        var informational = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            return informational.Trim();
+        }
+
+        var fileVersion = assembly
+            .GetCustomAttribute<AssemblyFileVersionAttribute>()
+            ?.Version;
+        if (!string.IsNullOrWhiteSpace(fileVersion))
+        {
+            return fileVersion.Trim();
+        }
+
+        return assembly.GetName().Version?.ToString() ?? "n/d";
     }
 }

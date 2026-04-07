@@ -390,7 +390,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             a.id,
             a.idcommessa,
             a.valore_percentuale,
-            a.importo_riferimento,
+            CAST(ISNULL(a.ImportoAvanzamento, a.importo_riferimento) AS DECIMAL(18, 2)) AS importo_riferimento,
+            CAST(ISNULL(a.OreFuture, a.ore_restanti) AS DECIMAL(18, 2)) AS ore_future,
+            CAST(ISNULL(a.ore_restanti, 0) AS DECIMAL(18, 2)) AS ore_restanti,
+            CAST(ISNULL(a.CostoPersonaleFuturo, a.costo_personale_futuro) AS DECIMAL(18, 2)) AS costo_personale_futuro,
             a.data_riferimento,
             a.data_salvataggio,
             a.idautore
@@ -406,7 +409,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             a.id,
             a.idcommessa,
             a.valore_percentuale,
-            a.importo_riferimento,
+            CAST(ISNULL(a.ImportoAvanzamento, a.importo_riferimento) AS DECIMAL(18, 2)) AS importo_riferimento,
+            CAST(ISNULL(a.OreFuture, a.ore_restanti) AS DECIMAL(18, 2)) AS ore_future,
+            CAST(ISNULL(a.ore_restanti, 0) AS DECIMAL(18, 2)) AS ore_restanti,
+            CAST(ISNULL(a.CostoPersonaleFuturo, a.costo_personale_futuro) AS DECIMAL(18, 2)) AS costo_personale_futuro,
             a.data_riferimento,
             a.data_salvataggio,
             a.idautore
@@ -434,6 +440,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(0 AS INT) AS idcommessa,
                 CAST(0 AS DECIMAL(9, 4)) AS valore_percentuale,
                 CAST(0 AS DECIMAL(18, 2)) AS importo_riferimento,
+                CAST(0 AS DECIMAL(18, 2)) AS ore_future,
+                CAST(0 AS DECIMAL(18, 2)) AS ore_restanti,
+                CAST(0 AS DECIMAL(18, 2)) AS costo_personale_futuro,
                 CAST(NULL AS DATE) AS data_riferimento,
                 CAST(NULL AS DATETIME2(0)) AS data_salvataggio,
                 CAST(0 AS INT) AS idautore;
@@ -444,6 +453,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         SET
             valore_percentuale = @PercentualeRaggiunto,
             importo_riferimento = @ImportoRiferimento,
+            ImportoAvanzamento = @ImportoRiferimento,
+            OreFuture = @OreFuture,
+            ore_restanti = @OreRestanti,
+            CostoPersonaleFuturo = @CostoPersonaleFuturo,
+            costo_personale_futuro = @CostoPersonaleFuturo,
             data_salvataggio = SYSDATETIME(),
             idautore = @IdAutore
         WHERE idcommessa = @IdCommessa
@@ -456,6 +470,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 idcommessa,
                 valore_percentuale,
                 importo_riferimento,
+                ImportoAvanzamento,
+                OreFuture,
+                ore_restanti,
+                CostoPersonaleFuturo,
+                costo_personale_futuro,
                 data_riferimento,
                 data_salvataggio,
                 idautore
@@ -465,6 +484,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 @IdCommessa,
                 @PercentualeRaggiunto,
                 @ImportoRiferimento,
+                @ImportoRiferimento,
+                @OreFuture,
+                @OreRestanti,
+                @CostoPersonaleFuturo,
+                @CostoPersonaleFuturo,
                 @DataRiferimento,
                 SYSDATETIME(),
                 @IdAutore
@@ -475,7 +499,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             id,
             idcommessa,
             valore_percentuale,
-            importo_riferimento,
+            CAST(ISNULL(ImportoAvanzamento, importo_riferimento) AS DECIMAL(18, 2)) AS importo_riferimento,
+            CAST(ISNULL(OreFuture, ore_restanti) AS DECIMAL(18, 2)) AS ore_future,
+            CAST(ISNULL(ore_restanti, 0) AS DECIMAL(18, 2)) AS ore_restanti,
+            CAST(ISNULL(CostoPersonaleFuturo, costo_personale_futuro) AS DECIMAL(18, 2)) AS costo_personale_futuro,
             data_riferimento,
             data_salvataggio,
             idautore
@@ -483,6 +510,108 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         WHERE idcommessa = @IdCommessa
           AND data_riferimento = @DataRiferimento
         ORDER BY id DESC;
+        """;
+    private const string EnsureAvanzamentoTableQuery = """
+        IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'produzione')
+        BEGIN
+            EXEC ('CREATE SCHEMA produzione');
+        END;
+
+        IF OBJECT_ID('produzione.avanzamento', 'U') IS NULL
+        BEGIN
+            CREATE TABLE produzione.avanzamento
+            (
+                id INT IDENTITY(1, 1) NOT NULL,
+                idcommessa INT NOT NULL,
+                valore_percentuale DECIMAL(9, 4) NOT NULL,
+                importo_riferimento DECIMAL(18, 2) NOT NULL,
+                ImportoAvanzamento DECIMAL(18, 2) NULL,
+                OreFuture DECIMAL(18, 2) NULL,
+                ore_restanti DECIMAL(18, 2) NULL,
+                CostoPersonaleFuturo DECIMAL(18, 2) NULL,
+                costo_personale_futuro DECIMAL(18, 2) NULL,
+                data_riferimento DATE NOT NULL,
+                data_salvataggio DATETIME2(0) NOT NULL
+                    CONSTRAINT DF_produzione_avanzamento_data_salvataggio DEFAULT (SYSDATETIME()),
+                idautore INT NOT NULL,
+                CONSTRAINT PK_produzione_avanzamento PRIMARY KEY CLUSTERED (id)
+            );
+        END;
+
+        IF COL_LENGTH('produzione.avanzamento', 'ore_restanti') IS NULL
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD ore_restanti DECIMAL(18, 2) NULL;
+        END;
+
+        IF COL_LENGTH('produzione.avanzamento', 'ImportoAvanzamento') IS NULL
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD ImportoAvanzamento DECIMAL(18, 2) NULL;
+        END;
+
+        IF COL_LENGTH('produzione.avanzamento', 'OreFuture') IS NULL
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD OreFuture DECIMAL(18, 2) NULL;
+        END;
+
+        IF COL_LENGTH('produzione.avanzamento', 'costo_personale_futuro') IS NULL
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD costo_personale_futuro DECIMAL(18, 2) NULL;
+        END;
+
+        IF COL_LENGTH('produzione.avanzamento', 'CostoPersonaleFuturo') IS NULL
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD CostoPersonaleFuturo DECIMAL(18, 2) NULL;
+        END;
+
+        EXEC sp_executesql N'
+            UPDATE produzione.avanzamento
+            SET
+                ImportoAvanzamento = ISNULL(ImportoAvanzamento, importo_riferimento),
+                OreFuture = ISNULL(OreFuture, ore_restanti),
+                CostoPersonaleFuturo = ISNULL(CostoPersonaleFuturo, costo_personale_futuro),
+                importo_riferimento = ISNULL(importo_riferimento, ImportoAvanzamento),
+                ore_restanti = ISNULL(ore_restanti, OreFuture),
+                costo_personale_futuro = ISNULL(costo_personale_futuro, CostoPersonaleFuturo);';
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.foreign_keys
+            WHERE name = 'FK_produzione_avanzamento_commesse'
+              AND parent_object_id = OBJECT_ID('produzione.avanzamento')
+        )
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD CONSTRAINT FK_produzione_avanzamento_commesse
+                FOREIGN KEY (idcommessa) REFERENCES dbo.commesse(id);
+        END;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.foreign_keys
+            WHERE name = 'FK_produzione_avanzamento_risorse'
+              AND parent_object_id = OBJECT_ID('produzione.avanzamento')
+        )
+        BEGIN
+            ALTER TABLE produzione.avanzamento
+            ADD CONSTRAINT FK_produzione_avanzamento_risorse
+                FOREIGN KEY (idautore) REFERENCES dbo.Risorse(ID);
+        END;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE object_id = OBJECT_ID('produzione.avanzamento')
+              AND name = 'UX_produzione_avanzamento_idcommessa_data'
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_produzione_avanzamento_idcommessa_data
+                ON produzione.avanzamento (idcommessa, data_riferimento);
+        END;
         """;
     private const int AnalisiCommesseIdRisorsa = 3;
     private const string EnsureSignificatoMenuTableQuery = """
@@ -1267,31 +1396,30 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 100000));
 
             var rows = new List<CommessaSintesiRow>();
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
             {
-                rows.Add(new CommessaSintesiRow(
-                    ReadNullableInt(reader, "anno_competenza"),
-                    ReadString(reader, "commessa"),
-                    ReadString(reader, "descrizione"),
-                    ReadString(reader, "tipo_commessa"),
-                    ReadString(reader, "stato"),
-                    ReadString(reader, "macrotipologia"),
-                    ReadString(reader, "Nomeprodotto"),
-                    ReadString(reader, "controparte"),
-                    ReadString(reader, "idbusinessunit"),
-                    ReadString(reader, "RCC"),
-                    ReadString(reader, "PM"),
-                    ReadDecimal(reader, "ore_lavorate"),
-                    ReadDecimal(reader, "costo_personale"),
-                    ReadDecimal(reader, "ricavi"),
-                    ReadDecimal(reader, "costi"),
-                    ReadDecimal(reader, "utile_specifico"),
-                    ReadDecimal(reader, "ricavi_futuri"),
-                    ReadDecimal(reader, "costi_futuri")));
+                var ordinals = BuildColumnOrdinals(reader);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    rows.Add(BuildCommessaSintesiRowFromReader(reader, ordinals));
+                }
             }
 
-            return rows
+            if (rows.Count > 0)
+            {
+                try
+                {
+                    rows = (await EnrichRicaviMaturatiFromAnalisiTableAsync(connection, rows, cancellationToken)).ToList();
+                }
+                catch
+                {
+                    // Non bloccare la sintesi in caso di mismatch schema su tabella analisi.
+                }
+            }
+
+            var normalizedRows = ApplyRicaviMaturatiRules(rows, request.Aggrega, selectedAnni);
+
+            return normalizedRows
                 .OrderBy(item => item.Commessa)
                 .ThenBy(item => item.Anno)
                 .Take(Math.Clamp(request.Take, 1, 100000))
@@ -1338,37 +1466,40 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 5000));
 
             var rows = new List<CommessaSintesiRow>();
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
             {
-                var prodotto = ReadString(reader, "Nomeprodotto");
-                if (!IsValidProductValue(prodotto))
+                var ordinals = BuildColumnOrdinals(reader);
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    continue;
-                }
+                    var row = BuildCommessaSintesiRowFromReader(reader, ordinals);
+                    var prodotto = row.Prodotto;
+                    if (!IsValidProductValue(prodotto))
+                    {
+                        continue;
+                    }
 
-                rows.Add(new CommessaSintesiRow(
-                    ReadNullableInt(reader, "anno_competenza"),
-                    ReadString(reader, "commessa"),
-                    ReadString(reader, "descrizione"),
-                    ReadString(reader, "tipo_commessa"),
-                    ReadString(reader, "stato"),
-                    ReadString(reader, "macrotipologia"),
-                    prodotto,
-                    ReadString(reader, "controparte"),
-                    ReadString(reader, "idbusinessunit"),
-                    ReadString(reader, "RCC"),
-                    ReadString(reader, "PM"),
-                    ReadDecimal(reader, "ore_lavorate"),
-                    ReadDecimal(reader, "costo_personale"),
-                    ReadDecimal(reader, "ricavi"),
-                    ReadDecimal(reader, "costi"),
-                    ReadDecimal(reader, "utile_specifico"),
-                    ReadDecimal(reader, "ricavi_futuri"),
-                    ReadDecimal(reader, "costi_futuri")));
+                    rows.Add(row with
+                    {
+                        Prodotto = prodotto
+                    });
+                }
             }
 
-            return rows
+            if (rows.Count > 0)
+            {
+                try
+                {
+                    rows = (await EnrichRicaviMaturatiFromAnalisiTableAsync(connection, rows, cancellationToken)).ToList();
+                }
+                catch
+                {
+                    // Non bloccare la sintesi in caso di mismatch schema su tabella analisi.
+                }
+            }
+
+            var normalizedRows = ApplyRicaviMaturatiRules(rows, request.Aggrega, selectedAnni);
+
+            return normalizedRows
                 .OrderBy(row => row.Prodotto, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(row => row.Anno)
@@ -1423,39 +1554,48 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.Parameters.AddWithValue("@CampoAggregazione", DBNull.Value);
 
             var rows = new List<CommessaAndamentoMensileRow>();
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
             {
-                var anno = ReadNullableInt(reader, "anno_competenza");
-                var mese = ReadNullableInt(reader, "mese_competenza");
-                if (!anno.HasValue || !mese.HasValue || anno.Value <= 0 || mese.Value is < 1 or > 12)
+                var ordinals = BuildColumnOrdinals(reader);
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    continue;
-                }
+                    var anno = ReadNullableInt(reader, ordinals, "anno_competenza", "anno", "Anno Competenza");
+                    var mese = ReadNullableInt(reader, ordinals, "mese_competenza", "mese", "Mese Competenza");
+                    if (!anno.HasValue || !mese.HasValue || anno.Value <= 0 || mese.Value is < 1 or > 12)
+                    {
+                        continue;
+                    }
 
-                rows.Add(new CommessaAndamentoMensileRow(
-                    anno.Value,
-                    mese.Value,
-                    ReadString(reader, "commessa"),
-                    ReadString(reader, "descrizione"),
-                    ReadString(reader, "tipo_commessa"),
-                    ReadString(reader, "stato"),
-                    ReadString(reader, "macrotipologia"),
-                    ReadString(reader, "Nomeprodotto"),
-                    ReadString(reader, "controparte"),
-                    ReadString(reader, "idbusinessunit"),
-                    ReadString(reader, "RCC"),
-                    ReadString(reader, "PM"),
-                    ReadDecimal(reader, "produzione") > 0m,
-                    ReadDecimal(reader, "ore_lavorate"),
-                    ReadDecimal(reader, "costo_personale"),
-                    ReadDecimal(reader, "ricavi"),
-                    ReadDecimal(reader, "costi"),
-                    ReadDecimal(reader, "CostoGeneraleRibaltato"),
-                    ReadDecimal(reader, "utile_specifico")));
+                    rows.Add(new CommessaAndamentoMensileRow(
+                        anno.Value,
+                        mese.Value,
+                        ReadString(reader, ordinals, "commessa"),
+                        ReadString(reader, ordinals, "descrizione"),
+                        ReadString(reader, ordinals, "tipo_commessa"),
+                        ReadString(reader, ordinals, "stato"),
+                        ReadString(reader, ordinals, "macrotipologia"),
+                        ReadString(reader, ordinals, "Nomeprodotto"),
+                        ReadString(reader, ordinals, "controparte"),
+                        ReadString(reader, ordinals, "idbusinessunit"),
+                        ReadString(reader, ordinals, "RCC"),
+                        ReadString(reader, ordinals, "PM"),
+                        ReadDecimal(reader, ordinals, "produzione") > 0m,
+                        ReadDecimal(reader, ordinals, "ore_lavorate"),
+                        ReadDecimal(reader, ordinals, "costo_personale"),
+                        ReadDecimal(reader, ordinals, "ricavi"),
+                        ReadDecimal(reader, ordinals, "costi"),
+                        ReadDecimal(reader, ordinals, "ricavi_maturati", "RicaviMaturati"),
+                        ReadDecimal(reader, ordinals, "ore_future", "OreFuture", "ore_restanti"),
+                        ReadDecimal(reader, ordinals, "costo_personale_futuro", "CostoPersonaleFuturo"),
+                        ReadDecimal(reader, ordinals, "CostoGeneraleRibaltato"),
+                        ReadDecimal(reader, ordinals, "utile_specifico")));
+                }
             }
 
-            return rows
+            rows = (await EnrichRicaviMaturatiFromAnalisiMensileTableAsync(connection, rows, cancellationToken)).ToList();
+            var normalizedRows = ApplyRicaviMaturatiMensileRules(rows);
+
+            return normalizedRows
                 .OrderByDescending(row => row.AnnoCompetenza)
                 .ThenByDescending(row => row.MeseCompetenza)
                 .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
@@ -2024,6 +2164,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         {
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
+            await EnsureAvanzamentoTableAsync(connection, cancellationToken);
 
             await using var command = new SqlCommand(CommessaAvanzamentoSelectQuery, connection);
             command.CommandType = CommandType.Text;
@@ -2041,6 +2182,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 ReadNullableInt(reader, "idcommessa") ?? 0,
                 ReadDecimal(reader, "valore_percentuale"),
                 ReadDecimal(reader, "importo_riferimento"),
+                ReadDecimal(reader, "ore_future"),
+                ReadDecimal(reader, "ore_restanti"),
+                ReadDecimal(reader, "costo_personale_futuro"),
                 ReadNullableDate(reader, "data_riferimento") ?? dataRiferimento.Date,
                 ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
                 ReadNullableInt(reader, "idautore") ?? 0);
@@ -2064,6 +2208,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         {
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
+            await EnsureAvanzamentoTableAsync(connection, cancellationToken);
 
             await using var command = new SqlCommand(CommessaAvanzamentoStoricoQuery, connection);
             command.CommandType = CommandType.Text;
@@ -2078,6 +2223,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ReadNullableInt(reader, "idcommessa") ?? 0,
                     ReadDecimal(reader, "valore_percentuale"),
                     ReadDecimal(reader, "importo_riferimento"),
+                    ReadDecimal(reader, "ore_future"),
+                    ReadDecimal(reader, "ore_restanti"),
+                    ReadDecimal(reader, "costo_personale_futuro"),
                     ReadNullableDate(reader, "data_riferimento") ?? DateTime.MinValue,
                     ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
                     ReadNullableInt(reader, "idautore") ?? 0));
@@ -2096,6 +2244,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         string commessa,
         decimal percentualeRaggiunto,
         decimal importoRiferimento,
+        decimal oreFuture,
+        decimal oreRestanti,
+        decimal costoPersonaleFuturo,
         DateTime dataRiferimento,
         CancellationToken cancellationToken = default)
     {
@@ -2112,12 +2263,16 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         {
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
+            await EnsureAvanzamentoTableAsync(connection, cancellationToken);
 
             await using var command = new SqlCommand(CommessaAvanzamentoUpsertQuery, connection);
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
             command.Parameters.AddWithValue("@PercentualeRaggiunto", percentualeClamped);
             command.Parameters.AddWithValue("@ImportoRiferimento", importoRiferimento);
+            command.Parameters.AddWithValue("@OreFuture", oreFuture);
+            command.Parameters.AddWithValue("@OreRestanti", oreRestanti);
+            command.Parameters.AddWithValue("@CostoPersonaleFuturo", costoPersonaleFuturo);
             command.Parameters.AddWithValue("@DataRiferimento", dataRiferimento.Date);
             command.Parameters.AddWithValue("@IdAutore", user.IdRisorsa);
 
@@ -2132,6 +2287,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 ReadNullableInt(reader, "idcommessa") ?? 0,
                 ReadDecimal(reader, "valore_percentuale"),
                 ReadDecimal(reader, "importo_riferimento"),
+                ReadDecimal(reader, "ore_future"),
+                ReadDecimal(reader, "ore_restanti"),
+                ReadDecimal(reader, "costo_personale_futuro"),
                 ReadNullableDate(reader, "data_riferimento") ?? dataRiferimento.Date,
                 ReadNullableDate(reader, "data_salvataggio") ?? DateTime.Now,
                 ReadNullableInt(reader, "idautore") ?? 0);
@@ -2467,6 +2625,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         {
             return null;
         }
+    }
+
+    private static async Task EnsureAvanzamentoTableAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var ensureCommand = new SqlCommand(EnsureAvanzamentoTableQuery, connection);
+        ensureCommand.CommandType = CommandType.Text;
+        await ensureCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static IReadOnlyCollection<string> BuildUsernameCandidates(string username)
@@ -2921,6 +3088,597 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
 
         return result;
+    }
+
+    private static async Task<IReadOnlyCollection<CommessaSintesiRow>> EnrichRicaviMaturatiFromAnalisiTableAsync(
+        SqlConnection connection,
+        IReadOnlyCollection<CommessaSintesiRow> rows,
+        CancellationToken cancellationToken)
+    {
+        var commesse = rows
+            .Select(row => NormalizeCommessaKey(row.Commessa))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var anni = rows
+            .Where(row => row.Anno.HasValue && row.Anno.Value > 0)
+            .Select(row => row.Anno!.Value)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        if (commesse.Length == 0 || anni.Length == 0)
+        {
+            return rows;
+        }
+
+        var annualLookup = new Dictionary<(int Anno, string Commessa), decimal>();
+        var annualAttempts = new (string TableName, string YearColumn, string IdCommessaColumn, string RicaviColumn)[]
+        {
+            ("cdg.CdgAnalisiCommesse", "[anno_competenza]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesse", "[anno]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesse", "[Anno Competenza]", "[idCommessa]", "[RicaviMaturati]"),
+        };
+
+        foreach (var attempt in annualAttempts)
+        {
+            var source = await TryLoadRicaviMaturatiLookupAsync(
+                connection,
+                commesse,
+                anni,
+                attempt.TableName,
+                attempt.YearColumn,
+                attempt.IdCommessaColumn,
+                attempt.RicaviColumn,
+                cancellationToken);
+            MergeLookupPreferNonZero(annualLookup, source);
+        }
+
+        var monthlyLookup = new Dictionary<(int Anno, string Commessa), decimal>();
+        var monthlyAttempts = new (string TableName, string YearColumn, string MonthColumn, string IdCommessaColumn, string RicaviColumn)[]
+        {
+            ("cdg.CdgAnalisiCommesseMensile", "[anno_competenza]", "[mese_competenza]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesseMensile", "[anno]", "[mese]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesseMensile", "[Anno Competenza]", "[Mese Competenza]", "[idCommessa]", "[RicaviMaturati]"),
+        };
+
+        foreach (var attempt in monthlyAttempts)
+        {
+            var source = await TryLoadRicaviMaturatiLatestPerYearLookupAsync(
+                connection,
+                commesse,
+                anni,
+                attempt.TableName,
+                attempt.YearColumn,
+                attempt.MonthColumn,
+                attempt.IdCommessaColumn,
+                attempt.RicaviColumn,
+                cancellationToken);
+            MergeLookupPreferNonZero(monthlyLookup, source);
+        }
+
+        return rows
+            .Select(row =>
+            {
+                if (!row.Anno.HasValue || row.Anno.Value <= 0)
+                {
+                    return row;
+                }
+
+                var key = (row.Anno.Value, NormalizeCommessaKey(row.Commessa));
+                var hasAnnual = annualLookup.TryGetValue(key, out var annualValue);
+                var hasMonthly = monthlyLookup.TryGetValue(key, out var monthlyValue);
+
+                var ricaviMaturati = row.RicaviMaturati;
+                if (hasMonthly && monthlyValue != 0m)
+                {
+                    ricaviMaturati = monthlyValue;
+                }
+                else if (hasAnnual && annualValue != 0m)
+                {
+                    ricaviMaturati = annualValue;
+                }
+                else if (hasMonthly)
+                {
+                    ricaviMaturati = monthlyValue;
+                }
+                else if (hasAnnual)
+                {
+                    ricaviMaturati = annualValue;
+                }
+
+                return row with { RicaviMaturati = ricaviMaturati };
+            })
+            .ToArray();
+    }
+
+    private static async Task<IReadOnlyCollection<CommessaAndamentoMensileRow>> EnrichRicaviMaturatiFromAnalisiMensileTableAsync(
+        SqlConnection connection,
+        IReadOnlyCollection<CommessaAndamentoMensileRow> rows,
+        CancellationToken cancellationToken)
+    {
+        var commesse = rows
+            .Select(row => NormalizeCommessaKey(row.Commessa))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var anni = rows
+            .Where(row => row.AnnoCompetenza > 0)
+            .Select(row => row.AnnoCompetenza)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        var mesi = rows
+            .Where(row => row.MeseCompetenza is >= 1 and <= 12)
+            .Select(row => row.MeseCompetenza)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        if (commesse.Length == 0 || anni.Length == 0 || mesi.Length == 0)
+        {
+            return rows;
+        }
+
+        var lookup = new Dictionary<(int Anno, int Mese, string Commessa), decimal>();
+        var attempts = new (string TableName, string YearColumn, string MonthColumn, string IdCommessaColumn, string RicaviColumn)[]
+        {
+            ("cdg.CdgAnalisiCommesseMensile", "[anno_competenza]", "[mese_competenza]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesseMensile", "[anno]", "[mese]", "[idCommessa]", "[RicaviMaturati]"),
+            ("cdg.CdgAnalisiCommesseMensile", "[Anno Competenza]", "[Mese Competenza]", "[idCommessa]", "[RicaviMaturati]"),
+        };
+
+        foreach (var attempt in attempts)
+        {
+            var source = await TryLoadRicaviMaturatiMensileLookupAsync(
+                connection,
+                commesse,
+                anni,
+                mesi,
+                attempt.TableName,
+                attempt.YearColumn,
+                attempt.MonthColumn,
+                attempt.IdCommessaColumn,
+                attempt.RicaviColumn,
+                cancellationToken);
+            MergeLookupPreferNonZero(lookup, source);
+        }
+
+        return rows
+            .Select(row =>
+            {
+                var key = (row.AnnoCompetenza, row.MeseCompetenza, NormalizeCommessaKey(row.Commessa));
+                if (!lookup.TryGetValue(key, out var value))
+                {
+                    return row;
+                }
+
+                if (row.RicaviMaturati == 0m || value != 0m)
+                {
+                    return row with { RicaviMaturati = value };
+                }
+
+                return row;
+            })
+            .ToArray();
+    }
+
+    private static async Task<Dictionary<(int Anno, string Commessa), decimal>> TryLoadRicaviMaturatiLookupAsync(
+        SqlConnection connection,
+        IReadOnlyList<string> commesse,
+        IReadOnlyList<int> anni,
+        string tableName,
+        string yearColumnName,
+        string idCommessaColumnName,
+        string ricaviColumnName,
+        CancellationToken cancellationToken)
+    {
+        var lookup = new Dictionary<(int Anno, string Commessa), decimal>();
+        try
+        {
+            var commessaParameters = commesse.Select((_, index) => $"@Commessa{index}").ToArray();
+            var annoParameters = anni.Select((_, index) => $"@Anno{index}").ToArray();
+
+            var query = $"""
+                SELECT
+                    CAST(a.{yearColumnName} AS INT) AS AnnoCompetenza,
+                    UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) AS CommessaKey,
+                    CAST(SUM(ISNULL(a.{ricaviColumnName}, 0)) AS DECIMAL(18, 2)) AS RicaviMaturati
+                FROM {tableName} a
+                INNER JOIN dbo.commesse c
+                    ON c.id = a.{idCommessaColumnName}
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) IN ({string.Join(", ", commessaParameters)})
+                  AND CAST(a.{yearColumnName} AS INT) IN ({string.Join(", ", annoParameters)})
+                GROUP BY
+                    CAST(a.{yearColumnName} AS INT),
+                    UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N''))));
+                """;
+
+            await using var command = new SqlCommand(query, connection);
+            command.CommandType = CommandType.Text;
+
+            for (var index = 0; index < commesse.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Commessa{index}", commesse[index]);
+            }
+
+            for (var index = 0; index < anni.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Anno{index}", anni[index]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var anno = ReadNullableInt(reader, "AnnoCompetenza") ?? 0;
+                if (anno <= 0)
+                {
+                    continue;
+                }
+
+                var commessa = NormalizeCommessaKey(ReadString(reader, "CommessaKey"));
+                if (string.IsNullOrWhiteSpace(commessa))
+                {
+                    continue;
+                }
+
+                lookup[(anno, commessa)] = ReadDecimal(reader, "RicaviMaturati");
+            }
+        }
+        catch
+        {
+            return new Dictionary<(int Anno, string Commessa), decimal>();
+        }
+
+        return lookup;
+    }
+
+    private static async Task<Dictionary<(int Anno, string Commessa), decimal>> TryLoadRicaviMaturatiLatestPerYearLookupAsync(
+        SqlConnection connection,
+        IReadOnlyList<string> commesse,
+        IReadOnlyList<int> anni,
+        string tableName,
+        string yearColumnName,
+        string monthColumnName,
+        string idCommessaColumnName,
+        string ricaviColumnName,
+        CancellationToken cancellationToken)
+    {
+        var lookup = new Dictionary<(int Anno, string Commessa), decimal>();
+        try
+        {
+            var commessaParameters = commesse.Select((_, index) => $"@Commessa{index}").ToArray();
+            var annoParameters = anni.Select((_, index) => $"@Anno{index}").ToArray();
+
+            var query = $"""
+                ;WITH base AS
+                (
+                    SELECT
+                        CAST(a.{yearColumnName} AS INT) AS AnnoCompetenza,
+                        CAST(a.{monthColumnName} AS INT) AS MeseCompetenza,
+                        UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) AS CommessaKey,
+                        CAST(SUM(ISNULL(a.{ricaviColumnName}, 0)) AS DECIMAL(18, 2)) AS RicaviMaturati
+                    FROM {tableName} a
+                    INNER JOIN dbo.commesse c
+                        ON c.id = a.{idCommessaColumnName}
+                    WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) IN ({string.Join(", ", commessaParameters)})
+                      AND CAST(a.{yearColumnName} AS INT) IN ({string.Join(", ", annoParameters)})
+                    GROUP BY
+                        CAST(a.{yearColumnName} AS INT),
+                        CAST(a.{monthColumnName} AS INT),
+                        UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N''))))
+                ),
+                ranked AS
+                (
+                    SELECT
+                        AnnoCompetenza,
+                        MeseCompetenza,
+                        CommessaKey,
+                        RicaviMaturati,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY AnnoCompetenza, CommessaKey
+                            ORDER BY
+                                CASE WHEN RicaviMaturati <> 0 THEN 0 ELSE 1 END,
+                                MeseCompetenza DESC
+                        ) AS rn
+                    FROM base
+                )
+                SELECT
+                    AnnoCompetenza,
+                    CommessaKey,
+                    RicaviMaturati
+                FROM ranked
+                WHERE rn = 1;
+                """;
+
+            await using var command = new SqlCommand(query, connection);
+            command.CommandType = CommandType.Text;
+
+            for (var index = 0; index < commesse.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Commessa{index}", commesse[index]);
+            }
+
+            for (var index = 0; index < anni.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Anno{index}", anni[index]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var anno = ReadNullableInt(reader, "AnnoCompetenza") ?? 0;
+                if (anno <= 0)
+                {
+                    continue;
+                }
+
+                var commessa = NormalizeCommessaKey(ReadString(reader, "CommessaKey"));
+                if (string.IsNullOrWhiteSpace(commessa))
+                {
+                    continue;
+                }
+
+                lookup[(anno, commessa)] = ReadDecimal(reader, "RicaviMaturati");
+            }
+        }
+        catch
+        {
+            return new Dictionary<(int Anno, string Commessa), decimal>();
+        }
+
+        return lookup;
+    }
+
+    private static async Task<Dictionary<(int Anno, int Mese, string Commessa), decimal>> TryLoadRicaviMaturatiMensileLookupAsync(
+        SqlConnection connection,
+        IReadOnlyList<string> commesse,
+        IReadOnlyList<int> anni,
+        IReadOnlyList<int> mesi,
+        string tableName,
+        string yearColumnName,
+        string monthColumnName,
+        string idCommessaColumnName,
+        string ricaviColumnName,
+        CancellationToken cancellationToken)
+    {
+        var lookup = new Dictionary<(int Anno, int Mese, string Commessa), decimal>();
+        try
+        {
+            var commessaParameters = commesse.Select((_, index) => $"@Commessa{index}").ToArray();
+            var annoParameters = anni.Select((_, index) => $"@Anno{index}").ToArray();
+            var meseParameters = mesi.Select((_, index) => $"@Mese{index}").ToArray();
+
+            var query = $"""
+                SELECT
+                    CAST(a.{yearColumnName} AS INT) AS AnnoCompetenza,
+                    CAST(a.{monthColumnName} AS INT) AS MeseCompetenza,
+                    UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) AS CommessaKey,
+                    CAST(SUM(ISNULL(a.{ricaviColumnName}, 0)) AS DECIMAL(18, 2)) AS RicaviMaturati
+                FROM {tableName} a
+                INNER JOIN dbo.commesse c
+                    ON c.id = a.{idCommessaColumnName}
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) IN ({string.Join(", ", commessaParameters)})
+                  AND CAST(a.{yearColumnName} AS INT) IN ({string.Join(", ", annoParameters)})
+                  AND CAST(a.{monthColumnName} AS INT) IN ({string.Join(", ", meseParameters)})
+                GROUP BY
+                    CAST(a.{yearColumnName} AS INT),
+                    CAST(a.{monthColumnName} AS INT),
+                    UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N''))));
+                """;
+
+            await using var command = new SqlCommand(query, connection);
+            command.CommandType = CommandType.Text;
+
+            for (var index = 0; index < commesse.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Commessa{index}", commesse[index]);
+            }
+
+            for (var index = 0; index < anni.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Anno{index}", anni[index]);
+            }
+
+            for (var index = 0; index < mesi.Count; index += 1)
+            {
+                command.Parameters.AddWithValue($"@Mese{index}", mesi[index]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var anno = ReadNullableInt(reader, "AnnoCompetenza") ?? 0;
+                var mese = ReadNullableInt(reader, "MeseCompetenza") ?? 0;
+                if (anno <= 0 || mese is < 1 or > 12)
+                {
+                    continue;
+                }
+
+                var commessa = NormalizeCommessaKey(ReadString(reader, "CommessaKey"));
+                if (string.IsNullOrWhiteSpace(commessa))
+                {
+                    continue;
+                }
+
+                lookup[(anno, mese, commessa)] = ReadDecimal(reader, "RicaviMaturati");
+            }
+        }
+        catch
+        {
+            return new Dictionary<(int Anno, int Mese, string Commessa), decimal>();
+        }
+
+        return lookup;
+    }
+
+    private static void MergeLookupPreferNonZero(
+        IDictionary<(int Anno, string Commessa), decimal> target,
+        IReadOnlyDictionary<(int Anno, string Commessa), decimal> source)
+    {
+        foreach (var (key, value) in source)
+        {
+            if (!target.TryGetValue(key, out var current))
+            {
+                target[key] = value;
+                continue;
+            }
+
+            if (current == 0m && value != 0m)
+            {
+                target[key] = value;
+            }
+        }
+    }
+
+    private static void MergeLookupPreferNonZero(
+        IDictionary<(int Anno, int Mese, string Commessa), decimal> target,
+        IReadOnlyDictionary<(int Anno, int Mese, string Commessa), decimal> source)
+    {
+        foreach (var (key, value) in source)
+        {
+            if (!target.TryGetValue(key, out var current))
+            {
+                target[key] = value;
+                continue;
+            }
+
+            if (current == 0m && value != 0m)
+            {
+                target[key] = value;
+            }
+        }
+    }
+
+    private static CommessaSintesiRow BuildCommessaSintesiRowFromReader(
+        SqlDataReader reader,
+        IReadOnlyDictionary<string, int> ordinals)
+    {
+        return new CommessaSintesiRow(
+            ReadNullableInt(reader, ordinals, "anno_competenza"),
+            ReadString(reader, ordinals, "commessa"),
+            ReadString(reader, ordinals, "descrizione"),
+            ReadString(reader, ordinals, "tipo_commessa"),
+            ReadString(reader, ordinals, "stato"),
+            ReadString(reader, ordinals, "macrotipologia"),
+            ReadString(reader, ordinals, "Nomeprodotto"),
+            ReadString(reader, ordinals, "controparte"),
+            ReadString(reader, ordinals, "idbusinessunit"),
+            ReadString(reader, ordinals, "RCC"),
+            ReadString(reader, ordinals, "PM"),
+            ReadDecimal(reader, ordinals, "ore_lavorate"),
+            ReadDecimal(reader, ordinals, "costo_personale"),
+            ReadDecimal(reader, ordinals, "ricavi"),
+            ReadDecimal(reader, ordinals, "costi"),
+            ReadDecimal(reader, ordinals, "ricavi_maturati", "RicaviMaturati"),
+            ReadDecimal(reader, ordinals, "utile_specifico"),
+            ReadDecimal(reader, ordinals, "ricavi_futuri"),
+            ReadDecimal(reader, ordinals, "costi_futuri"),
+            ReadDecimal(reader, ordinals, "ore_future", "OreFuture", "ore_restanti"),
+            ReadDecimal(reader, ordinals, "costo_personale_futuro", "CostoPersonaleFuturo"));
+    }
+
+    private static IReadOnlyCollection<CommessaSintesiRow> ApplyRicaviMaturatiRules(
+        IReadOnlyCollection<CommessaSintesiRow> rows,
+        bool aggrega,
+        IReadOnlyCollection<int> selectedAnni)
+    {
+        if (rows.Count == 0)
+        {
+            return rows;
+        }
+
+        var annoRiferimentoRicaviMaturati = ResolveRicaviMaturatiReferenceYear(rows, aggrega, selectedAnni);
+
+        return rows
+            .Select(row =>
+            {
+                var ricaviMaturati = row.RicaviMaturati;
+                if (aggrega &&
+                    annoRiferimentoRicaviMaturati.HasValue &&
+                    row.Anno.HasValue &&
+                    row.Anno.Value != annoRiferimentoRicaviMaturati.Value)
+                {
+                    ricaviMaturati = 0m;
+                }
+
+                return row with
+                {
+                    RicaviMaturati = ricaviMaturati,
+                    UtileSpecifico = row.Ricavi + ricaviMaturati - row.Costi - row.CostoPersonale
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<CommessaAndamentoMensileRow> ApplyRicaviMaturatiMensileRules(
+        IReadOnlyCollection<CommessaAndamentoMensileRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return rows;
+        }
+
+        var latestMonthByAnnoCommessa = rows
+            .GroupBy(row => (row.AnnoCompetenza, Commessa: NormalizeCommessaKey(row.Commessa)))
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var latestNonZeroMonth = group
+                        .Where(item => item.RicaviMaturati != 0m)
+                        .Select(item => item.MeseCompetenza)
+                        .DefaultIfEmpty(0)
+                        .Max();
+
+                    return latestNonZeroMonth > 0
+                        ? latestNonZeroMonth
+                        : group.Max(item => item.MeseCompetenza);
+                });
+
+        return rows
+            .Select(row =>
+            {
+                var key = (row.AnnoCompetenza, Commessa: NormalizeCommessaKey(row.Commessa));
+                var isLatestMonth = latestMonthByAnnoCommessa.TryGetValue(key, out var latestMonth) &&
+                                    row.MeseCompetenza == latestMonth;
+                var ricaviMaturati = isLatestMonth ? row.RicaviMaturati : 0m;
+                return row with
+                {
+                    RicaviMaturati = ricaviMaturati,
+                    UtileSpecifico = row.Ricavi + ricaviMaturati - row.Costi - row.CostoPersonale
+                };
+            })
+            .ToArray();
+    }
+
+    private static int? ResolveRicaviMaturatiReferenceYear(
+        IReadOnlyCollection<CommessaSintesiRow> rows,
+        bool aggrega,
+        IReadOnlyCollection<int> selectedAnni)
+    {
+        if (!aggrega)
+        {
+            return null;
+        }
+
+        var selectedYear = selectedAnni
+            .Where(value => value > 0)
+            .DefaultIfEmpty()
+            .Max();
+        if (selectedYear > 0)
+        {
+            return selectedYear;
+        }
+
+        return rows
+            .Where(row => row.Anno.HasValue && row.Anno.Value > 0)
+            .Select(row => row.Anno!.Value)
+            .DefaultIfEmpty()
+            .Max();
     }
 
     private static IReadOnlyCollection<CommesseSintesiFilterOption> BuildDistinctOptionsFromRows(IEnumerable<string> values)

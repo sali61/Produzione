@@ -79,6 +79,9 @@ public interface ICommesseFilterRepository
         string commessa,
         decimal percentualeRaggiunto,
         decimal importoRiferimento,
+        decimal oreFuture,
+        decimal oreRestanti,
+        decimal costoPersonaleFuturo,
         DateTime dataRiferimento,
         CancellationToken cancellationToken = default);
     Task<CommessaDettaglioProgressivoCorrente?> GetCommessaProgressivoAnnoCorrenteAsync(
