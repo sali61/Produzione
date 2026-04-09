@@ -12,6 +12,7 @@ public sealed record CommesseSintesiSearchRequest(
     string? Pm,
     int Take,
     bool Aggrega,
+    int? AttiveDalAnno = null,
     bool? SoloScadute = null,
     string? Provenienza = null,
     int? Mese = null);

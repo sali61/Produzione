@@ -5,6 +5,7 @@ public sealed record CommessaRequisitoOreRisorsaRow(
     string Requisito,
     int IdRisorsa,
     string NomeRisorsa,
+    decimal DurataRequisito,
     decimal OrePreviste,
     decimal OreSpese,
     decimal OreRestanti,

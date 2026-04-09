@@ -49,6 +49,7 @@ type AppPage =
   | 'none'
   | 'commesse-sintesi'
   | 'commesse-andamento-mensile'
+  | 'commesse-anomale'
   | 'commesse-dati-annuali-aggregati'
   | 'risorse-risultati'
   | 'risorse-risultati-pivot'
@@ -125,6 +126,8 @@ type CommesseOptionsResponse = {
   count: number
   items: Array<{
     commessa: string
+    descrizioneCommessa?: string | null
+    label?: string | null
   }>
 }
 
@@ -689,9 +692,11 @@ type SortColumn =
   | 'costiFuturi'
   | 'oreFuture'
   | 'costoPersonaleFuturo'
+  | 'utileFineProgetto'
 
 type SintesiFiltersForm = {
   anni: string[]
+  attiveDalAnno: string
   commessa: string
   tipologiaCommessa: string
   stato: string
@@ -766,8 +771,36 @@ type CommesseAndamentoMensileResponse = {
   items: CommessaAndamentoMensileRow[]
 }
 
+type CommessaAnomalaRow = {
+  tipoAnomalia: string
+  dettaglioAnomalia: string
+  idCommessa: number
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  stato: string
+  macroTipologia: string
+  controparte: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  oreLavorate: number
+  costoPersonale: number
+  ricavi: number
+  costi: number
+  ricaviFuturi: number
+  costiFuturi: number
+}
+
+type CommesseAnomaleResponse = {
+  profile: string
+  count: number
+  items: CommessaAnomalaRow[]
+}
+
 type DatiAnnualiPivotFieldKey =
   | 'anno'
+  | 'commessa'
   | 'controparte'
   | 'tipologiaCommessa'
   | 'rcc'
@@ -793,6 +826,7 @@ type CommesseDatiAnnualiPivotRow = CommesseDatiAnnualiPivotMetrics & {
   anno?: number | null
   label: string
   kind: 'anno' | 'gruppo' | 'totale'
+  groupValues: Partial<Record<DatiAnnualiPivotFieldKey, string>>
 }
 
 type CommesseDatiAnnualiPivotData = {
@@ -812,6 +846,8 @@ type CommessaDettaglioAnagrafica = {
   businessUnit: string
   rcc: string
   pm: string
+  dataApertura?: string | null
+  dataChiusura?: string | null
 }
 
 type CommessaDettaglioAnnoRow = {
@@ -840,6 +876,7 @@ type CommessaDettaglioMeseRow = {
 type CommessaRequisitoOreSummaryRow = {
   idRequisito: number
   requisito: string
+  durataRequisito: number
   orePreviste: number
   oreSpese: number
   oreRestanti: number
@@ -851,10 +888,17 @@ type CommessaRequisitoOreRisorsaRow = {
   requisito: string
   idRisorsa: number
   nomeRisorsa: string
+  durataRequisito: number
   orePreviste: number
   oreSpese: number
   oreRestanti: number
   percentualeAvanzamento: number
+}
+
+type CommessaOreSpeseRisorsaRow = {
+  idRisorsa: number
+  nomeRisorsa: string
+  oreSpeseTotali: number
 }
 
 type CommessaOrdineRow = {
@@ -918,6 +962,7 @@ type CommesseDettaglioResponse = {
   percentualeRaggiuntoProposta?: number
   requisitiOre?: CommessaRequisitoOreSummaryRow[]
   requisitiOreRisorse?: CommessaRequisitoOreRisorsaRow[]
+  oreSpeseRisorse?: CommessaOreSpeseRisorsaRow[]
 }
 
 type CommessaFatturaMovimentoRow = {
@@ -1028,6 +1073,7 @@ const analisiSearchCollapsiblePages = new Set<AppPage>([
 ])
 const datiAnnualiPivotFieldOptions: Array<{ key: DatiAnnualiPivotFieldKey; label: string }> = [
   { key: 'anno', label: 'Anno' },
+  { key: 'commessa', label: 'Commessa' },
   { key: 'businessUnit', label: 'BU' },
   { key: 'rcc', label: 'RCC' },
   { key: 'pm', label: 'PM' },
@@ -1074,6 +1120,7 @@ type SintesiPersistedState = {
 
 const emptySintesiFiltersForm: SintesiFiltersForm = {
   anni: [],
+  attiveDalAnno: '',
   commessa: '',
   tipologiaCommessa: '',
   stato: '',
@@ -1380,6 +1427,31 @@ const mergeFilterOptionValues = (
   return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
 }
 
+const isClosedCommessaStatus = (stato?: string | null) => {
+  const normalized = normalizeFilterText(stato ?? '').toUpperCase()
+  return normalized === 'NF' || normalized === 'T'
+}
+
+const calculateUtileFineProgetto = (
+  metrics: Pick<CommessaSintesiRow, 'ricavi' | 'costi' | 'costoPersonale' | 'utileSpecifico' | 'ricaviFuturi' | 'costiFuturi' | 'costoPersonaleFuturo'> & { stato?: string | null },
+) => {
+  if (isClosedCommessaStatus(metrics.stato)) {
+    return metrics.ricavi - metrics.costi - metrics.costoPersonale
+  }
+
+  return (
+    metrics.utileSpecifico
+    + metrics.ricaviFuturi
+    - metrics.costiFuturi
+    - metrics.costoPersonaleFuturo
+  )
+}
+
+const hasFuturePersonnelCost = (value: number) => Math.abs(value) > 0.000001
+const shouldShowUtileFineProgettoForRow = (row: { costoPersonaleFuturo: number; stato?: string | null }) => {
+  return isClosedCommessaStatus(row.stato) || hasFuturePersonnelCost(row.costoPersonaleFuturo)
+}
+
 const buildPersonSelectItems = (values: string[]) => {
   const map = new Map<string, { value: string; label: string }>()
   values.forEach((rawValue) => {
@@ -1421,6 +1493,8 @@ const extractDatiAnnualiPivotFieldValue = (row: CommessaSintesiRow, fieldKey: Da
         : ''
     case 'controparte':
       return row.controparte
+    case 'commessa':
+      return row.commessa
     case 'tipologiaCommessa':
       return row.tipologiaCommessa
     case 'rcc':
@@ -1644,6 +1718,11 @@ const appInfoVoicesDefault: AppInfoVoice[] = [
   },
   {
     menu: 'Analisi Commesse',
+    voce: 'Commesse Anomale',
+    sintesi: 'Evidenzia commesse con anomalie operative o contabili e mostra contesto anagrafico ed economico per agevolare controlli e correzioni.',
+  },
+  {
+    menu: 'Analisi Commesse',
     voce: 'Utile Mensile RCC',
     sintesi: 'Riepiloga per RCC i valori economici consuntivi fino al mese di riferimento. Include totali annuali e filtri per anno, RCC e produzione.',
   },
@@ -1802,7 +1881,7 @@ function App() {
   const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const [activePage, setActivePage] = useState<AppPage>('none')
-  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
+  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-anomale' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
   const [activeImpersonation, setActiveImpersonation] = useState('')
   const [impersonationInput, setImpersonationInput] = useState('')
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -1834,6 +1913,8 @@ function App() {
   const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
   const [detailRicavoPrevistoInput, setDetailRicavoPrevistoInput] = useState('')
   const [detailOreRestantiInput, setDetailOreRestantiInput] = useState('')
+  const [detailVenditeDateSortDirection, setDetailVenditeDateSortDirection] = useState<SortDirection>('asc')
+  const [detailAcquistiDateSortDirection, setDetailAcquistiDateSortDirection] = useState<SortDirection>('asc')
   const [detailActiveTab, setDetailActiveTab] = useState<DetailTabKey>('storico')
   const [selectedRequisitoId, setSelectedRequisitoId] = useState<number | null>(null)
   const [collapsedProductKeys, setCollapsedProductKeys] = useState<string[]>([])
@@ -1862,15 +1943,27 @@ function App() {
   const [analisiPianoFatturazioneRcc, setAnalisiPianoFatturazioneRcc] = useState('')
   const [analisiPianoFatturazioneData, setAnalisiPianoFatturazioneData] = useState<AnalisiRccPianoFatturazioneResponse | null>(null)
   const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
-  const [commesseAndamentoMensileMese, setCommesseAndamentoMensileMese] = useState('')
+  const [commesseAndamentoMensileAggrega, setCommesseAndamentoMensileAggrega] = useState(true)
+  const [commesseAndamentoMensileMese, setCommesseAndamentoMensileMese] = useState(getDefaultReferenceMonth().toString())
+  const [commesseAndamentoMensileCommessaSearch, setCommesseAndamentoMensileCommessaSearch] = useState('')
+  const [commesseAndamentoMensileCommessa, setCommesseAndamentoMensileCommessa] = useState('')
   const [commesseAndamentoMensileTipologia, setCommesseAndamentoMensileTipologia] = useState('')
+  const [commesseAndamentoMensileStato, setCommesseAndamentoMensileStato] = useState('')
+  const [commesseAndamentoMensileMacroTipologia, setCommesseAndamentoMensileMacroTipologia] = useState('')
+  const [commesseAndamentoMensileControparte, setCommesseAndamentoMensileControparte] = useState('')
   const [commesseAndamentoMensileBusinessUnit, setCommesseAndamentoMensileBusinessUnit] = useState('')
   const [commesseAndamentoMensileRcc, setCommesseAndamentoMensileRcc] = useState('')
   const [commesseAndamentoMensilePm, setCommesseAndamentoMensilePm] = useState('')
   const [commesseAndamentoMensileData, setCommesseAndamentoMensileData] = useState<CommesseAndamentoMensileResponse | null>(null)
+  const [commesseAnomaleData, setCommesseAnomaleData] = useState<CommesseAnomaleResponse | null>(null)
   const [commesseDatiAnnualiAnni, setCommesseDatiAnnualiAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseDatiAnnualiSelectedFields, setCommesseDatiAnnualiSelectedFields] = useState<DatiAnnualiPivotFieldKey[]>(['anno'])
   const [commesseDatiAnnualiMacroTipologie, setCommesseDatiAnnualiMacroTipologie] = useState<string[]>([])
+  const [commesseDatiAnnualiTipologia, setCommesseDatiAnnualiTipologia] = useState('')
+  const [commesseDatiAnnualiBusinessUnit, setCommesseDatiAnnualiBusinessUnit] = useState('')
+  const [commesseDatiAnnualiRcc, setCommesseDatiAnnualiRcc] = useState('')
+  const [commesseDatiAnnualiPm, setCommesseDatiAnnualiPm] = useState('')
+  const [commesseDatiAnnualiColonneAggregazione, setCommesseDatiAnnualiColonneAggregazione] = useState(false)
   const [commesseDatiAnnualiAvailableSelection, setCommesseDatiAnnualiAvailableSelection] = useState<DatiAnnualiPivotFieldKey[]>([])
   const [commesseDatiAnnualiSelectedSelection, setCommesseDatiAnnualiSelectedSelection] = useState<DatiAnnualiPivotFieldKey[]>([])
   const [commesseDatiAnnualiData, setCommesseDatiAnnualiData] = useState<CommesseDatiAnnualiPivotData | null>(null)
@@ -1936,6 +2029,7 @@ function App() {
   }, [])
   const toBackendUrl = (path: string) => `${backendBaseUrl}${path}`
   const isCommesseSintesiPage = activePage === 'commesse-sintesi'
+  const isCommesseAnomalePage = activePage === 'commesse-anomale'
   const isProdottiSintesiPage = activePage === 'prodotti-sintesi'
   const isRisorseRisultatiPage = activePage === 'risorse-risultati'
   const isRisorseRisultatiPivotPage = activePage === 'risorse-risultati-pivot'
@@ -2154,15 +2248,27 @@ function App() {
     setAnalisiPianoFatturazioneRcc('')
     setAnalisiPianoFatturazioneData(null)
     setCommesseAndamentoMensileAnni([new Date().getFullYear().toString()])
-    setCommesseAndamentoMensileMese('')
+    setCommesseAndamentoMensileAggrega(true)
+    setCommesseAndamentoMensileMese(getDefaultReferenceMonth().toString())
+    setCommesseAndamentoMensileCommessaSearch('')
+    setCommesseAndamentoMensileCommessa('')
     setCommesseAndamentoMensileTipologia('')
+    setCommesseAndamentoMensileStato('')
+    setCommesseAndamentoMensileMacroTipologia('')
+    setCommesseAndamentoMensileControparte('')
     setCommesseAndamentoMensileBusinessUnit('')
     setCommesseAndamentoMensileRcc('')
     setCommesseAndamentoMensilePm('')
     setCommesseAndamentoMensileData(null)
+    setCommesseAnomaleData(null)
     setCommesseDatiAnnualiAnni([new Date().getFullYear().toString()])
     setCommesseDatiAnnualiSelectedFields(['anno'])
     setCommesseDatiAnnualiMacroTipologie([])
+    setCommesseDatiAnnualiTipologia('')
+    setCommesseDatiAnnualiBusinessUnit('')
+    setCommesseDatiAnnualiRcc('')
+    setCommesseDatiAnnualiPm('')
+    setCommesseDatiAnnualiColonneAggregazione(false)
     setCommesseDatiAnnualiAvailableSelection([])
     setCommesseDatiAnnualiSelectedSelection([])
     setCommesseDatiAnnualiData(null)
@@ -2722,13 +2828,52 @@ function App() {
     }
 
     const payload = (await response.json()) as CommesseOptionsResponse
-    const commesse = payload.items
-      .map((item) => item.commessa?.trim() ?? '')
-      .filter((value) => value.length > 0)
-      .map((value) => ({ value, label: value }))
-      .filter((option, index, options) => (
-        options.findIndex((candidate) => candidate.value === option.value) === index
-      ))
+    const catalogLabels = new Map<string, string>()
+    sintesiFiltersCatalog.commesse.forEach((option) => {
+      const key = normalizeFilterText(option.value).toLocaleLowerCase('it-IT')
+      if (!key) {
+        return
+      }
+      const label = normalizeFilterText(option.label) || normalizeFilterText(option.value)
+      if (label) {
+        catalogLabels.set(key, label)
+      }
+    })
+
+    const descriptionByCommessa = new Map<string, string>()
+    sintesiRows.forEach((row) => {
+      const commessa = normalizeFilterText(row.commessa)
+      const descrizione = normalizeFilterText(row.descrizioneCommessa)
+      if (!commessa || !descrizione) {
+        return
+      }
+      const key = commessa.toLocaleLowerCase('it-IT')
+      if (!descriptionByCommessa.has(key)) {
+        descriptionByCommessa.set(key, descrizione)
+      }
+    })
+
+    const commesseMap = new Map<string, FilterOption>()
+    payload.items.forEach((item) => {
+      const value = normalizeFilterText(item.commessa)
+      if (!value) {
+        return
+      }
+
+      const key = value.toLocaleLowerCase('it-IT')
+      const apiLabel = normalizeFilterText(item.label ?? '')
+      const apiDescrizione = normalizeFilterText(item.descrizioneCommessa ?? '')
+      const catalogLabel = catalogLabels.get(key)
+      const description = descriptionByCommessa.get(key)
+      const fallbackDescription = apiDescrizione || description
+      const fallbackLabel = fallbackDescription ? `${value} - ${fallbackDescription}` : value
+      const label = apiLabel || normalizeFilterText(catalogLabel ?? '') || fallbackLabel
+
+      commesseMap.set(key, { value, label })
+    })
+
+    const commesse = [...commesseMap.values()]
+      .sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
 
     setSintesiCommesseOptions(commesse)
     return true
@@ -2829,6 +2974,11 @@ function App() {
         .filter((value) => value.length > 0)
       for (const year of selectedAnni) {
         params.append('anni', year)
+      }
+
+      const normalizedAttiveDalAnno = sintesiFiltersForm.attiveDalAnno.trim()
+      if (normalizedAttiveDalAnno) {
+        params.set('attiveDalAnno', normalizedAttiveDalAnno)
       }
 
       if (sintesiFiltersForm.commessa) {
@@ -3684,8 +3834,12 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0),
     )].sort((left, right) => left - right)
     const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
-    const selectedMese = parseReferenceMonthStrict(commesseAndamentoMensileMese)
+    const selectedMese = parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()
+    const selectedCommessa = commesseAndamentoMensileCommessa.trim()
     const selectedTipologia = commesseAndamentoMensileTipologia.trim()
+    const selectedStato = commesseAndamentoMensileStato.trim()
+    const selectedMacroTipologia = commesseAndamentoMensileMacroTipologia.trim()
+    const selectedControparte = commesseAndamentoMensileControparte.trim()
     const selectedBusinessUnit = commesseAndamentoMensileBusinessUnit.trim()
     const selectedRcc = commesseAndamentoMensileRcc.trim()
     const selectedPm = commesseAndamentoMensilePm.trim()
@@ -3695,11 +3849,24 @@ function App() {
       const params = new URLSearchParams()
       params.set('profile', currentProfile)
       yearsToQuery.forEach((value) => params.append('anni', value.toString()))
-      if (selectedMese !== null) {
+      params.set('aggrega', commesseAndamentoMensileAggrega ? 'true' : 'false')
+      if (commesseAndamentoMensileAggrega) {
         params.set('mese', selectedMese.toString())
+      }
+      if (selectedCommessa) {
+        params.set('commessa', selectedCommessa)
       }
       if (selectedTipologia) {
         params.set('tipologiaCommessa', selectedTipologia)
+      }
+      if (selectedStato) {
+        params.set('stato', selectedStato)
+      }
+      if (selectedMacroTipologia) {
+        params.set('macroTipologia', selectedMacroTipologia)
+      }
+      if (selectedControparte) {
+        params.set('prodotto', selectedControparte)
       }
       if (selectedBusinessUnit) {
         params.set('businessUnit', selectedBusinessUnit)
@@ -3739,7 +3906,55 @@ function App() {
       const payload = (await response.json()) as CommesseAndamentoMensileResponse
       setCommesseAndamentoMensileData(payload)
       setCommesseAndamentoMensileAnni(yearsToQuery.map((value) => value.toString()))
-      setStatusMessage(`Andamento Mensile caricato: ${payload.count} righe.`)
+      const modeLabel = commesseAndamentoMensileAggrega ? 'aggregato fino a mese' : 'dettaglio mensile'
+      const meseDetail = commesseAndamentoMensileAggrega
+        ? `, mese: ${selectedMese.toString().padStart(2, '0')}`
+        : ''
+      setStatusMessage(`Andamento Mensile caricato (${modeLabel}${meseDetail}): ${payload.count} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadCommesseAnomale = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('take', '10000')
+
+      const response = await fetch(toBackendUrl(`/api/commesse/anomale?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setCommesseAnomaleData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Commesse Anomale.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setCommesseAnomaleData(null)
+        setStatusMessage(message || `Errore caricamento Commesse Anomale (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseAnomaleResponse
+      setCommesseAnomaleData(payload)
+      setStatusMessage(`Commesse anomale caricate: ${payload.count} righe.`)
     } finally {
       setAnalisiRccLoading(false)
     }
@@ -4845,6 +5060,7 @@ function App() {
     if (
       activePage === 'commesse-sintesi' ||
       activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-anomale' ||
       activePage === 'commesse-dati-annuali-aggregati' ||
       activePage === 'prodotti-sintesi' ||
       activePage === 'dati-contabili-vendita' ||
@@ -4888,6 +5104,13 @@ function App() {
     if (lastSintesiPage === 'commesse-dati-annuali-aggregati') {
       if (!commesseDatiAnnualiData && !analisiRccLoading) {
         void loadCommesseDatiAnnualiAggregati()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'commesse-anomale') {
+      if (!commesseAnomaleData && !analisiRccLoading) {
+        void loadCommesseAnomale()
       }
       return
     }
@@ -4968,16 +5191,30 @@ function App() {
     switch (activePage) {
       case 'commesse-andamento-mensile':
         setCommesseAndamentoMensileAnni([currentYear])
-        setCommesseAndamentoMensileMese('')
+        setCommesseAndamentoMensileAggrega(true)
+        setCommesseAndamentoMensileMese(defaultReferenceMonth)
+        setCommesseAndamentoMensileCommessaSearch('')
+        setCommesseAndamentoMensileCommessa('')
         setCommesseAndamentoMensileTipologia('')
+        setCommesseAndamentoMensileStato('')
+        setCommesseAndamentoMensileMacroTipologia('')
+        setCommesseAndamentoMensileControparte('')
         setCommesseAndamentoMensileBusinessUnit('')
         setCommesseAndamentoMensileRcc('')
         setCommesseAndamentoMensilePm('')
         setCommesseAndamentoMensileData(null)
         break
+      case 'commesse-anomale':
+        setCommesseAnomaleData(null)
+        break
       case 'commesse-dati-annuali-aggregati':
         setCommesseDatiAnnualiAnni([currentYear])
         setCommesseDatiAnnualiMacroTipologie([])
+        setCommesseDatiAnnualiTipologia('')
+        setCommesseDatiAnnualiBusinessUnit('')
+        setCommesseDatiAnnualiRcc('')
+        setCommesseDatiAnnualiPm('')
+        setCommesseDatiAnnualiColonneAggregazione(false)
         setCommesseDatiAnnualiSelectedFields(['anno'])
         setCommesseDatiAnnualiAvailableSelection([])
         setCommesseDatiAnnualiSelectedSelection([])
@@ -5096,8 +5333,19 @@ function App() {
       return
     }
 
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, commesseAndamentoMensileAnni, 'commesse')
     void loadCommesseAndamentoMensile()
+  }
+
+  const activateCommesseAnomalePage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('commesse-anomale')
+    setActivePage('commesse-anomale')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadCommesseAnomale()
   }
 
   const activateCommesseDatiAnnualiAggregatiPage = () => {
@@ -5528,6 +5776,11 @@ function App() {
       return
     }
 
+    if (activePage === 'commesse-anomale') {
+      void loadCommesseAnomale()
+      return
+    }
+
     if (activePage === 'commesse-dati-annuali-aggregati') {
       void loadCommesseDatiAnnualiAggregati()
       return
@@ -5782,6 +6035,7 @@ function App() {
     ) {
       const restoredFilters: SintesiFiltersForm = {
         anni: Array.isArray(persisted.filters.anni) ? persisted.filters.anni : [],
+        attiveDalAnno: persisted.filters.attiveDalAnno ?? '',
         commessa: persisted.filters.commessa ?? '',
         tipologiaCommessa: persisted.filters.tipologiaCommessa ?? '',
         stato: persisted.filters.stato ?? '',
@@ -5890,6 +6144,7 @@ function App() {
       activePage === 'prodotti-sintesi' ||
       activePage === 'commessa-dettaglio' ||
       activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-anomale' ||
       activePage === 'commesse-dati-annuali-aggregati'
     )
     if (isAnalisiCommessePage && !canAccessAnalisiCommesseMenu) {
@@ -5948,7 +6203,7 @@ function App() {
   const productOrCounterpartFilter: {
     id: string
     label: string
-    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
+    key: keyof Omit<SintesiFiltersForm, 'anni' | 'attiveDalAnno' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
     options: FilterOption[]
   } = {
     id: isProdottiSintesiPage ? 'sintesi-prodotto' : 'sintesi-controparte',
@@ -5959,7 +6214,7 @@ function App() {
   const businessUnitFilter: {
     id: string
     label: string
-    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
+    key: keyof Omit<SintesiFiltersForm, 'anni' | 'attiveDalAnno' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
     options: FilterOption[]
   } = {
     id: 'sintesi-business-unit',
@@ -5971,7 +6226,7 @@ function App() {
   const sintesiSelects: Array<{
     id: string
     label: string
-    key: keyof Omit<SintesiFiltersForm, 'anni' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
+    key: keyof Omit<SintesiFiltersForm, 'anni' | 'attiveDalAnno' | 'commessa' | 'escludiProdotti' | 'provenienza' | 'soloScadute'>
     options: FilterOption[]
   }> = [
     { id: 'sintesi-tipologia', label: 'Tipologia Commessa', key: 'tipologiaCommessa', options: distinctFilterOptionsForUi(sintesiFiltersCatalog.tipologieCommessa) },
@@ -5985,6 +6240,9 @@ function App() {
   ]
   const sintesiFilterFieldCount = useMemo(() => {
     let count = 2 + sintesiSelects.length // Anni + Ricerca Commessa
+    if (!isDatiContabiliPage) {
+      count += 1 // Attive dal
+    }
     if (isDatiContabiliPage) {
       count += 2 // Provenienza + Solo scadute
     }
@@ -5996,10 +6254,24 @@ function App() {
   const isSintesiFiltersCollapsible = sintesiFilterFieldCount > 5
 
   const isAggregatedMode = sintesiMode === 'aggregato'
+  const showUtileFineProgettoColumn = (isCommesseSintesiPage || isProdottiSintesiPage) && isAggregatedMode
   const annoOptions = useMemo(() => (
     [...sintesiFiltersCatalog.anni]
       .sort((left, right) => Number(right.value) - Number(left.value))
   ), [sintesiFiltersCatalog.anni])
+  const attiveDalAnnoOptions = useMemo(() => {
+    const values = new Set(
+      annoOptions
+        .map((option) => option.value?.trim() ?? '')
+        .filter((value) => value.length > 0),
+    )
+    const selected = sintesiFiltersForm.attiveDalAnno.trim()
+    if (selected.length > 0) {
+      values.add(selected)
+    }
+
+    return [...values].sort((left, right) => Number(right) - Number(left))
+  }, [annoOptions, sintesiFiltersForm.attiveDalAnno])
   const datiContabiliProvenienzaOptions = useMemo(() => {
     const merged = new Set<string>([
       'Fattura in contabilita',
@@ -6021,12 +6293,52 @@ function App() {
       .map((value) => ({ value, label: value }))
   }, [datiContabiliAcquistoRows, datiContabiliVenditaRows, isDatiContabiliAcquistiPage])
   const allCommesseOptions = useMemo(() => {
-    if (sintesiCommesseOptions.length > 0) {
-      return sintesiCommesseOptions
-    }
+    const source = sintesiCommesseOptions.length > 0
+      ? sintesiCommesseOptions
+      : sintesiFiltersCatalog.commesse
 
-    return sintesiFiltersCatalog.commesse
-  }, [sintesiCommesseOptions, sintesiFiltersCatalog.commesse])
+    const catalogLabels = new Map<string, string>()
+    sintesiFiltersCatalog.commesse.forEach((option) => {
+      const key = normalizeFilterText(option.value).toLocaleLowerCase('it-IT')
+      if (!key) {
+        return
+      }
+      const label = normalizeFilterText(option.label) || normalizeFilterText(option.value)
+      if (label) {
+        catalogLabels.set(key, label)
+      }
+    })
+
+    const descriptionByCommessa = new Map<string, string>()
+    sintesiRows.forEach((row) => {
+      const commessa = normalizeFilterText(row.commessa)
+      const descrizione = normalizeFilterText(row.descrizioneCommessa)
+      if (!commessa || !descrizione || descriptionByCommessa.has(commessa.toLocaleLowerCase('it-IT'))) {
+        return
+      }
+      descriptionByCommessa.set(commessa.toLocaleLowerCase('it-IT'), descrizione)
+    })
+
+    const resolved = new Map<string, FilterOption>()
+    source.forEach((option) => {
+      const value = normalizeFilterText(option.value)
+      if (!value) {
+        return
+      }
+
+      const key = value.toLocaleLowerCase('it-IT')
+      const optionLabel = normalizeFilterText(option.label)
+      const catalogLabel = catalogLabels.get(key)
+      const description = descriptionByCommessa.get(key)
+      const fallbackLabel = description ? `${value} - ${description}` : value
+      const label = optionLabel || catalogLabel || fallbackLabel
+
+      resolved.set(key, { value, label })
+    })
+
+    return [...resolved.values()]
+      .sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
+  }, [sintesiCommesseOptions, sintesiFiltersCatalog.commesse, sintesiRows])
   const normalizedCommessaSearch = commessaSearch.trim().toLowerCase()
   const filteredCommesse = useMemo(() => {
     const allOptions = allCommesseOptions
@@ -6108,6 +6420,8 @@ function App() {
         return row.oreFuture
       case 'costoPersonaleFuturo':
         return row.costoPersonaleFuturo
+      case 'utileFineProgetto':
+        return calculateUtileFineProgetto(row)
       default:
         return ''
     }
@@ -6238,6 +6552,8 @@ function App() {
               return group.summary.oreFuture
             case 'costoPersonaleFuturo':
               return group.summary.costoPersonaleFuturo
+            case 'utileFineProgetto':
+              return calculateUtileFineProgetto(group.summary)
             case 'prodotto':
               return group.summary.prodotto
             default:
@@ -6366,6 +6682,14 @@ function App() {
       costoPersonaleFuturo: 0,
     })
   ), [sortedRows])
+  const totaleUtileFineProgettoValorizzato = useMemo(
+    () => sortedRows.reduce((acc, row) => (
+      shouldShowUtileFineProgettoForRow(row)
+        ? acc + calculateUtileFineProgetto(row)
+        : acc
+    ), 0),
+    [sortedRows],
+  )
 
   const analisiRccGrids = useMemo(() => {
     if (!analisiRccData) {
@@ -6687,6 +7011,7 @@ function App() {
       }
     })
   ), [analisiPianoFatturazioneMesiRiferimento, analisiPianoFatturazioneRows])
+  const commesseAnomaleRows = commesseAnomaleData?.items ?? []
   const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
   const commesseAndamentoMensileTotals = useMemo(() => (
     commesseAndamentoMensileRows.reduce((acc, row) => ({
@@ -6762,6 +7087,30 @@ function App() {
     ),
     [commesseAndamentoMensileRows, commesseAndamentoMensileTipologia, sintesiFiltersCatalog.tipologieCommessa],
   )
+  const commesseAndamentoMensileStatoOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.stati,
+      commesseAndamentoMensileStato,
+      commesseAndamentoMensileRows.map((row) => row.stato),
+    ),
+    [commesseAndamentoMensileRows, commesseAndamentoMensileStato, sintesiFiltersCatalog.stati],
+  )
+  const commesseAndamentoMensileMacroTipologiaOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.macroTipologie,
+      commesseAndamentoMensileMacroTipologia,
+      commesseAndamentoMensileRows.map((row) => row.macroTipologia),
+    ),
+    [commesseAndamentoMensileMacroTipologia, commesseAndamentoMensileRows, sintesiFiltersCatalog.macroTipologie],
+  )
+  const commesseAndamentoMensileControparteOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.prodotti,
+      commesseAndamentoMensileControparte,
+      commesseAndamentoMensileRows.map((row) => row.controparte),
+    ),
+    [commesseAndamentoMensileControparte, commesseAndamentoMensileRows, sintesiFiltersCatalog.prodotti],
+  )
   const commesseAndamentoMensileBusinessUnitOptions = useMemo(
     () => mergeFilterOptionValues(
       sintesiFiltersCatalog.businessUnits,
@@ -6786,6 +7135,57 @@ function App() {
     ),
     [commesseAndamentoMensilePm, commesseAndamentoMensileRows, sintesiFiltersCatalog.pm],
   )
+  const commesseAndamentoMensileAllCommesseOptions = useMemo(() => {
+    const map = new Map<string, FilterOption>()
+    const addOption = (rawValue: string, rawLabel?: string) => {
+      const normalizedValue = normalizeFilterText(rawValue)
+      if (!normalizedValue) {
+        return
+      }
+      const normalizedLabel = normalizeFilterText(rawLabel ?? rawValue) || normalizedValue
+      const key = normalizedValue.toLocaleLowerCase('it-IT')
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, { value: normalizedValue, label: normalizedLabel })
+        return
+      }
+
+      const existingIsFallback = existing.label.localeCompare(existing.value, 'it', { sensitivity: 'base' }) === 0
+      const incomingIsDescriptive = normalizedLabel.localeCompare(normalizedValue, 'it', { sensitivity: 'base' }) !== 0
+      if (existingIsFallback && incomingIsDescriptive) {
+        map.set(key, { value: normalizedValue, label: normalizedLabel })
+      }
+    }
+
+    sintesiFiltersCatalog.commesse.forEach((option) => {
+      addOption(option.value, option.label)
+    })
+    commesseAndamentoMensileRows.forEach((row) => addOption(row.commessa))
+    addOption(commesseAndamentoMensileCommessa)
+
+    return [...map.values()].sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
+  }, [commesseAndamentoMensileCommessa, commesseAndamentoMensileRows, sintesiFiltersCatalog.commesse])
+  const commesseAndamentoMensileCommessaOptions = useMemo(() => {
+    const searchTerm = normalizeFilterText(commesseAndamentoMensileCommessaSearch).toLowerCase()
+    const filtered = searchTerm
+      ? commesseAndamentoMensileAllCommesseOptions
+        .filter((option) => (
+          option.label.toLowerCase().includes(searchTerm)
+          || option.value.toLowerCase().includes(searchTerm)
+        ))
+      : commesseAndamentoMensileAllCommesseOptions
+
+    const selected = normalizeFilterText(commesseAndamentoMensileCommessa)
+    if (!selected) {
+      return filtered.slice(0, 500)
+    }
+
+    if (filtered.some((option) => option.value.localeCompare(selected, 'it', { sensitivity: 'base' }) === 0)) {
+      return filtered.slice(0, 500)
+    }
+
+    return [{ value: selected, label: selected }, ...filtered.slice(0, 499)]
+  }, [commesseAndamentoMensileAllCommesseOptions, commesseAndamentoMensileCommessa, commesseAndamentoMensileCommessaSearch])
   const commesseAndamentoMensileRccSelectItems = useMemo(
     () => buildPersonSelectItems(commesseAndamentoMensileRccOptions),
     [commesseAndamentoMensileRccOptions],
@@ -6846,6 +7246,38 @@ function App() {
       .sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
       .map((value) => ({ value, label: value }))
   }, [commesseDatiAnnualiMacroTipologie, commesseDatiAnnualiRows, sintesiFiltersCatalog.macroTipologie])
+  const commesseDatiAnnualiTipologiaOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.tipologieCommessa,
+      commesseDatiAnnualiTipologia,
+      commesseDatiAnnualiRows.map((row) => row.tipologiaCommessa),
+    ).map((value) => ({ value, label: value })),
+    [commesseDatiAnnualiTipologia, commesseDatiAnnualiRows, sintesiFiltersCatalog.tipologieCommessa],
+  )
+  const commesseDatiAnnualiBusinessUnitOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.businessUnits,
+      commesseDatiAnnualiBusinessUnit,
+      commesseDatiAnnualiRows.map((row) => row.businessUnit),
+    ).map((value) => ({ value, label: value })),
+    [commesseDatiAnnualiBusinessUnit, commesseDatiAnnualiRows, sintesiFiltersCatalog.businessUnits],
+  )
+  const commesseDatiAnnualiRccOptions = useMemo(
+    () => buildPersonSelectItems(mergeFilterOptionValues(
+      sintesiFiltersCatalog.rcc,
+      commesseDatiAnnualiRcc,
+      commesseDatiAnnualiRows.map((row) => row.rcc),
+    )),
+    [commesseDatiAnnualiRcc, commesseDatiAnnualiRows, sintesiFiltersCatalog.rcc],
+  )
+  const commesseDatiAnnualiPmOptions = useMemo(
+    () => buildPersonSelectItems(mergeFilterOptionValues(
+      sintesiFiltersCatalog.pm,
+      commesseDatiAnnualiPm,
+      commesseDatiAnnualiRows.map((row) => row.pm),
+    )),
+    [commesseDatiAnnualiPm, commesseDatiAnnualiRows, sintesiFiltersCatalog.pm],
+  )
   const commesseDatiAnnualiSelectedFieldOptions = useMemo(
     () => commesseDatiAnnualiSelectedFields
       .map((key) => datiAnnualiPivotFieldOptions.find((option) => option.key === key))
@@ -6856,12 +7288,20 @@ function App() {
     () => datiAnnualiPivotFieldOptions.filter((option) => !commesseDatiAnnualiSelectedFields.includes(option.key)),
     [commesseDatiAnnualiSelectedFields],
   )
+  const commesseDatiAnnualiUseAggregationColumns = (
+    commesseDatiAnnualiColonneAggregazione
+    && commesseDatiAnnualiSelectedFieldOptions.length > 0
+  )
   const commesseDatiAnnualiPivotRows = useMemo(() => {
     const selectedMacroSet = new Set(
       commesseDatiAnnualiMacroTipologie
         .map((value) => normalizeFilterText(value).toUpperCase())
         .filter((value) => value.length > 0),
     )
+    const selectedTipologia = normalizeFilterText(commesseDatiAnnualiTipologia).toUpperCase()
+    const selectedBusinessUnit = normalizeFilterText(commesseDatiAnnualiBusinessUnit).toUpperCase()
+    const selectedRcc = normalizeFilterText(commesseDatiAnnualiRcc).toUpperCase()
+    const selectedPm = normalizeFilterText(commesseDatiAnnualiPm).toUpperCase()
 
     const validRows = commesseDatiAnnualiRows
       .filter((row): row is CommessaSintesiRow & { anno: number } => Number.isFinite(row.anno ?? NaN) && (row.anno ?? 0) > 0)
@@ -6871,7 +7311,41 @@ function App() {
         }
 
         const rowMacro = normalizeFilterText(row.macroTipologia).toUpperCase()
-        return selectedMacroSet.has(rowMacro)
+        if (!selectedMacroSet.has(rowMacro)) {
+          return false
+        }
+        return true
+      })
+      .filter((row) => {
+        if (selectedTipologia.length > 0) {
+          const rowTipologia = normalizeFilterText(row.tipologiaCommessa).toUpperCase()
+          if (rowTipologia !== selectedTipologia) {
+            return false
+          }
+        }
+
+        if (selectedBusinessUnit.length > 0) {
+          const rowBusinessUnit = normalizeFilterText(row.businessUnit).toUpperCase()
+          if (rowBusinessUnit !== selectedBusinessUnit) {
+            return false
+          }
+        }
+
+        if (selectedRcc.length > 0) {
+          const rowRcc = normalizeFilterText(row.rcc).toUpperCase()
+          if (rowRcc !== selectedRcc) {
+            return false
+          }
+        }
+
+        if (selectedPm.length > 0) {
+          const rowPm = normalizeFilterText(row.pm).toUpperCase()
+          if (rowPm !== selectedPm) {
+            return false
+          }
+        }
+
+        return true
       })
 
     if (validRows.length === 0) {
@@ -6885,6 +7359,7 @@ function App() {
       rowsAtLevel: CommessaSintesiRow[],
       level: number,
       pathKey: string,
+      parentValues: Partial<Record<DatiAnnualiPivotFieldKey, string>>,
     ) => {
       const fieldKey = commesseDatiAnnualiSelectedFields[level]
       if (!fieldKey) {
@@ -6920,23 +7395,28 @@ function App() {
         const metrics = buildDatiAnnualiPivotMetrics(group.rows)
         const groupLabel = `${fieldLabels.get(fieldKey) ?? fieldKey}: ${group.value}`
         const groupKey = `${pathKey}|${fieldKey}|${group.value.toUpperCase()}`
+        const groupValues: Partial<Record<DatiAnnualiPivotFieldKey, string>> = {
+          ...parentValues,
+          [fieldKey]: group.value,
+        }
         pivotRows.push({
           key: groupKey,
           kind: 'gruppo',
           level,
           anno: fieldKey === 'anno' ? Number.parseInt(group.value, 10) || null : null,
           label: groupLabel,
+          groupValues,
           ...metrics,
         })
 
         if (level + 1 < commesseDatiAnnualiSelectedFields.length) {
-          buildGroupRows(group.rows, level + 1, groupKey)
+          buildGroupRows(group.rows, level + 1, groupKey, groupValues)
         }
       })
     }
 
     if (commesseDatiAnnualiSelectedFields.length > 0) {
-      buildGroupRows(validRows, 0, 'root')
+      buildGroupRows(validRows, 0, 'root', {})
     } else {
       const metrics = buildDatiAnnualiPivotMetrics(validRows)
       pivotRows.push({
@@ -6945,6 +7425,7 @@ function App() {
         level: 0,
         anno: null,
         label: 'Dati',
+        groupValues: {},
         ...metrics,
       })
     }
@@ -6956,11 +7437,20 @@ function App() {
       level: 0,
       anno: null,
       label: 'Totale complessivo',
+      groupValues: {},
       ...grandTotal,
     })
 
     return pivotRows
-  }, [commesseDatiAnnualiMacroTipologie, commesseDatiAnnualiRows, commesseDatiAnnualiSelectedFields])
+  }, [
+    commesseDatiAnnualiBusinessUnit,
+    commesseDatiAnnualiMacroTipologie,
+    commesseDatiAnnualiPm,
+    commesseDatiAnnualiRcc,
+    commesseDatiAnnualiRows,
+    commesseDatiAnnualiSelectedFields,
+    commesseDatiAnnualiTipologia,
+  ])
   const risorseRowsSorted = useMemo(() => (
     [...risorseRows].sort((left, right) => {
       if (left.annoCompetenza !== right.annoCompetenza) {
@@ -8553,28 +9043,43 @@ function App() {
   )
   const detailRequisitiOreRows = detailData?.requisitiOre ?? []
   const detailRequisitiOreRisorseRows = detailData?.requisitiOreRisorse ?? []
+  const detailOreSpeseRisorseRows = detailData?.oreSpeseRisorse ?? []
 
-  const sortMovimentiByDate = (rows: CommessaFatturaMovimentoRow[]) => (
+  const sortMovimentiByDate = (rows: CommessaFatturaMovimentoRow[], direction: SortDirection) => (
     [...rows].sort((left, right) => {
       const leftTime = left.dataMovimento ? new Date(left.dataMovimento).getTime() : Number.MIN_SAFE_INTEGER
       const rightTime = right.dataMovimento ? new Date(right.dataMovimento).getTime() : Number.MIN_SAFE_INTEGER
       if (leftTime !== rightTime) {
-        return leftTime - rightTime
+        return direction === 'asc'
+          ? leftTime - rightTime
+          : rightTime - leftTime
       }
 
-      return left.numeroDocumento.localeCompare(right.numeroDocumento, 'it', { sensitivity: 'base', numeric: true })
+      const byDocumento = left.numeroDocumento.localeCompare(right.numeroDocumento, 'it', { sensitivity: 'base', numeric: true })
+      return direction === 'asc' ? byDocumento : -byDocumento
     })
   )
 
   const detailVenditeSorted = useMemo(
-    () => sortMovimentiByDate(detailVenditeRows),
-    [detailVenditeRows],
+    () => sortMovimentiByDate(detailVenditeRows, detailVenditeDateSortDirection),
+    [detailVenditeRows, detailVenditeDateSortDirection],
   )
 
   const detailAcquistiSorted = useMemo(
-    () => sortMovimentiByDate(detailAcquistiRows),
-    [detailAcquistiRows],
+    () => sortMovimentiByDate(detailAcquistiRows, detailAcquistiDateSortDirection),
+    [detailAcquistiRows, detailAcquistiDateSortDirection],
   )
+
+  const toggleDetailVenditeDateSort = () => {
+    setDetailVenditeDateSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+  }
+
+  const toggleDetailAcquistiDateSort = () => {
+    setDetailAcquistiDateSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+  }
+
+  const detailVenditeDateSortIndicator = detailVenditeDateSortDirection === 'asc' ? '↑' : '↓'
+  const detailAcquistiDateSortIndicator = detailAcquistiDateSortDirection === 'asc' ? '↑' : '↓'
 
   const detailVenditeTotaleImporto = useMemo(
     () => detailVenditeSorted.reduce((total, row) => total + row.importo, 0),
@@ -8649,13 +9154,17 @@ function App() {
 
   const detailRequisitiOreTotals = useMemo(() => (
     detailRequisitiOreRows.reduce((acc, row) => ({
+      durataRequisito: acc.durataRequisito + row.durataRequisito,
       orePreviste: acc.orePreviste + row.orePreviste,
       oreSpese: acc.oreSpese + row.oreSpese,
       oreRestanti: acc.oreRestanti + row.oreRestanti,
+      oreRiferimento: acc.oreRiferimento + (row.orePreviste > 0 ? row.orePreviste : row.durataRequisito),
     }), {
+      durataRequisito: 0,
       orePreviste: 0,
       oreSpese: 0,
       oreRestanti: 0,
+      oreRiferimento: 0,
     })
   ), [detailRequisitiOreRows])
 
@@ -8665,15 +9174,20 @@ function App() {
       return Math.min(1, Math.max(0, fromApi))
     }
 
-    if (detailRequisitiOreTotals.orePreviste <= 0) {
+    if (detailRequisitiOreTotals.oreRiferimento <= 0) {
       return null
     }
 
     return Math.min(
       1,
-      Math.max(0, detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.orePreviste),
+      Math.max(0, detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.oreRiferimento),
     )
   }, [detailData?.percentualeRaggiuntoProposta, detailRequisitiOreTotals])
+
+  const detailOreSpeseRisorseTotal = useMemo(
+    () => detailOreSpeseRisorseRows.reduce((acc, row) => acc + row.oreSpeseTotali, 0),
+    [detailOreSpeseRisorseRows],
+  )
 
   const detailRowsForTotals = useMemo(
     () => [...detailStoricoRows, ...detailMesiCorrenteRows],
@@ -9143,6 +9657,9 @@ function App() {
     ? 'Caricamento dati...'
     : `${processoOffertaRowsCount} righe`
   const analisiPageRowsCount = (
+    isCommesseAnomalePage
+      ? commesseAnomaleRows.length
+      : (
     activePage === 'commesse-andamento-mensile'
       ? commesseAndamentoMensileRows.length
       : (
@@ -9209,6 +9726,7 @@ function App() {
               )
               )
           )
+      )
       )
   )
   const analisiPageCountLabel = analisiRccLoading
@@ -9713,6 +10231,9 @@ function App() {
             CostiFuturi: row.costiFuturi,
             OreFuture: row.oreFuture,
             CostoPersonaleFuturo: row.costoPersonaleFuturo,
+            ...(isAggregatedMode
+              ? { UtileFineProgetto: shouldShowUtileFineProgettoForRow(row) ? calculateUtileFineProgetto(row) : '' }
+              : {}),
           }
         }
 
@@ -9739,6 +10260,9 @@ function App() {
           CostiFuturi: row.costiFuturi,
           OreFuture: row.oreFuture,
           CostoPersonaleFuturo: row.costoPersonaleFuturo,
+          ...(isAggregatedMode
+            ? { UtileFineProgetto: shouldShowUtileFineProgettoForRow(row) ? calculateUtileFineProgetto(row) : '' }
+            : {}),
         }
       })
       const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -9771,6 +10295,9 @@ function App() {
         CostiFuturi: row.costiFuturi,
         OreFuture: row.oreFuture,
         CostoPersonaleFuturo: row.costoPersonaleFuturo,
+        ...(isAggregatedMode
+          ? { UtileFineProgetto: shouldShowUtileFineProgettoForRow(row) ? calculateUtileFineProgetto(row) : '' }
+          : {}),
       }))
       const worksheet = XLSX.utils.json_to_sheet(rows)
       worksheet['!cols'] = [
@@ -9816,24 +10343,42 @@ function App() {
       return
     }
 
-    const rows = commesseDatiAnnualiPivotRows.map((row) => ({
-      TipoRiga: row.kind === 'totale' ? 'Totale complessivo' : 'Gruppo',
-      Livello: row.level,
-      Etichetta: row.label,
-      NumeroCommesse: row.numeroCommesse,
-      OreLavorate: row.oreLavorate,
-      CostoPersonale: row.costoPersonale,
-      Ricavi: row.ricavi,
-      Costi: row.costi,
-      UtileSpecifico: row.utileSpecifico,
-      RicaviFuturi: row.ricaviFuturi,
-      CostiFuturi: row.costiFuturi,
-    }))
+    const rows = commesseDatiAnnualiPivotRows.map((row) => {
+      const base: Record<string, unknown> = {
+        TipoRiga: row.kind === 'totale' ? 'Totale complessivo' : 'Gruppo',
+        Livello: row.level,
+      }
+
+      if (commesseDatiAnnualiUseAggregationColumns) {
+        commesseDatiAnnualiSelectedFieldOptions.forEach((option, index) => {
+          base[option.label] = row.kind === 'totale'
+            ? (index === 0 ? row.label : '')
+            : (row.groupValues[option.key] ?? '')
+        })
+      } else {
+        base.Etichetta = row.label
+      }
+
+      base.NumeroCommesse = row.numeroCommesse
+      base.OreLavorate = row.oreLavorate
+      base.CostoPersonale = row.costoPersonale
+      base.Ricavi = row.ricavi
+      base.Costi = row.costi
+      base.UtileSpecifico = row.utileSpecifico
+      base.RicaviFuturi = row.ricaviFuturi
+      base.CostiFuturi = row.costiFuturi
+      return base
+    })
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
+    const leadingCols = commesseDatiAnnualiUseAggregationColumns
+      ? commesseDatiAnnualiSelectedFieldOptions.map(() => ({ wch: 22 }))
+      : [{ wch: 48 }]
     worksheet['!cols'] = [
-      { wch: 20 }, { wch: 8 }, { wch: 48 }, { wch: 16 }, { wch: 14 },
-      { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+      { wch: 20 },
+      { wch: 8 },
+      ...leadingCols,
+      { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
     ]
 
     const workbook = XLSX.utils.book_new()
@@ -9895,11 +10440,33 @@ function App() {
 
     let filenamePrefix = 'Analisi'
     switch (activePage) {
+      case 'commesse-anomale': {
+        appendSheet(commesseAnomaleRows.map((row) => ({
+          Anomalia: row.tipoAnomalia,
+          DettaglioAnomalia: row.dettaglioAnomalia,
+          Commessa: row.commessa,
+          Descrizione: row.descrizioneCommessa,
+          Tipologia: row.tipologiaCommessa,
+          Stato: row.stato,
+          Macrotipologia: row.macroTipologia,
+          Controparte: row.controparte,
+          BusinessUnit: row.businessUnit,
+          RCC: row.rcc,
+          PM: row.pm,
+          OreLavorate: row.oreLavorate,
+          CostoPersonale: row.costoPersonale,
+          Ricavi: row.ricavi,
+          Costi: row.costi,
+          RicaviFuturi: row.ricaviFuturi,
+          CostiFuturi: row.costiFuturi,
+        })), 'CommesseAnomale')
+        filenamePrefix = 'Commesse_Anomale'
+        break
+      }
       case 'commesse-andamento-mensile': {
-        appendSheet(
-          commesseAndamentoMensileRows.map((row) => ({
+        const andamentoRows: Record<string, unknown>[] = commesseAndamentoMensileRows.map((row) => ({
             AnnoCompetenza: row.annoCompetenza,
-            MeseCompetenza: row.meseCompetenza,
+            MeseCompetenza: row.meseCompetenza > 0 ? row.meseCompetenza : '',
             Commessa: row.commessa,
             Descrizione: row.descrizioneCommessa,
             Tipologia: row.tipologiaCommessa,
@@ -9916,13 +10483,36 @@ function App() {
             Ricavi: row.ricavi,
             Costi: row.costi,
             RicaviMaturati: row.ricaviMaturati,
+            UtileSpecifico: row.utileSpecifico,
             OreFuture: row.oreFuture,
             CostoPersonaleFuturo: row.costoPersonaleFuturo,
-            CostoGeneraleRibaltato: row.costoGeneraleRibaltato,
-            UtileSpecifico: row.utileSpecifico,
-          })),
-          'AndamentoMensile',
-        )
+          }))
+
+        andamentoRows.push({
+          AnnoCompetenza: 'Totale',
+          MeseCompetenza: '',
+          Commessa: '',
+          Descrizione: '',
+          Tipologia: '',
+          Stato: '',
+          Macrotipologia: '',
+          Prodotto: '',
+          Controparte: '',
+          BusinessUnit: '',
+          RCC: '',
+          PM: '',
+          Produzione: '',
+          OreLavorate: commesseAndamentoMensileTotals.oreLavorate,
+          CostoPersonale: commesseAndamentoMensileTotals.costoPersonale,
+          Ricavi: commesseAndamentoMensileTotals.ricavi,
+          Costi: commesseAndamentoMensileTotals.costi,
+          RicaviMaturati: commesseAndamentoMensileTotals.ricaviMaturati,
+          UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
+          OreFuture: commesseAndamentoMensileTotals.oreFuture,
+          CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
+        })
+
+        appendSheet(andamentoRows, 'AndamentoMensile')
         appendSheet([
           {
             OreLavorate: commesseAndamentoMensileTotals.oreLavorate,
@@ -9930,10 +10520,9 @@ function App() {
             Ricavi: commesseAndamentoMensileTotals.ricavi,
             Costi: commesseAndamentoMensileTotals.costi,
             RicaviMaturati: commesseAndamentoMensileTotals.ricaviMaturati,
+            UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
             OreFuture: commesseAndamentoMensileTotals.oreFuture,
             CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
-            CostoGeneraleRibaltato: commesseAndamentoMensileTotals.costoGeneraleRibaltato,
-            UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
           },
         ], 'Totali')
         filenamePrefix = 'Commesse_AndamentoMensile'
@@ -10520,6 +11109,8 @@ function App() {
           BusinessUnit: detailAnagrafica.businessUnit,
           RCC: detailAnagrafica.rcc,
           PM: detailAnagrafica.pm,
+          DataApertura: detailAnagrafica.dataApertura ? formatDate(detailAnagrafica.dataApertura) : '',
+          DataChiusura: detailAnagrafica.dataChiusura ? formatDate(detailAnagrafica.dataChiusura) : '',
         },
       ], 'Anagrafica')
     }
@@ -10566,6 +11157,7 @@ function App() {
       detailRequisitiOreRows.map((row) => ({
         IdRequisito: row.idRequisito,
         Requisito: row.requisito,
+        DurataRequisito: row.durataRequisito,
         OrePreviste: row.orePreviste,
         OreSpese: row.oreSpese,
         OreRestanti: row.oreRestanti,
@@ -10580,12 +11172,22 @@ function App() {
         Requisito: row.requisito,
         IdRisorsa: row.idRisorsa,
         NomeRisorsa: row.nomeRisorsa,
+        DurataRequisito: row.durataRequisito,
         OrePreviste: row.orePreviste,
         OreSpese: row.oreSpese,
         OreRestanti: row.oreRestanti,
         PercentualeAvanzamento: row.percentualeAvanzamento,
       })),
       'RequisitiRisorse',
+    )
+
+    appendSheet(
+      detailOreSpeseRisorseRows.map((row) => ({
+        IdRisorsa: row.idRisorsa,
+        NomeRisorsa: row.nomeRisorsa,
+        OreSpeseTotali: row.oreSpeseTotali,
+      })),
+      'OreSpeseRisorse',
     )
 
     const now = new Date()
@@ -10646,6 +11248,9 @@ function App() {
                     Utile Mensile BU
                   </button>
                 )}
+                <button type="button" className="menu-action" onClick={activateCommesseAnomalePage}>
+                  Commesse Anomale
+                </button>
               </div>
             </div>
           )}
@@ -10944,6 +11549,28 @@ function App() {
                       ))}
                     </select>
                   </div>
+
+                  {!isDatiContabiliPage && (
+                    <div className="sintesi-field sintesi-field-attive-dal">
+                      <label htmlFor="sintesi-attive-dal-anno">Attive dal</label>
+                      <select
+                        id="sintesi-attive-dal-anno"
+                        value={sintesiFiltersForm.attiveDalAnno}
+                        disabled={sintesiLoadingFilters}
+                        onChange={(event) => setSintesiFiltersForm((current) => ({
+                          ...current,
+                          attiveDalAnno: event.target.value,
+                        }))}
+                      >
+                        <option value="">Tutte</option>
+                        {attiveDalAnnoOptions.map((value) => (
+                          <option key={`sintesi-attive-dal-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="sintesi-field">
                     <label htmlFor="sintesi-commessa-search">Ricerca Commessa</label>
@@ -11420,6 +12047,13 @@ function App() {
                             Costo Personale Futuro <span className="sort-indicator">{sortIndicator('costoPersonaleFuturo')}</span>
                           </button>
                         </th>
+                        {showUtileFineProgettoColumn && (
+                          <th className="num">
+                            <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('utileFineProgetto')}>
+                              Utile a fine progetto <span className="sort-indicator">{sortIndicator('utileFineProgetto')}</span>
+                            </button>
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -11456,6 +12090,13 @@ function App() {
                               <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
                               <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
                               <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
+                              {showUtileFineProgettoColumn && (
+                                shouldShowUtileFineProgettoForRow(row)
+                                  ? (
+                                    <td className={`num ${calculateUtileFineProgetto(row) < 0 ? 'num-negative' : ''}`}>{formatNumber(calculateUtileFineProgetto(row))}</td>
+                                    )
+                                  : <td className="num" />
+                              )}
                             </tr>
                           )
                         }
@@ -11494,6 +12135,13 @@ function App() {
                             <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
                             <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
                             <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
+                            {showUtileFineProgettoColumn && (
+                              shouldShowUtileFineProgettoForRow(row)
+                                ? (
+                                  <td className={`num ${calculateUtileFineProgetto(row) < 0 ? 'num-negative' : ''}`}>{formatNumber(calculateUtileFineProgetto(row))}</td>
+                                  )
+                                : <td className="num" />
+                            )}
                           </tr>
                         )
                       })}
@@ -11513,6 +12161,9 @@ function App() {
                         <td className={`num ${totals.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costiFuturi)}</td>
                         <td className={`num ${totals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.oreFuture)}</td>
                         <td className={`num ${totals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonaleFuturo)}</td>
+                        {showUtileFineProgettoColumn && (
+                          <td className={`num ${totaleUtileFineProgettoValorizzato < 0 ? 'num-negative' : ''}`}>{formatNumber(totaleUtileFineProgettoValorizzato)}</td>
+                        )}
                       </tr>
                     </tfoot>
                   </table>
@@ -11532,113 +12183,184 @@ function App() {
             </header>
 
             <section className="panel sintesi-filter-panel">
-              <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-anni">
-                  <span>Anni</span>
-                  <select
-                    id="commesse-andamento-mensile-anni"
-                    multiple
-                    size={4}
-                    value={commesseAndamentoMensileAnni}
-                    onChange={(event) => setCommesseAndamentoMensileAnni(
-                      Array.from(event.target.selectedOptions).map((option) => option.value),
-                    )}
-                  >
-                    {commesseAndamentoMensileAnnoOptions.map((year) => (
-                      <option key={`commesse-andamento-anno-${year}`} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-mese">
-                  <span>Mese</span>
-                  <select
-                    id="commesse-andamento-mensile-mese"
-                    value={commesseAndamentoMensileMese}
-                    onChange={(event) => setCommesseAndamentoMensileMese(event.target.value)}
-                  >
-                    <option value="">Tutti</option>
-                    {commesseAndamentoMensileMeseOptions.map((month) => (
-                      <option key={`commesse-andamento-mese-${month}`} value={month.toString()}>
-                        {formatReferenceMonthLabel(month)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-tipologia">
-                  <span>Tipologia Commessa</span>
-                  <select
-                    id="commesse-andamento-mensile-tipologia"
-                    value={commesseAndamentoMensileTipologia}
-                    onChange={(event) => setCommesseAndamentoMensileTipologia(event.target.value)}
-                  >
-                    <option value="">Tutte</option>
-                    {commesseAndamentoMensileTipologiaOptions.map((value) => (
-                      <option key={`commesse-andamento-tipologia-${value}`} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-bu">
-                  <span>Business Unit</span>
-                  <select
-                    id="commesse-andamento-mensile-bu"
-                    value={commesseAndamentoMensileBusinessUnit}
-                    onChange={(event) => setCommesseAndamentoMensileBusinessUnit(event.target.value)}
-                  >
-                    <option value="">Tutte</option>
-                    {commesseAndamentoMensileBusinessUnitOptions.map((value) => (
-                      <option key={`commesse-andamento-bu-${value}`} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-rcc">
-                  <span>RCC</span>
-                  <select
-                    id="commesse-andamento-mensile-rcc"
-                    value={commesseAndamentoMensileRcc}
-                    onChange={(event) => setCommesseAndamentoMensileRcc(event.target.value)}
-                  >
-                    <option value="">Tutti</option>
-                    {commesseAndamentoMensileRccSelectItems.map((option) => (
-                      <option key={`commesse-andamento-rcc-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-andamento-mensile-pm">
-                  <span>PM</span>
-                  <select
-                    id="commesse-andamento-mensile-pm"
-                    value={commesseAndamentoMensilePm}
-                    onChange={(event) => setCommesseAndamentoMensilePm(event.target.value)}
-                  >
-                    <option value="">Tutti</option>
-                    {commesseAndamentoMensilePmSelectItems.map((option) => (
-                      <option key={`commesse-andamento-pm-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="inline-actions analisi-inline-actions">
+              <form
+                className={`sintesi-form ${analisiRccLoading ? 'is-filter-loading' : ''}`}
+                onSubmit={handleAnalisiSubmit}
+                aria-busy={analisiRccLoading}
+              >
+                {(!isAnalisiSearchCollapsible || !isAnalisiSearchCollapsed) && (
+                  <div className="sintesi-filters-grid andamento-mensile-filters-grid">
+                    <div className="sintesi-field sintesi-field-anni">
+                      <label htmlFor="commesse-andamento-mensile-anni">Anni</label>
+                      <select
+                        id="commesse-andamento-mensile-anni"
+                        multiple
+                        size={2}
+                        value={commesseAndamentoMensileAnni}
+                        onChange={(event) => setCommesseAndamentoMensileAnni(
+                          Array.from(event.target.selectedOptions).map((option) => option.value),
+                        )}
+                      >
+                        {commesseAndamentoMensileAnnoOptions.map((year) => (
+                          <option key={`commesse-andamento-anno-${year}`} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-commessa-search">Ricerca Commessa</label>
+                      <div className="commessa-inline-controls">
+                        <input
+                          id="commesse-andamento-mensile-commessa-search"
+                          type="search"
+                          placeholder="Cerca..."
+                          value={commesseAndamentoMensileCommessaSearch}
+                          onChange={(event) => setCommesseAndamentoMensileCommessaSearch(event.target.value)}
+                        />
+                        <select
+                          id="commesse-andamento-mensile-commessa"
+                          value={commesseAndamentoMensileCommessa}
+                          onChange={(event) => setCommesseAndamentoMensileCommessa(event.target.value)}
+                        >
+                          <option value="">Tutte</option>
+                          {commesseAndamentoMensileCommessaOptions.map((option) => (
+                            <option key={`commesse-andamento-commessa-${option.value}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-tipologia">Tipologia Commessa</label>
+                      <select
+                        id="commesse-andamento-mensile-tipologia"
+                        value={commesseAndamentoMensileTipologia}
+                        onChange={(event) => setCommesseAndamentoMensileTipologia(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseAndamentoMensileTipologiaOptions.map((value) => (
+                          <option key={`commesse-andamento-tipologia-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-stato">Stato</label>
+                      <select
+                        id="commesse-andamento-mensile-stato"
+                        value={commesseAndamentoMensileStato}
+                        onChange={(event) => setCommesseAndamentoMensileStato(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {commesseAndamentoMensileStatoOptions.map((value) => (
+                          <option key={`commesse-andamento-stato-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-macro">Macrotipologia</label>
+                      <select
+                        id="commesse-andamento-mensile-macro"
+                        value={commesseAndamentoMensileMacroTipologia}
+                        onChange={(event) => setCommesseAndamentoMensileMacroTipologia(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseAndamentoMensileMacroTipologiaOptions.map((value) => (
+                          <option key={`commesse-andamento-macro-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-bu">Business Unit</label>
+                      <select
+                        id="commesse-andamento-mensile-bu"
+                        value={commesseAndamentoMensileBusinessUnit}
+                        onChange={(event) => setCommesseAndamentoMensileBusinessUnit(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseAndamentoMensileBusinessUnitOptions.map((value) => (
+                          <option key={`commesse-andamento-bu-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-controparte">Controparte</label>
+                      <select
+                        id="commesse-andamento-mensile-controparte"
+                        value={commesseAndamentoMensileControparte}
+                        onChange={(event) => setCommesseAndamentoMensileControparte(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseAndamentoMensileControparteOptions.map((value) => (
+                          <option key={`commesse-andamento-controparte-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-rcc">RCC</label>
+                      <select
+                        id="commesse-andamento-mensile-rcc"
+                        value={commesseAndamentoMensileRcc}
+                        onChange={(event) => setCommesseAndamentoMensileRcc(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {commesseAndamentoMensileRccSelectItems.map((option) => (
+                          <option key={`commesse-andamento-rcc-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-pm">PM</label>
+                      <select
+                        id="commesse-andamento-mensile-pm"
+                        value={commesseAndamentoMensilePm}
+                        onChange={(event) => setCommesseAndamentoMensilePm(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {commesseAndamentoMensilePmSelectItems.map((option) => (
+                          <option key={`commesse-andamento-pm-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="inline-actions">
                   <button type="submit" disabled={analisiRccLoading}>
                     {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
                   </button>
                   <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={resetAnalisiFilters}
+                    disabled={analisiRccLoading}
+                  >
+                    Reset
+                  </button>
+                  <button
                     type="button"
                     className="ghost-button"
                     onClick={exportAnalisiExcel}
@@ -11655,6 +12377,30 @@ function App() {
                       {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
                     </button>
                   )}
+                  <label className="checkbox-label checkbox-label-inline analisi-aggrega-inline" htmlFor="commesse-andamento-mensile-aggrega">
+                    <input
+                      id="commesse-andamento-mensile-aggrega"
+                      type="checkbox"
+                      checked={commesseAndamentoMensileAggrega}
+                      onChange={(event) => setCommesseAndamentoMensileAggrega(event.target.checked)}
+                    />
+                    Aggrega fino a
+                  </label>
+                  <label className="analisi-aggrega-mese-inline" htmlFor="commesse-andamento-mensile-mese">
+                    <span>Mese</span>
+                    <select
+                      id="commesse-andamento-mensile-mese"
+                      value={(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString()}
+                      disabled={!commesseAndamentoMensileAggrega}
+                      onChange={(event) => setCommesseAndamentoMensileMese(event.target.value)}
+                    >
+                      {commesseAndamentoMensileMeseOptions.map((month) => (
+                        <option key={`commesse-andamento-mese-${month}`} value={month.toString()}>
+                          {formatReferenceMonthLabel(month)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <span className="status-badge neutral sintesi-inline-count-badge">
                     {analisiPageCountLabel}
                   </span>
@@ -11663,12 +12409,9 @@ function App() {
               <div className="sintesi-toolbar-row">
                 <p className="sintesi-toolbar-message">
                   {commesseAndamentoMensileData
-                    ? `Andamento mensile caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}).`
+                    ? `Andamento mensile ${commesseAndamentoMensileAggrega ? 'aggregato fino a' : 'dettaglio mensile'} caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}${commesseAndamentoMensileAggrega ? `, mese: ${(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString().padStart(2, '0')}` : ''}).`
                     : statusMessageVisible}
                 </p>
-                <span className="status-badge neutral">
-                  {commesseAndamentoMensileRows.length} righe
-                </span>
               </div>
             </section>
 
@@ -11704,17 +12447,16 @@ function App() {
                         <th className="num">Ricavi</th>
                         <th className="num">Costi</th>
                         <th className="num">Ricavi Maturati</th>
+                        <th className="num">Utile Specifico</th>
                         <th className="num">Ore Future</th>
                         <th className="num">Costo Personale Futuro</th>
-                        <th className="num">Costo Generale Ribaltato</th>
-                        <th className="num">Utile Specifico</th>
                       </tr>
                     </thead>
                     <tbody>
                       {commesseAndamentoMensileRows.map((row, index) => (
                         <tr key={`commesse-andamento-row-${row.annoCompetenza}-${row.meseCompetenza}-${row.commessa}-${index}`}>
                           <td>{row.annoCompetenza}</td>
-                          <td>{row.meseCompetenza.toString().padStart(2, '0')}</td>
+                          <td>{row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : '-'}</td>
                           <td>
                             {row.commessa.trim()
                               ? (
@@ -11744,10 +12486,9 @@ function App() {
                           <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
                           <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
                           <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
+                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                           <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
                           <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
-                          <td className={`num ${row.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoGeneraleRibaltato)}</td>
-                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -11759,12 +12500,125 @@ function App() {
                         <td className={`num ${commesseAndamentoMensileTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricavi)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costi)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricaviMaturati)}</td>
+                        <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.oreFuture)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.costoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoGeneraleRibaltato)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
                       </tr>
                     </tfoot>
+                  </table>
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+
+        {activePage === 'commesse-anomale' && (
+          <section className="panel sintesi-page analisi-rcc-page">
+            <header className="panel-header">
+              <h2>Analisi Commesse - Commesse Anomale</h2>
+              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
+            </header>
+
+            <section className="panel sintesi-filter-panel">
+              <form
+                className={`analisi-rcc-toolbar ${analisiRccLoading ? 'is-filter-loading' : ''}`}
+                onSubmit={handleAnalisiSubmit}
+              >
+                <div className="inline-actions">
+                  <button type="submit" disabled={analisiRccLoading}>
+                    {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={resetAnalisiFilters}
+                    disabled={analisiRccLoading}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={exportAnalisiExcel}
+                    disabled={analisiRccLoading || commesseAnomaleRows.length === 0}
+                  >
+                    Export Excel
+                  </button>
+                  <span className="status-badge neutral sintesi-inline-count-badge">
+                    {analisiPageCountLabel}
+                  </span>
+                </div>
+              </form>
+              <div className="sintesi-toolbar-row">
+                <p className="sintesi-toolbar-message">
+                  {commesseAnomaleData
+                    ? `Commesse anomale caricate: ${commesseAnomaleRows.length} righe.`
+                    : statusMessageVisible}
+                </p>
+              </div>
+            </section>
+
+            <section className="panel analisi-rcc-grid-card">
+              {commesseAnomaleRows.length === 0 && !analisiRccLoading && (
+                <p className="empty-state">Nessuna commessa anomala disponibile per i criteri correnti.</p>
+              )}
+
+              {commesseAnomaleRows.length > 0 && (
+                <div className="bonifici-table-wrap bonifici-table-wrap-main">
+                  <table className="bonifici-table">
+                    <thead>
+                      <tr>
+                        <th>Anomalia</th>
+                        <th>Dettaglio anomalia</th>
+                        <th>Commessa</th>
+                        <th>Descrizione</th>
+                        <th>Tipologia</th>
+                        <th>Stato</th>
+                        <th>Macrotipologia</th>
+                        <th>Controparte</th>
+                        <th>Business Unit</th>
+                        <th>RCC</th>
+                        <th>PM</th>
+                        <th className="num">Ore Lavorate</th>
+                        <th className="num">Costo Personale</th>
+                        <th className="num">Ricavi</th>
+                        <th className="num">Costi</th>
+                        <th className="num">Ricavi Futuri</th>
+                        <th className="num">Costi Futuri</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commesseAnomaleRows.map((row) => (
+                        <tr key={`${row.idCommessa}-${row.tipoAnomalia}-${row.dettaglioAnomalia}`}>
+                          <td>{row.tipoAnomalia}</td>
+                          <td>{row.dettaglioAnomalia}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="inline-link-button"
+                              onClick={() => openCommessaDetail(row.commessa)}
+                              title={`Apri dettaglio commessa ${row.commessa}`}
+                            >
+                              {row.commessa}
+                            </button>
+                          </td>
+                          <td>{row.descrizioneCommessa}</td>
+                          <td>{row.tipologiaCommessa}</td>
+                          <td>{row.stato}</td>
+                          <td>{row.macroTipologia}</td>
+                          <td>{row.controparte}</td>
+                          <td>{row.businessUnit}</td>
+                          <td>{row.rcc}</td>
+                          <td>{row.pm}</td>
+                          <td className="num">{formatNumber(row.oreLavorate)}</td>
+                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
+                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
+                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
+                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
+                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               )}
@@ -11780,7 +12634,11 @@ function App() {
             </header>
 
             <section className="panel sintesi-filter-panel">
-              <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
+              <form
+                id="commesse-dati-annuali-aggregati-form"
+                className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`}
+                onSubmit={handleAnalisiSubmit}
+              >
                 {!commesseDatiAnnualiFiltersCollapsed && (
                   <>
                     <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-anni">
@@ -11819,39 +12677,68 @@ function App() {
                         ))}
                       </select>
                     </label>
+                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-tipologia">
+                      <span>Tipologia Commessa</span>
+                      <select
+                        id="commesse-dati-annuali-tipologia"
+                        value={commesseDatiAnnualiTipologia}
+                        onChange={(event) => setCommesseDatiAnnualiTipologia(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseDatiAnnualiTipologiaOptions.map((option) => (
+                          <option key={`commesse-dati-annuali-tipologia-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-bu">
+                      <span>BU</span>
+                      <select
+                        id="commesse-dati-annuali-bu"
+                        value={commesseDatiAnnualiBusinessUnit}
+                        onChange={(event) => setCommesseDatiAnnualiBusinessUnit(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {commesseDatiAnnualiBusinessUnitOptions.map((option) => (
+                          <option key={`commesse-dati-annuali-bu-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-rcc">
+                      <span>RCC</span>
+                      <select
+                        id="commesse-dati-annuali-rcc"
+                        value={commesseDatiAnnualiRcc}
+                        onChange={(event) => setCommesseDatiAnnualiRcc(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {commesseDatiAnnualiRccOptions.map((option) => (
+                          <option key={`commesse-dati-annuali-rcc-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-pm">
+                      <span>PM</span>
+                      <select
+                        id="commesse-dati-annuali-pm"
+                        value={commesseDatiAnnualiPm}
+                        onChange={(event) => setCommesseDatiAnnualiPm(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {commesseDatiAnnualiPmOptions.map((option) => (
+                          <option key={`commesse-dati-annuali-pm-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </>
                 )}
-                <div className="inline-actions">
-                  <button type="submit" disabled={analisiRccLoading}>
-                    {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={resetAnalisiFilters}
-                    disabled={analisiRccLoading}
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={exportCommesseDatiAnnualiExcel}
-                    disabled={analisiRccLoading || commesseDatiAnnualiPivotRows.length === 0}
-                  >
-                    Export Excel
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => setCommesseDatiAnnualiFiltersCollapsed((current) => !current)}
-                  >
-                    {commesseDatiAnnualiFiltersCollapsed ? 'Mostra filtri e aggregazione' : 'Nascondi filtri e aggregazione'}
-                  </button>
-                  <span className="status-badge neutral sintesi-inline-count-badge">
-                    {commesseDatiAnnualiPivotRows.length} righe
-                  </span>
-                </div>
               </form>
               <div className="sintesi-toolbar-row">
                 <p className="sintesi-toolbar-message">
@@ -11937,6 +12824,50 @@ function App() {
               </div>
             </section>
             )}
+            <div className="inline-actions">
+              <button
+                type="submit"
+                form="commesse-dati-annuali-aggregati-form"
+                disabled={analisiRccLoading}
+              >
+                {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={resetAnalisiFilters}
+                disabled={analisiRccLoading}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={exportCommesseDatiAnnualiExcel}
+                disabled={analisiRccLoading || commesseDatiAnnualiPivotRows.length === 0}
+              >
+                Export Excel
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setCommesseDatiAnnualiFiltersCollapsed((current) => !current)}
+              >
+                {commesseDatiAnnualiFiltersCollapsed ? 'Mostra filtri e aggregazione' : 'Nascondi filtri e aggregazione'}
+              </button>
+              <label className="checkbox-label checkbox-label-inline" htmlFor="commesse-dati-annuali-colonne-aggregazione">
+                <input
+                  id="commesse-dati-annuali-colonne-aggregazione"
+                  type="checkbox"
+                  checked={commesseDatiAnnualiColonneAggregazione}
+                  onChange={(event) => setCommesseDatiAnnualiColonneAggregazione(event.target.checked)}
+                />
+                Colonne aggregazioni
+              </label>
+              <span className="status-badge neutral sintesi-inline-count-badge">
+                {commesseDatiAnnualiPivotRows.length} righe
+              </span>
+            </div>
 
             <section className="panel analisi-rcc-grid-card">
               <header className="panel-header">
@@ -11952,7 +12883,11 @@ function App() {
                   <table className="bonifici-table">
                     <thead>
                       <tr>
-                        <th>Etichette di riga</th>
+                        {commesseDatiAnnualiUseAggregationColumns
+                          ? commesseDatiAnnualiSelectedFieldOptions.map((option) => (
+                            <th key={`dati-annuali-col-${option.key}`}>{option.label}</th>
+                          ))
+                          : <th>Etichette di riga</th>}
                         <th className="num">Numero Commesse</th>
                         <th className="num">Ore Lavorate</th>
                         <th className="num">Costo Personale</th>
@@ -11969,11 +12904,21 @@ function App() {
                           key={row.key}
                           className={row.kind === 'totale' ? 'table-totals-row' : 'table-group-summary-row'}
                         >
-                          <td className="table-group-summary-label">
-                            <span className={`dati-annuali-pivot-label level-${Math.min(row.level, 6)}`}>
-                              {row.label}
-                            </span>
-                          </td>
+                          {commesseDatiAnnualiUseAggregationColumns
+                            ? commesseDatiAnnualiSelectedFieldOptions.map((option, index) => (
+                              <td key={`${row.key}-${option.key}`} className="table-group-summary-label">
+                                {row.kind === 'totale'
+                                  ? (index === 0 ? row.label : '')
+                                  : (row.groupValues[option.key] ?? '')}
+                              </td>
+                            ))
+                            : (
+                              <td className="table-group-summary-label">
+                                <span className={`dati-annuali-pivot-label level-${Math.min(row.level, 6)}`}>
+                                  {row.label}
+                                </span>
+                              </td>
+                            )}
                           <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
                           <td className="num">{formatNumber(row.oreLavorate)}</td>
                           <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
@@ -15526,6 +16471,8 @@ function App() {
                         <th>Business Unit</th>
                         <th>RCC</th>
                         <th>PM</th>
+                        <th>Data apertura</th>
+                        <th>Data chiusura</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -15540,6 +16487,8 @@ function App() {
                         <td>{detailAnagrafica.businessUnit}</td>
                         <td>{detailAnagrafica.rcc}</td>
                         <td>{detailAnagrafica.pm}</td>
+                        <td>{formatDate(detailAnagrafica.dataApertura)}</td>
+                        <td>{formatDate(detailAnagrafica.dataChiusura)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -15795,7 +16744,11 @@ function App() {
                     <table className="bonifici-table detail-movimenti-table">
                       <thead>
                         <tr>
-                          <th>Data</th>
+                          <th>
+                            <button type="button" className="sort-header-btn" onClick={toggleDetailVenditeDateSort}>
+                              Data <span className="sort-indicator">{detailVenditeDateSortIndicator}</span>
+                            </button>
+                          </th>
                           <th className="num">Importo</th>
                           <th>Documento</th>
                           <th>Descrizione</th>
@@ -15844,7 +16797,11 @@ function App() {
                     <table className="bonifici-table detail-movimenti-table">
                       <thead>
                         <tr>
-                          <th>Data</th>
+                          <th>
+                            <button type="button" className="sort-header-btn" onClick={toggleDetailAcquistiDateSort}>
+                              Data <span className="sort-indicator">{detailAcquistiDateSortIndicator}</span>
+                            </button>
+                          </th>
                           <th className="num">Importo</th>
                           <th>Documento</th>
                           <th>Descrizione</th>
@@ -16055,132 +17012,174 @@ function App() {
 
                   {detailRequisitiOreRows.length > 0 && (
                     <>
-                      <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                        <table className="bonifici-table detail-requisiti-table">
-                          <thead>
-                            <tr>
-                              <th>Requisito</th>
-                              <th className="num">Ore Previste</th>
-                              <th className="num">Ore Spese</th>
-                              <th className="num">Ore Restanti</th>
-                              <th className="num">% Avanzamento</th>
-                              <th>Dettaglio</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {detailRequisitiOreRows.map((row) => {
-                              const isExpanded = selectedRequisitoId === row.idRequisito
-                              const risorseRows = isExpanded
-                                ? detailRequisitiOreRisorseRows.filter((item) => item.idRequisito === row.idRequisito)
-                                : []
-                              const risorseTotals = risorseRows.reduce((acc, item) => ({
-                                orePreviste: acc.orePreviste + item.orePreviste,
-                                oreSpese: acc.oreSpese + item.oreSpese,
-                                oreRestanti: acc.oreRestanti + item.oreRestanti,
-                              }), {
-                                orePreviste: 0,
-                                oreSpese: 0,
-                                oreRestanti: 0,
-                              })
+                      <div className="detail-requisiti-split">
+                        <div className="detail-requisiti-col">
+                          <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                            <table className="bonifici-table detail-requisiti-table">
+                              <thead>
+                                <tr>
+                                  <th>Requisito</th>
+                                  <th className="num">Durata requisito</th>
+                                  <th className="num">Ore Previste</th>
+                                  <th className="num">Ore Spese</th>
+                                  <th className="num">Ore Restanti</th>
+                                  <th className="num">% Avanzamento</th>
+                                  <th>Dettaglio</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {detailRequisitiOreRows.map((row) => {
+                                  const isExpanded = selectedRequisitoId === row.idRequisito
+                                  const risorseRows = isExpanded
+                                    ? detailRequisitiOreRisorseRows.filter((item) => item.idRequisito === row.idRequisito)
+                                    : []
+                                  const risorseTotals = risorseRows.reduce((acc, item) => ({
+                                    orePreviste: acc.orePreviste + item.orePreviste,
+                                    oreSpese: acc.oreSpese + item.oreSpese,
+                                    oreRestanti: acc.oreRestanti + item.oreRestanti,
+                                  }), {
+                                    orePreviste: 0,
+                                    oreSpese: 0,
+                                    oreRestanti: 0,
+                                  })
 
-                              return (
-                                <Fragment key={`requisito-${row.idRequisito}`}>
+                                  return (
+                                    <Fragment key={`requisito-${row.idRequisito}`}>
+                                      <tr>
+                                        <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
+                                        <td className="num">{formatNumber(row.durataRequisito)}</td>
+                                        <td className="num">{formatNumber(row.orePreviste)}</td>
+                                        <td className="num">{formatNumber(row.oreSpese)}</td>
+                                        <td className={`num ${row.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                          {formatNumber(row.oreRestanti)}
+                                        </td>
+                                        <td className="num">{formatPercentRatio(row.percentualeAvanzamento)}</td>
+                                        <td>
+                                          <button
+                                            type="button"
+                                            className="ghost-button detail-inline-action"
+                                            onClick={() => toggleRequisitoDettaglio(row.idRequisito)}
+                                          >
+                                            {isExpanded ? 'Nascondi' : 'Vedi'}
+                                          </button>
+                                        </td>
+                                      </tr>
+
+                                      {isExpanded && (
+                                        <tr className="detail-requisito-expand-row">
+                                          <td colSpan={7}>
+                                            {risorseRows.length === 0 && (
+                                              <p className="empty-state">Nessun dettaglio risorsa disponibile per il requisito selezionato.</p>
+                                            )}
+                                            {risorseRows.length > 0 && (
+                                              <div className="detail-requisiti-dettaglio">
+                                                <table className="bonifici-table detail-requisiti-table detail-requisiti-table-inline">
+                                                  <thead>
+                                                    <tr>
+                                                      <th>Risorsa</th>
+                                                      <th className="num">Durata requisito</th>
+                                                      <th className="num">Ore Previste</th>
+                                                      <th className="num">Ore Spese</th>
+                                                      <th className="num">Ore Restanti</th>
+                                                      <th className="num">% Avanzamento</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {risorseRows.map((item) => (
+                                                      <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`}>
+                                                        <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
+                                                        <td className="num">{formatNumber(item.durataRequisito)}</td>
+                                                        <td className="num">{formatNumber(item.orePreviste)}</td>
+                                                        <td className="num">{formatNumber(item.oreSpese)}</td>
+                                                        <td className={`num ${item.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                                          {formatNumber(item.oreRestanti)}
+                                                        </td>
+                                                        <td className="num">{formatPercentRatio(item.percentualeAvanzamento)}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                  <tfoot>
+                                                    <tr className="table-totals-row">
+                                                      <td className="table-totals-label">Totale requisito</td>
+                                                      <td className="num">{formatNumber(row.durataRequisito)}</td>
+                                                      <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
+                                                      <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
+                                                      <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                                        {formatNumber(risorseTotals.oreRestanti)}
+                                                      </td>
+                                                      <td className="num">
+                                                        {formatPercentRatio(
+                                                          (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito) > 0
+                                                            ? risorseTotals.oreSpese / (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito)
+                                                            : 0,
+                                                        )}
+                                                      </td>
+                                                    </tr>
+                                                  </tfoot>
+                                                </table>
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </Fragment>
+                                  )
+                                })}
+                              </tbody>
+                              <tfoot>
+                                <tr className="table-totals-row">
+                                  <td className="table-totals-label">Totale</td>
+                                  <td className="num">{formatNumber(detailRequisitiOreTotals.durataRequisito)}</td>
+                                  <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
+                                  <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
+                                  <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                    {formatNumber(detailRequisitiOreTotals.oreRestanti)}
+                                  </td>
+                                  <td className="num">
+                                    {formatPercentRatio(
+                                      detailRequisitiOreTotals.oreRiferimento > 0
+                                        ? detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.oreRiferimento
+                                        : 0,
+                                    )}
+                                  </td>
+                                  <td />
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div className="detail-requisiti-col">
+                          <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                            <table className="bonifici-table detail-requisiti-table">
+                              <thead>
+                                <tr>
+                                  <th>Risorsa</th>
+                                  <th className="num">Ore spese totali</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {detailOreSpeseRisorseRows.length === 0 && (
                                   <tr>
-                                    <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
-                                    <td className="num">{formatNumber(row.orePreviste)}</td>
-                                    <td className="num">{formatNumber(row.oreSpese)}</td>
-                                    <td className={`num ${row.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                      {formatNumber(row.oreRestanti)}
-                                    </td>
-                                    <td className="num">{formatPercentRatio(row.percentualeAvanzamento)}</td>
-                                    <td>
-                                      <button
-                                        type="button"
-                                        className="ghost-button detail-inline-action"
-                                        onClick={() => toggleRequisitoDettaglio(row.idRequisito)}
-                                      >
-                                        {isExpanded ? 'Nascondi' : 'Vedi'}
-                                      </button>
-                                    </td>
+                                    <td colSpan={2} className="empty-state">Nessun dato ore spese per risorsa.</td>
                                   </tr>
-
-                                  {isExpanded && (
-                                    <tr className="detail-requisito-expand-row">
-                                      <td colSpan={6}>
-                                        {risorseRows.length === 0 && (
-                                          <p className="empty-state">Nessun dettaglio risorsa disponibile per il requisito selezionato.</p>
-                                        )}
-                                        {risorseRows.length > 0 && (
-                                          <div className="detail-requisiti-dettaglio">
-                                            <table className="bonifici-table detail-requisiti-table detail-requisiti-table-inline">
-                                              <thead>
-                                                <tr>
-                                                  <th>Risorsa</th>
-                                                  <th className="num">Ore Previste</th>
-                                                  <th className="num">Ore Spese</th>
-                                                  <th className="num">Ore Restanti</th>
-                                                  <th className="num">% Avanzamento</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {risorseRows.map((item) => (
-                                                  <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`}>
-                                                    <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
-                                                    <td className="num">{formatNumber(item.orePreviste)}</td>
-                                                    <td className="num">{formatNumber(item.oreSpese)}</td>
-                                                    <td className={`num ${item.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                      {formatNumber(item.oreRestanti)}
-                                                    </td>
-                                                    <td className="num">{formatPercentRatio(item.percentualeAvanzamento)}</td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                              <tfoot>
-                                                <tr className="table-totals-row">
-                                                  <td className="table-totals-label">Totale requisito</td>
-                                                  <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
-                                                  <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
-                                                  <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                    {formatNumber(risorseTotals.oreRestanti)}
-                                                  </td>
-                                                  <td className="num">
-                                                    {formatPercentRatio(
-                                                      risorseTotals.orePreviste > 0
-                                                        ? risorseTotals.oreSpese / risorseTotals.orePreviste
-                                                        : 0,
-                                                    )}
-                                                  </td>
-                                                </tr>
-                                              </tfoot>
-                                            </table>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  )}
-                                </Fragment>
-                              )
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="table-totals-row">
-                              <td className="table-totals-label">Totale</td>
-                              <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
-                              <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
-                              <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(detailRequisitiOreTotals.oreRestanti)}
-                              </td>
-                              <td className="num">
-                                {formatPercentRatio(
-                                  detailRequisitiOreTotals.orePreviste > 0
-                                    ? detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.orePreviste
-                                    : 0,
                                 )}
-                              </td>
-                              <td />
-                            </tr>
-                          </tfoot>
-                        </table>
+                                {detailOreSpeseRisorseRows.map((row) => (
+                                  <tr key={`ore-spese-risorsa-${row.idRisorsa}`}>
+                                    <td>{row.nomeRisorsa || `ID ${row.idRisorsa}`}</td>
+                                    <td className={`num ${row.oreSpeseTotali < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreSpeseTotali)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="table-totals-row">
+                                  <td className="table-totals-label">Totale</td>
+                                  <td className={`num ${detailOreSpeseRisorseTotal < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreSpeseRisorseTotal)}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </div>
                       </div>
                     </>
                   )}

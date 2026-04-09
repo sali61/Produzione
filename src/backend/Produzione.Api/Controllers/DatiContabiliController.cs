@@ -83,8 +83,8 @@ public sealed class DatiContabiliController(
                 pm,
                 take,
                 false,
-                soloScadute,
-                provenienza);
+                SoloScadute: soloScadute,
+                Provenienza: provenienza);
 
             var rows = await commesseFilterRepository.SearchVenditeAsync(
                 contextData.EffectiveUser,
@@ -200,8 +200,8 @@ public sealed class DatiContabiliController(
                 pm,
                 take,
                 false,
-                soloScadute,
-                provenienza);
+                SoloScadute: soloScadute,
+                Provenienza: provenienza);
 
             var rows = await commesseFilterRepository.SearchAcquistiAsync(
                 contextData.EffectiveUser,

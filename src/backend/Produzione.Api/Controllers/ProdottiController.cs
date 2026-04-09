@@ -48,7 +48,21 @@ public sealed class ProdottiController(
             {
                 Profile = profileResult,
                 Count = commesse.Count,
-                Items = commesse.Select(value => new CommessaOptionDto { Commessa = value }).ToArray()
+                Items = commesse
+                    .Select(item =>
+                    {
+                        var descrizione = item.DescrizioneCommessa?.Trim() ?? string.Empty;
+                        var commessa = item.Commessa?.Trim() ?? string.Empty;
+                        return new CommessaOptionDto
+                        {
+                            Commessa = commessa,
+                            DescrizioneCommessa = descrizione,
+                            Label = string.IsNullOrWhiteSpace(descrizione)
+                                ? commessa
+                                : $"{commessa} - {descrizione}"
+                        };
+                    })
+                    .ToArray()
             };
 
             return Ok(response);
@@ -141,6 +155,7 @@ public sealed class ProdottiController(
         [FromQuery] bool aggrega = false,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] int? attiveDalAnno = null,
         [FromQuery] string? commessa = null,
         [FromQuery] string? tipologiaCommessa = null,
         [FromQuery] string? stato = null,
@@ -183,7 +198,8 @@ public sealed class ProdottiController(
                 rcc,
                 pm,
                 take,
-                aggrega);
+                aggrega,
+                AttiveDalAnno: attiveDalAnno);
 
             var rows = await commesseFilterRepository.SearchProdottiSintesiAsync(
                 contextData.EffectiveUser,

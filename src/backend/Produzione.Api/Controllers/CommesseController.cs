@@ -70,7 +70,21 @@ public sealed class CommesseController(
             {
                 Profile = profileResult,
                 Count = commesse.Count,
-                Items = commesse.Select(value => new CommessaOptionDto { Commessa = value }).ToArray()
+                Items = commesse
+                    .Select(item =>
+                    {
+                        var descrizione = item.DescrizioneCommessa?.Trim() ?? string.Empty;
+                        var commessa = item.Commessa?.Trim() ?? string.Empty;
+                        return new CommessaOptionDto
+                        {
+                            Commessa = commessa,
+                            DescrizioneCommessa = descrizione,
+                            Label = string.IsNullOrWhiteSpace(descrizione)
+                                ? commessa
+                                : $"{commessa} - {descrizione}"
+                        };
+                    })
+                    .ToArray()
             };
 
             return Ok(response);
@@ -163,6 +177,7 @@ public sealed class CommesseController(
         [FromQuery] bool aggrega = false,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] int? attiveDalAnno = null,
         [FromQuery] string? commessa = null,
         [FromQuery] string? tipologiaCommessa = null,
         [FromQuery] string? stato = null,
@@ -205,7 +220,8 @@ public sealed class CommesseController(
                 rcc,
                 pm,
                 take,
-                aggrega);
+                aggrega,
+                AttiveDalAnno: attiveDalAnno);
 
             var rows = await commesseFilterRepository.SearchSintesiAsync(
                 contextData.EffectiveUser,
@@ -272,6 +288,7 @@ public sealed class CommesseController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> AndamentoMensile(
         [FromQuery] string profile,
+        [FromQuery] bool aggrega = false,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
         [FromQuery] int? mese = null,
@@ -317,7 +334,7 @@ public sealed class CommesseController(
                 rcc,
                 pm,
                 take,
-                false,
+                aggrega,
                 Mese: mese);
 
             var rows = await commesseFilterRepository.SearchAndamentoMensileAsync(
@@ -781,6 +798,80 @@ public sealed class CommesseController(
         }
     }
 
+    [HttpGet("anomale")]
+    [ProducesResponseType(typeof(CommesseAnomaleResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Anomale(
+        [FromQuery] string profile,
+        [FromQuery] int take = 5000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var rows = await commesseFilterRepository.SearchCommesseAnomaleAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                Math.Clamp(take, 1, 100000),
+                cancellationToken);
+
+            var response = new CommesseAnomaleResponseDto
+            {
+                Profile = profileResult,
+                Count = rows.Count,
+                Items = rows
+                    .Select(row => new CommessaAnomalaRowDto
+                    {
+                        TipoAnomalia = row.TipoAnomalia,
+                        DettaglioAnomalia = row.DettaglioAnomalia,
+                        IdCommessa = row.IdCommessa,
+                        Commessa = row.Commessa,
+                        DescrizioneCommessa = row.DescrizioneCommessa,
+                        TipologiaCommessa = row.TipologiaCommessa,
+                        Stato = row.Stato,
+                        MacroTipologia = row.MacroTipologia,
+                        Controparte = row.Controparte,
+                        BusinessUnit = row.BusinessUnit,
+                        Rcc = row.Rcc,
+                        Pm = row.Pm,
+                        OreLavorate = row.OreLavorate,
+                        CostoPersonale = row.CostoPersonale,
+                        Ricavi = row.Ricavi,
+                        Costi = row.Costi,
+                        RicaviFuturi = row.RicaviFuturi,
+                        CostiFuturi = row.CostiFuturi
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/anomale.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/anomale.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero delle commesse anomale."
+            });
+        }
+    }
+
     [HttpGet("dettaglio")]
     [ProducesResponseType(typeof(CommesseDettaglioResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -932,7 +1023,7 @@ public sealed class CommesseController(
                 dataFineConsuntivoAttivita,
                 cancellationToken);
 
-            var orePrevisteTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OrePreviste);
+            var orePrevisteTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OrePreviste > 0m ? item.OrePreviste : item.DurataRequisito);
             var oreSpeseTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OreSpese);
             var percentualeRaggiuntoProposta = orePrevisteTotali <= 0
                 ? 0m
@@ -955,7 +1046,9 @@ public sealed class CommesseController(
                     Controparte = anagraficaFromRepository?.Controparte ?? anagraficaFromRows?.Controparte ?? string.Empty,
                     BusinessUnit = anagraficaFromRows?.BusinessUnit ?? anagraficaFromRepository?.BusinessUnit ?? string.Empty,
                     Rcc = anagraficaFromRows?.Rcc ?? anagraficaFromRepository?.Rcc ?? string.Empty,
-                    Pm = anagraficaFromRows?.Pm ?? anagraficaFromRepository?.Pm ?? string.Empty
+                    Pm = anagraficaFromRows?.Pm ?? anagraficaFromRepository?.Pm ?? string.Empty,
+                    DataApertura = anagraficaFromRepository?.DataApertura,
+                    DataChiusura = anagraficaFromRepository?.DataChiusura
                 },
                 AnniStorici = anniStorici,
                 AnnoCorrenteProgressivo = aggregatoAnnoCorrente,
@@ -1084,6 +1177,7 @@ public sealed class CommesseController(
                     {
                         IdRequisito = item.IdRequisito,
                         Requisito = item.Requisito,
+                        DurataRequisito = item.DurataRequisito,
                         OrePreviste = item.OrePreviste,
                         OreSpese = item.OreSpese,
                         OreRestanti = item.OreRestanti,
@@ -1097,10 +1191,19 @@ public sealed class CommesseController(
                         Requisito = item.Requisito,
                         IdRisorsa = item.IdRisorsa,
                         NomeRisorsa = item.NomeRisorsa,
+                        DurataRequisito = item.DurataRequisito,
                         OrePreviste = item.OrePreviste,
                         OreSpese = item.OreSpese,
                         OreRestanti = item.OreRestanti,
                         PercentualeAvanzamento = item.PercentualeAvanzamento
+                    })
+                    .ToArray(),
+                OreSpeseRisorse = requisitiOreDettaglio.OreSpeseRisorse
+                    .Select(item => new CommessaOreSpeseRisorsaDto
+                    {
+                        IdRisorsa = item.IdRisorsa,
+                        NomeRisorsa = item.NomeRisorsa,
+                        OreSpeseTotali = item.OreSpeseTotali
                     })
                     .ToArray()
             };

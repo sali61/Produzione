@@ -10,4 +10,6 @@ public sealed record CommessaAnagraficaRow(
     string Controparte,
     string BusinessUnit,
     string Rcc,
-    string Pm);
+    string Pm,
+    DateTime? DataApertura,
+    DateTime? DataChiusura);

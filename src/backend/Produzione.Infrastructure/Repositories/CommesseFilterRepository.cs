@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.Data.SqlClient;
 using Produzione.Application.Abstractions.Persistence;
 using Produzione.Application.Common.Profiles;
@@ -36,9 +36,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         """;
 
     private const string CommesseBaseQuery = """
-        select distinct top (@Take) cast(c.COMMESSA as nvarchar(128)) as Commessa
+        select top (@Take)
+            cast(ltrim(rtrim(isnull(c.COMMESSA, ''))) as nvarchar(128)) as Commessa,
+            cast(max(ltrim(rtrim(isnull(c.descrizione, '')))) as nvarchar(512)) as DescrizioneCommessa
         from cdg_qryComessaPmRcc c
-        where (@Search is null or c.COMMESSA like '%' + @Search + '%')
+        where (
+                @Search is null
+                or c.COMMESSA like '%' + @Search + '%'
+                or c.descrizione like '%' + @Search + '%'
+              )
           and (
                 @IsGlobal = 1
                 or (@IsPm = 1 and (c.idpm = @IdRisorsa or upper(isnull(c.NetUserNamePM, '')) = @UsernameUpper))
@@ -50,13 +56,20 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                           and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
                     ))
               )
+        group by ltrim(rtrim(isnull(c.COMMESSA, '')))
         order by Commessa
         """;
 
     private const string ProdottiCommesseBaseQuery = """
-        select distinct top (@Take) cast(c.COMMESSA as nvarchar(128)) as Commessa
+        select top (@Take)
+            cast(ltrim(rtrim(isnull(c.COMMESSA, ''))) as nvarchar(128)) as Commessa,
+            cast(max(ltrim(rtrim(isnull(c.descrizione, '')))) as nvarchar(512)) as DescrizioneCommessa
         from cdg_qryComessaPmRcc c
-        where (@Search is null or c.COMMESSA like '%' + @Search + '%')
+        where (
+                @Search is null
+                or c.COMMESSA like '%' + @Search + '%'
+                or c.descrizione like '%' + @Search + '%'
+              )
           and isnull(ltrim(rtrim(c.Nomeprodotto)), '') <> ''
           and upper(ltrim(rtrim(c.Nomeprodotto))) not in ('NON DEFINITO', 'NON DEFINTO')
           and (
@@ -70,6 +83,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                           and ou.sigla collate DATABASE_DEFAULT = c.idBusinessUnit collate DATABASE_DEFAULT
                     ))
               )
+        group by ltrim(rtrim(isnull(c.COMMESSA, '')))
         order by Commessa
         """;
 
@@ -113,8 +127,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             cast(ltrim(rtrim(isnull(c.controparte, ''))) as nvarchar(256)) as Controparte,
             cast(ltrim(rtrim(isnull(c.idBusinessUnit, ''))) as nvarchar(128)) as BusinessUnit,
             cast(ltrim(rtrim(isnull(c.RCC, ''))) as nvarchar(256)) as Rcc,
-            cast(ltrim(rtrim(isnull(c.PM, ''))) as nvarchar(256)) as Pm
+            cast(ltrim(rtrim(isnull(c.PM, ''))) as nvarchar(256)) as Pm,
+            commessaDate.DataApertura,
+            commessaDate.DataChiusura
         from cdg_qryComessaPmRcc c
+        outer apply (
+            select top (1)
+                cast(cm.[data] as date) as DataApertura,
+                cast(cm.data_chiu as date) as DataChiusura
+            from dbo.commesse cm
+            where upper(ltrim(rtrim(isnull(cm.commessa, '')))) = @CommessaUpper
+            order by cm.id desc
+        ) commessaDate
         where upper(ltrim(rtrim(isnull(c.COMMESSA, '')))) = @CommessaUpper
           and (
                 @IsGlobal = 1
@@ -130,8 +154,114 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         order by c.data_commessa desc
         """;
 
+    private const string CommesseAnomaleQuery = """
+        DECLARE @Anomalie TABLE
+        (
+            TipoAnomalia NVARCHAR(200) NULL,
+            DettaglioAnomalia NVARCHAR(500) NULL,
+            IdCommessa INT NOT NULL,
+            Commessa NVARCHAR(128) NULL,
+            DescrizioneCommessa NVARCHAR(512) NULL,
+            TipologiaCommessa NVARCHAR(256) NULL,
+            Stato NVARCHAR(128) NULL,
+            MacroTipologia NVARCHAR(256) NULL,
+            Controparte NVARCHAR(256) NULL,
+            BusinessUnit NVARCHAR(128) NULL,
+            Rcc NVARCHAR(256) NULL,
+            Pm NVARCHAR(256) NULL,
+            OreLavorate DECIMAL(18, 2) NULL,
+            CostoPersonale DECIMAL(18, 2) NULL,
+            Ricavi DECIMAL(18, 2) NULL,
+            Costi DECIMAL(18, 2) NULL,
+            RicaviFuturi DECIMAL(18, 2) NULL,
+            CostiFuturi DECIMAL(18, 2) NULL,
+            IdPm INT NULL,
+            IdRcc INT NULL,
+            NetUserNamePmUpper NVARCHAR(256) NULL,
+            NetUserNameRccUpper NVARCHAR(256) NULL
+        );
+
+        INSERT INTO @Anomalie
+        (
+            TipoAnomalia,
+            DettaglioAnomalia,
+            IdCommessa,
+            Commessa,
+            DescrizioneCommessa,
+            TipologiaCommessa,
+            Stato,
+            MacroTipologia,
+            Controparte,
+            BusinessUnit,
+            Rcc,
+            Pm,
+            OreLavorate,
+            CostoPersonale,
+            Ricavi,
+            Costi,
+            RicaviFuturi,
+            CostiFuturi,
+            IdPm,
+            IdRcc,
+            NetUserNamePmUpper,
+            NetUserNameRccUpper
+        )
+        EXEC produzione.spCommesseAnomale;
+
+        SELECT TOP (@Take)
+            CAST(ISNULL(a.TipoAnomalia, N'') AS NVARCHAR(200)) AS TipoAnomalia,
+            CAST(ISNULL(a.DettaglioAnomalia, N'') AS NVARCHAR(500)) AS DettaglioAnomalia,
+            CAST(a.IdCommessa AS INT) AS IdCommessa,
+            CAST(ISNULL(a.Commessa, N'') AS NVARCHAR(128)) AS Commessa,
+            CAST(ISNULL(a.DescrizioneCommessa, N'') AS NVARCHAR(512)) AS DescrizioneCommessa,
+            CAST(ISNULL(a.TipologiaCommessa, N'') AS NVARCHAR(256)) AS TipologiaCommessa,
+            CAST(ISNULL(a.Stato, N'') AS NVARCHAR(128)) AS Stato,
+            CAST(ISNULL(a.MacroTipologia, N'') AS NVARCHAR(256)) AS MacroTipologia,
+            CAST(ISNULL(a.Controparte, N'') AS NVARCHAR(256)) AS Controparte,
+            CAST(ISNULL(a.BusinessUnit, N'') AS NVARCHAR(128)) AS BusinessUnit,
+            CAST(ISNULL(a.Rcc, N'') AS NVARCHAR(256)) AS Rcc,
+            CAST(ISNULL(a.Pm, N'') AS NVARCHAR(256)) AS Pm,
+            CAST(ISNULL(a.OreLavorate, 0) AS DECIMAL(18, 2)) AS OreLavorate,
+            CAST(ISNULL(a.CostoPersonale, 0) AS DECIMAL(18, 2)) AS CostoPersonale,
+            CAST(ISNULL(a.Ricavi, 0) AS DECIMAL(18, 2)) AS Ricavi,
+            CAST(ISNULL(a.Costi, 0) AS DECIMAL(18, 2)) AS Costi,
+            CAST(ISNULL(a.RicaviFuturi, 0) AS DECIMAL(18, 2)) AS RicaviFuturi,
+            CAST(ISNULL(a.CostiFuturi, 0) AS DECIMAL(18, 2)) AS CostiFuturi
+        FROM @Anomalie a
+        WHERE
+            @IsGlobal = 1
+            OR (
+                @IsPm = 1
+                AND (
+                    ISNULL(a.IdPm, 0) = @IdRisorsa
+                    OR UPPER(ISNULL(a.NetUserNamePmUpper, N'')) = @UsernameUpper
+                )
+            )
+            OR (
+                @IsRcc = 1
+                AND (
+                    ISNULL(a.IdRcc, 0) = @IdRisorsa
+                    OR UPPER(ISNULL(a.NetUserNameRccUpper, N'')) = @UsernameUpper
+                )
+            )
+            OR (
+                @IsResponsabileOu = 1
+                AND EXISTS
+                (
+                    SELECT 1
+                    FROM [orga].[vw_OU_OrganigrammaAncestor] ou
+                    WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
+                      AND ou.sigla COLLATE DATABASE_DEFAULT = a.BusinessUnit COLLATE DATABASE_DEFAULT
+                )
+            )
+        ORDER BY
+            ISNULL(a.TipoAnomalia, N''),
+            ISNULL(a.Commessa, N'');
+        """;
+
     private const string SintesiCommesseStoredProcedure = "produzione.spSintesiCommesse";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
+    private const string AndamentoMensileCommesseStoredProcedure = "produzione.spAndamentoMensileCommesse";
     private const string AnalisiCommesseStoredProcedure = "CDG.BIXeniaAnalisiCommesse";
     private const string RisorseLookupQuery = """
         SELECT
@@ -150,7 +280,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             SELECT TOP (1) c.id
             FROM dbo.commesse c
             WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
-            ORDER BY c.id
+            ORDER BY c.id DESC
         );
 
         IF @IdCommessa IS NULL
@@ -158,6 +288,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             SELECT TOP (0)
                 CAST(0 AS INT) AS IdRequisito,
                 CAST(N'' AS NVARCHAR(512)) AS Requisito,
+                CAST(0 AS DECIMAL(18, 2)) AS DurataRequisito,
                 CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
                 CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
                 CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
@@ -168,100 +299,195 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(N'' AS NVARCHAR(512)) AS Requisito,
                 CAST(0 AS INT) AS IdRisorsa,
                 CAST(N'' AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(0 AS DECIMAL(18, 2)) AS DurataRequisito,
                 CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
                 CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
                 CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
                 CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento;
 
+            SELECT TOP (0)
+                CAST(0 AS INT) AS IdRisorsa,
+                CAST(N'' AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(0 AS DECIMAL(18, 2)) AS OreSpeseTotali;
+
             RETURN;
         END;
+
+        CREATE TABLE #RequisitiBase
+        (
+            IdRequisito INT NOT NULL,
+            Requisito NVARCHAR(512) NOT NULL,
+            DurataRequisito DECIMAL(18, 2) NOT NULL
+        );
+
+        CREATE TABLE #PrevistoRisorsa
+        (
+            IdRequisito INT NOT NULL,
+            IdRisorsa INT NOT NULL,
+            OrePreviste DECIMAL(18, 2) NOT NULL
+        );
+
+        CREATE TABLE #SpesoRisorsa
+        (
+            IdRequisito INT NOT NULL,
+            IdRisorsa INT NOT NULL,
+            OreSpese DECIMAL(18, 2) NOT NULL
+        );
 
         CREATE TABLE #Dettaglio
         (
             IdRequisito INT NOT NULL,
-            IdCommessa INT NOT NULL,
             Requisito NVARCHAR(512) NOT NULL,
             IdRisorsa INT NOT NULL,
+            DurataRequisito DECIMAL(18, 2) NOT NULL,
             OrePreviste DECIMAL(18, 2) NOT NULL,
             OreSpese DECIMAL(18, 2) NOT NULL
         );
 
-        WITH Previsto AS
+        INSERT INTO #RequisitiBase
         (
-            SELECT
-                rpc.id AS IdRequisito,
-                rpc.idcommessa AS IdCommessa,
-                CAST(ISNULL(rpc.Requisito, N'') AS NVARCHAR(512)) AS Requisito,
-                rpr.idrisorsa AS IdRisorsa,
-                CAST(SUM(ISNULL(rpr.orePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste
-            FROM dbo.requisitiPerRisorse rpr
-            INNER JOIN dbo.RequisitiPerCommessa rpc
-                ON rpr.idrequisito = rpc.id
-            WHERE rpc.idcommessa = @IdCommessa
-            GROUP BY
-                rpc.id,
-                rpc.idcommessa,
-                rpc.Requisito,
-                rpr.idrisorsa
-        ),
-        Speso AS
+            IdRequisito,
+            Requisito,
+            DurataRequisito
+        )
+        SELECT
+            rpc.id AS IdRequisito,
+            CAST(ISNULL(rpc.Requisito, N'') AS NVARCHAR(512)) AS Requisito,
+            CAST(ISNULL(rpc.DurataPrevista, 0) AS DECIMAL(18, 2)) AS DurataRequisito
+        FROM dbo.RequisitiPerCommessa rpc
+        WHERE rpc.idcommessa = @IdCommessa;
+
+        INSERT INTO #PrevistoRisorsa
         (
-            SELECT
-                a.CodiceCommessa,
-                a.idrequisito AS IdRequisito,
-                a.idrisorsa AS IdRisorsa,
-                CAST(SUM(ISNULL(a.ore, 0)) AS DECIMAL(18, 2)) AS OreSpese
-            FROM dbo.[Attività] a
-            WHERE a.CodiceCommessa = @IdCommessa
-              AND a.idrequisito IS NOT NULL
-              AND a.idrisorsa IS NOT NULL
-              AND (@DataLimite IS NULL OR CAST(a.[data] AS DATE) <= @DataLimite)
-            GROUP BY
-                a.CodiceCommessa,
-                a.idrequisito,
-                a.idrisorsa
+            IdRequisito,
+            IdRisorsa,
+            OrePreviste
+        )
+        SELECT
+            rpr.idrequisito AS IdRequisito,
+            rpr.idrisorsa AS IdRisorsa,
+            CAST(SUM(ISNULL(rpr.orePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste
+        FROM dbo.requisitiPerRisorse rpr
+        INNER JOIN #RequisitiBase rb
+            ON rb.IdRequisito = rpr.idrequisito
+        WHERE rpr.idrisorsa IS NOT NULL
+        GROUP BY
+            rpr.idrequisito,
+            rpr.idrisorsa;
+
+        INSERT INTO #SpesoRisorsa
+        (
+            IdRequisito,
+            IdRisorsa,
+            OreSpese
+        )
+        SELECT
+            a.idrequisito AS IdRequisito,
+            a.idrisorsa AS IdRisorsa,
+            CAST(SUM(ISNULL(a.ore, 0)) AS DECIMAL(18, 2)) AS OreSpese
+        FROM dbo.[Attività] a
+        INNER JOIN #RequisitiBase rb
+            ON rb.IdRequisito = a.idrequisito
+        WHERE a.CodiceCommessa = @IdCommessa
+          AND a.idrequisito IS NOT NULL
+          AND a.idrisorsa IS NOT NULL
+          AND (@DataLimite IS NULL OR CAST(a.[data] AS DATE) <= @DataLimite)
+        GROUP BY
+            a.idrequisito,
+            a.idrisorsa;
+
+        WITH
+        ChiaviDettaglio AS
+        (
+            SELECT p.IdRequisito, p.IdRisorsa
+            FROM #PrevistoRisorsa p
+            WHERE p.IdRisorsa IS NOT NULL
+
+            UNION
+
+            SELECT s.IdRequisito, s.IdRisorsa
+            FROM #SpesoRisorsa s
+            WHERE s.IdRisorsa IS NOT NULL
         )
         INSERT INTO #Dettaglio
         (
             IdRequisito,
-            IdCommessa,
             Requisito,
             IdRisorsa,
+            DurataRequisito,
             OrePreviste,
             OreSpese
         )
         SELECT
-            p.IdRequisito,
-            p.IdCommessa,
-            p.Requisito,
-            p.IdRisorsa,
-            p.OrePreviste,
+            k.IdRequisito,
+            rb.Requisito,
+            k.IdRisorsa,
+            rb.DurataRequisito,
+            CAST(ISNULL(p.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
             CAST(ISNULL(s.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese
-        FROM Previsto p
-        LEFT JOIN Speso s
-            ON s.CodiceCommessa = p.IdCommessa
-           AND s.IdRequisito = p.IdRequisito
-           AND s.IdRisorsa = p.IdRisorsa;
+        FROM ChiaviDettaglio k
+        INNER JOIN #RequisitiBase rb
+            ON rb.IdRequisito = k.IdRequisito
+        LEFT JOIN #PrevistoRisorsa p
+            ON p.IdRequisito = k.IdRequisito
+           AND p.IdRisorsa = k.IdRisorsa
+        LEFT JOIN #SpesoRisorsa s
+            ON s.IdRequisito = k.IdRequisito
+           AND s.IdRisorsa = k.IdRisorsa;
 
+        WITH PrevistoTotale AS
+        (
+            SELECT
+                p.IdRequisito,
+                CAST(SUM(ISNULL(p.OrePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste
+            FROM #PrevistoRisorsa p
+            GROUP BY p.IdRequisito
+        ),
+        SpesoTotale AS
+        (
+            SELECT
+                s.IdRequisito,
+                CAST(SUM(ISNULL(s.OreSpese, 0)) AS DECIMAL(18, 2)) AS OreSpese
+            FROM #SpesoRisorsa s
+            GROUP BY s.IdRequisito
+        ),
+        Riepilogo AS
+        (
+            SELECT
+                rb.IdRequisito,
+                rb.Requisito,
+                rb.DurataRequisito,
+                CAST(ISNULL(pt.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
+                CAST(ISNULL(st.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
+                CAST(
+                    CASE
+                        WHEN ISNULL(pt.OrePreviste, 0) > 0 THEN ISNULL(pt.OrePreviste, 0)
+                        ELSE rb.DurataRequisito
+                    END
+                AS DECIMAL(18, 2)) AS OreRiferimento
+            FROM #RequisitiBase rb
+            LEFT JOIN PrevistoTotale pt
+                ON pt.IdRequisito = rb.IdRequisito
+            LEFT JOIN SpesoTotale st
+                ON st.IdRequisito = rb.IdRequisito
+        )
         SELECT
-            d.IdRequisito,
-            d.Requisito,
-            CAST(SUM(ISNULL(d.OrePreviste, 0)) AS DECIMAL(18, 2)) AS OrePreviste,
-            CAST(SUM(ISNULL(d.OreSpese, 0)) AS DECIMAL(18, 2)) AS OreSpese,
-            CAST(SUM(ISNULL(d.OrePreviste, 0)) - SUM(ISNULL(d.OreSpese, 0)) AS DECIMAL(18, 2)) AS OreRestanti,
+            r.IdRequisito,
+            r.Requisito,
+            CAST(ISNULL(r.DurataRequisito, 0) AS DECIMAL(18, 2)) AS DurataRequisito,
+            CAST(ISNULL(r.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
+            CAST(ISNULL(r.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
+            CAST(ISNULL(r.OreRiferimento, 0) - ISNULL(r.OreSpese, 0) AS DECIMAL(18, 2)) AS OreRestanti,
             CAST(
                 CASE
-                    WHEN SUM(ISNULL(d.OrePreviste, 0)) <= 0 THEN 0
-                    ELSE SUM(ISNULL(d.OreSpese, 0)) / NULLIF(SUM(ISNULL(d.OrePreviste, 0)), 0)
+                    WHEN ISNULL(r.OreRiferimento, 0) <= 0 THEN 0
+                    ELSE ISNULL(r.OreSpese, 0) / NULLIF(r.OreRiferimento, 0)
                 END
                 AS DECIMAL(18, 4)
             ) AS PercentualeAvanzamento
-        FROM #Dettaglio d
-        GROUP BY
-            d.IdRequisito,
-            d.Requisito
+        FROM Riepilogo r
         ORDER BY
-            d.Requisito;
+            r.Requisito;
 
         SELECT
             d.IdRequisito,
@@ -277,13 +503,33 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     256
                 ) AS NVARCHAR(256)
             ) AS NomeRisorsa,
+            CAST(ISNULL(d.DurataRequisito, 0) AS DECIMAL(18, 2)) AS DurataRequisito,
             CAST(ISNULL(d.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
             CAST(ISNULL(d.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
-            CAST(ISNULL(d.OrePreviste, 0) - ISNULL(d.OreSpese, 0) AS DECIMAL(18, 2)) AS OreRestanti,
             CAST(
                 CASE
-                    WHEN ISNULL(d.OrePreviste, 0) <= 0 THEN 0
-                    ELSE ISNULL(d.OreSpese, 0) / NULLIF(d.OrePreviste, 0)
+                    WHEN ISNULL(d.OrePreviste, 0) > 0 THEN ISNULL(d.OrePreviste, 0)
+                    ELSE ISNULL(d.DurataRequisito, 0)
+                END
+                - ISNULL(d.OreSpese, 0)
+                AS DECIMAL(18, 2)
+            ) AS OreRestanti,
+            CAST(
+                CASE
+                    WHEN
+                        (
+                            CASE
+                                WHEN ISNULL(d.OrePreviste, 0) > 0 THEN ISNULL(d.OrePreviste, 0)
+                                ELSE ISNULL(d.DurataRequisito, 0)
+                            END
+                        ) <= 0 THEN 0
+                    ELSE ISNULL(d.OreSpese, 0) / NULLIF(
+                        CASE
+                            WHEN ISNULL(d.OrePreviste, 0) > 0 THEN ISNULL(d.OrePreviste, 0)
+                            ELSE ISNULL(d.DurataRequisito, 0)
+                        END,
+                        0
+                    )
                 END
                 AS DECIMAL(18, 4)
             ) AS PercentualeAvanzamento
@@ -293,6 +539,31 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         ORDER BY
             d.Requisito,
             NomeRisorsa;
+
+        SELECT
+            CAST(r.ID AS INT) AS IdRisorsa,
+            CAST(
+                LEFT(
+                    LTRIM(RTRIM(COALESCE(
+                        NULLIF(ISNULL(r.[Nome Risorsa], N''), N''),
+                        NULLIF(ISNULL(r.NetUserName, N''), N''),
+                        N'ID ' + CAST(r.ID AS NVARCHAR(20))
+                    ))),
+                    256
+                ) AS NVARCHAR(256)
+            ) AS NomeRisorsa,
+            CAST(SUM(ISNULL(a.ore, 0)) AS DECIMAL(18, 2)) AS OreSpeseTotali
+        FROM dbo.[Attività] a
+        INNER JOIN dbo.Risorse r
+            ON r.ID = a.idrisorsa
+        WHERE a.CodiceCommessa = @IdCommessa
+          AND (@DataLimite IS NULL OR CAST(a.[data] AS DATE) <= @DataLimite)
+        GROUP BY
+            r.ID,
+            r.[Nome Risorsa],
+            r.NetUserName
+        ORDER BY
+            NomeRisorsa;
         """;
     private const string CommessaOrdiniOfferteQuery = """
         DECLARE @IdCommessa INT =
@@ -300,7 +571,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             SELECT TOP (1) c.id
             FROM dbo.commesse c
             WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
-            ORDER BY c.id
+            ORDER BY c.id DESC
         );
 
         IF @IdCommessa IS NULL
@@ -430,7 +701,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             SELECT TOP (1) c.id
             FROM dbo.commesse c
             WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
-            ORDER BY c.id
+            ORDER BY c.id DESC
         );
 
         IF @IdCommessa IS NULL
@@ -675,7 +946,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
           AND [menu] = @Menu
           AND voce = @Voce;
         """;
-    private const string VenditeProvenienzaFatturaContabilita = "Fattura in contabilità";
+    private const string VenditeProvenienzaFatturaContabilita = "Fattura in contabilitÃ ";
     private const string VenditeProvenienzaFatturaFutura = "Fattura Futura";
     private const string VenditeProvenienzaRicavoIpotetico = "Ricavo Ipotetico";
 
@@ -897,7 +1168,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 ReadString(reader, "Controparte"),
                 ReadString(reader, "BusinessUnit"),
                 ReadString(reader, "Rcc"),
-                ReadString(reader, "Pm"));
+                ReadString(reader, "Pm"),
+                ReadNullableDate(reader, "DataApertura"),
+                ReadNullableDate(reader, "DataChiusura"));
         }
         catch
         {
@@ -905,7 +1178,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
     }
 
-    public async Task<IReadOnlyCollection<string>> SearchCommesseAsync(
+    public async Task<IReadOnlyCollection<CommessaOptionRow>> SearchCommesseAsync(
         UserContext user,
         string profile,
         string? search,
@@ -916,7 +1189,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return await SearchCommesseByQueryAsync(CommesseBaseQuery, user, visibility, search, take, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<string>> SearchProdottiCommesseAsync(
+    public async Task<IReadOnlyCollection<CommessaOptionRow>> SearchProdottiCommesseAsync(
         UserContext user,
         string profile,
         string? search,
@@ -927,7 +1200,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return await SearchCommesseByQueryAsync(ProdottiCommesseBaseQuery, user, visibility, search, take, cancellationToken);
     }
 
-    private async Task<IReadOnlyCollection<string>> SearchCommesseByQueryAsync(
+    private async Task<IReadOnlyCollection<CommessaOptionRow>> SearchCommesseByQueryAsync(
         string query,
         UserContext user,
         VisibilityFlags visibility,
@@ -951,19 +1224,26 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.Parameters.AddWithValue("@Search", NormalizeForSql(search));
             ApplyVisibilityParameters(command, user, visibility);
 
-            var commesse = new List<string>();
+            var commesse = new List<CommessaOptionRow>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
                 var commessa = reader["Commessa"]?.ToString()?.Trim();
+                var descrizione = reader["DescrizioneCommessa"]?.ToString()?.Trim() ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(commessa))
                 {
-                    commesse.Add(commessa);
+                    commesse.Add(new CommessaOptionRow(commessa, descrizione));
                 }
             }
 
             return commesse
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .GroupBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
+                .Select(group =>
+                {
+                    var withDescription = group.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.DescrizioneCommessa));
+                    return withDescription ?? group.First();
+                })
+                .OrderBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         catch
@@ -1385,25 +1665,14 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 .OrderByDescending(value => value)
                 .ToArray();
             var filterClause = BuildAnalisiCommesseFilterClause(user, visibility, request);
-
-            await using var command = new SqlCommand(SintesiCommesseStoredProcedure, connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.AddWithValue("@IdRisorsa", user.IdRisorsa);
-            command.Parameters.AddWithValue("@Anno", selectedAnni.Length == 1 ? selectedAnni[0] : DBNull.Value);
-            command.Parameters.AddWithValue("@Aggrega", request.Aggrega ? 1 : 0);
-            command.Parameters.AddWithValue("@FiltroDaApplicare",
-                string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
-            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 100000));
-
-            var rows = new List<CommessaSintesiRow>();
-            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-            {
-                var ordinals = BuildColumnOrdinals(reader);
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    rows.Add(BuildCommessaSintesiRowFromReader(reader, ordinals));
-                }
-            }
+            var rows = await ExecuteSintesiStoredProcedureAsync(
+                connection,
+                user.IdRisorsa,
+                selectedAnni,
+                request.Aggrega,
+                filterClause,
+                Math.Clamp(request.Take, 1, 100000),
+                cancellationToken);
 
             if (rows.Count > 0)
             {
@@ -1418,6 +1687,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             }
 
             var normalizedRows = ApplyRicaviMaturatiRules(rows, request.Aggrega, selectedAnni);
+            if (request.Aggrega && normalizedRows.Count > 0)
+            {
+                var detailRows = await ExecuteSintesiStoredProcedureAsync(
+                    connection,
+                    user.IdRisorsa,
+                    selectedAnni,
+                    false,
+                    filterClause,
+                    100000,
+                    cancellationToken);
+                normalizedRows = ApplyLatestFutureProjectionForAggregatedRows(normalizedRows, detailRows);
+            }
 
             return normalizedRows
                 .OrderBy(item => item.Commessa)
@@ -1455,35 +1736,21 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 .OrderByDescending(value => value)
                 .ToArray();
             var filterClause = BuildAnalisiProdottiFilterClause(user, visibility, request);
-
-            await using var command = new SqlCommand(SintesiCommesseStoredProcedure, connection);
-            command.CommandType = CommandType.StoredProcedure;
-            command.Parameters.AddWithValue("@IdRisorsa", user.IdRisorsa);
-            command.Parameters.AddWithValue("@Anno", selectedAnni.Length == 1 ? selectedAnni[0] : DBNull.Value);
-            command.Parameters.AddWithValue("@Aggrega", request.Aggrega ? 1 : 0);
-            command.Parameters.AddWithValue("@FiltroDaApplicare",
-                string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
-            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 5000));
-
-            var rows = new List<CommessaSintesiRow>();
-            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-            {
-                var ordinals = BuildColumnOrdinals(reader);
-                while (await reader.ReadAsync(cancellationToken))
+            var baseRows = await ExecuteSintesiStoredProcedureAsync(
+                connection,
+                user.IdRisorsa,
+                selectedAnni,
+                request.Aggrega,
+                filterClause,
+                Math.Clamp(request.Take, 1, 5000),
+                cancellationToken);
+            var rows = baseRows
+                .Where(row => IsValidProductValue(row.Prodotto))
+                .Select(row => row with
                 {
-                    var row = BuildCommessaSintesiRowFromReader(reader, ordinals);
-                    var prodotto = row.Prodotto;
-                    if (!IsValidProductValue(prodotto))
-                    {
-                        continue;
-                    }
-
-                    rows.Add(row with
-                    {
-                        Prodotto = prodotto
-                    });
-                }
-            }
+                    Prodotto = row.Prodotto
+                })
+                .ToList();
 
             if (rows.Count > 0)
             {
@@ -1498,6 +1765,21 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             }
 
             var normalizedRows = ApplyRicaviMaturatiRules(rows, request.Aggrega, selectedAnni);
+            if (request.Aggrega && normalizedRows.Count > 0)
+            {
+                var detailRows = await ExecuteSintesiStoredProcedureAsync(
+                    connection,
+                    user.IdRisorsa,
+                    selectedAnni,
+                    false,
+                    filterClause,
+                    100000,
+                    cancellationToken);
+                var filteredDetailRows = detailRows
+                    .Where(row => IsValidProductValue(row.Prodotto))
+                    .ToArray();
+                normalizedRows = ApplyLatestFutureProjectionForAggregatedRows(normalizedRows, filteredDetailRows);
+            }
 
             return normalizedRows
                 .OrderBy(row => row.Prodotto, StringComparer.OrdinalIgnoreCase)
@@ -1530,7 +1812,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .OrderByDescending(value => value)
             .ToArray();
 
-        var filterClause = BuildAnalisiCommesseFilterClause(user, visibility, request);
+        var filterRequest = request.Aggrega
+            ? request with { Mese = null }
+            : request;
+        var filterClause = BuildAnalisiCommesseFilterClause(user, visibility, filterRequest);
         if (selectedAnni.Length == 1)
         {
             var annoClause = $"anno_competenza = {selectedAnni[0]}";
@@ -1544,14 +1829,20 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            await using var command = new SqlCommand(MensileCommesseStoredProcedure, connection);
+            var meseRiferimento = request.Mese.HasValue && request.Mese.Value is >= 1 and <= 12
+                ? request.Mese.Value
+                : (int?)null;
+
+            await using var command = new SqlCommand(AndamentoMensileCommesseStoredProcedure, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddWithValue("@idrisorsa", AnalisiCommesseIdRisorsa);
-            command.Parameters.AddWithValue("@tiporicerca", "AnalisiCommessa");
             command.Parameters.AddWithValue(
                 "@FiltroDaApplicare",
                 string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
-            command.Parameters.AddWithValue("@CampoAggregazione", DBNull.Value);
+            command.Parameters.AddWithValue("@Aggrega", false);
+            command.Parameters.AddWithValue("@AnnoCorrente", DateTime.Today.Year);
+            command.Parameters.AddWithValue("@MeseRiferimento", DBNull.Value);
+            command.Parameters.AddWithValue("@Take", Math.Clamp(request.Take, 1, 100000));
 
             var rows = new List<CommessaAndamentoMensileRow>();
             await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
@@ -1561,7 +1852,12 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 {
                     var anno = ReadNullableInt(reader, ordinals, "anno_competenza", "anno", "Anno Competenza");
                     var mese = ReadNullableInt(reader, ordinals, "mese_competenza", "mese", "Mese Competenza");
-                    if (!anno.HasValue || !mese.HasValue || anno.Value <= 0 || mese.Value is < 1 or > 12)
+                    if (!anno.HasValue || !mese.HasValue || anno.Value <= 0 || mese.Value is < 0 or > 12)
+                    {
+                        continue;
+                    }
+
+                    if (!request.Aggrega && mese.Value == 0)
                     {
                         continue;
                     }
@@ -1591,16 +1887,86 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         ReadDecimal(reader, ordinals, "utile_specifico")));
                 }
             }
+            var currentYear = DateTime.Today.Year;
+            if (request.Aggrega && meseRiferimento.HasValue)
+            {
+                var maxMese = Math.Clamp(meseRiferimento.Value, 1, 12);
+                rows = rows
+                    .Where(row =>
+                        row.AnnoCompetenza != currentYear ||
+                        (row.AnnoCompetenza == currentYear && row.MeseCompetenza <= maxMese))
+                    .ToList();
+            }
 
-            rows = (await EnrichRicaviMaturatiFromAnalisiMensileTableAsync(connection, rows, cancellationToken)).ToList();
-            var normalizedRows = ApplyRicaviMaturatiMensileRules(rows);
+            var normalizedRows = ApplyAndamentoMensileProjectionRules(rows);
+            var outputRows = request.Aggrega
+                ? AggregateAndamentoMensileRows(normalizedRows, meseRiferimento)
+                : normalizedRows;
 
-            return normalizedRows
+            return outputRows
                 .OrderByDescending(row => row.AnnoCompetenza)
                 .ThenByDescending(row => row.MeseCompetenza)
                 .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
-                .Take(Math.Clamp(request.Take, 1, 5000))
+                .Take(Math.Clamp(request.Take, 1, 100000))
                 .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaAnomalaRow>> SearchCommesseAnomaleAsync(
+        UserContext user,
+        string profile,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var normalizedTake = Math.Clamp(take, 1, 100000);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommesseAnomaleQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Take", normalizedTake);
+            ApplyVisibilityParameters(command, user, visibility);
+
+            var rows = new List<CommessaAnomalaRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaAnomalaRow(
+                    ReadString(reader, ordinals, "TipoAnomalia"),
+                    ReadString(reader, ordinals, "DettaglioAnomalia"),
+                    ReadNullableInt(reader, ordinals, "IdCommessa") ?? 0,
+                    ReadString(reader, ordinals, "Commessa"),
+                    ReadString(reader, ordinals, "DescrizioneCommessa"),
+                    ReadString(reader, ordinals, "TipologiaCommessa"),
+                    ReadString(reader, ordinals, "Stato"),
+                    ReadString(reader, ordinals, "MacroTipologia"),
+                    ReadString(reader, ordinals, "Controparte"),
+                    ReadString(reader, ordinals, "BusinessUnit"),
+                    ReadString(reader, ordinals, "Rcc"),
+                    ReadString(reader, ordinals, "Pm"),
+                    ReadDecimal(reader, ordinals, "OreLavorate"),
+                    ReadDecimal(reader, ordinals, "CostoPersonale"),
+                    ReadDecimal(reader, ordinals, "Ricavi"),
+                    ReadDecimal(reader, ordinals, "Costi"),
+                    ReadDecimal(reader, ordinals, "RicaviFuturi"),
+                    ReadDecimal(reader, ordinals, "CostiFuturi")));
+            }
+
+            return rows;
         }
         catch
         {
@@ -2470,7 +2836,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         {
             return new CommessaRequisitiOreDettaglio(
                 Array.Empty<CommessaRequisitoOreSummaryRow>(),
-                Array.Empty<CommessaRequisitoOreRisorsaRow>());
+                Array.Empty<CommessaRequisitoOreRisorsaRow>(),
+                Array.Empty<CommessaOreSpeseRisorsaRow>());
         }
 
         try
@@ -2485,6 +2852,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
             var requisiti = new List<CommessaRequisitoOreSummaryRow>();
             var risorse = new List<CommessaRequisitoOreRisorsaRow>();
+            var oreSpeseRisorse = new List<CommessaOreSpeseRisorsaRow>();
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -2492,6 +2860,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 requisiti.Add(new CommessaRequisitoOreSummaryRow(
                     ReadNullableInt(reader, "IdRequisito") ?? 0,
                     ReadString(reader, "Requisito"),
+                    ReadDecimal(reader, "DurataRequisito"),
                     ReadDecimal(reader, "OrePreviste"),
                     ReadDecimal(reader, "OreSpese"),
                     ReadDecimal(reader, "OreRestanti"),
@@ -2507,10 +2876,22 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         ReadString(reader, "Requisito"),
                         ReadNullableInt(reader, "IdRisorsa") ?? 0,
                         ReadString(reader, "NomeRisorsa"),
+                        ReadDecimal(reader, "DurataRequisito"),
                         ReadDecimal(reader, "OrePreviste"),
                         ReadDecimal(reader, "OreSpese"),
                         ReadDecimal(reader, "OreRestanti"),
                         ReadDecimal(reader, "PercentualeAvanzamento")));
+                }
+            }
+
+            if (await reader.NextResultAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    oreSpeseRisorse.Add(new CommessaOreSpeseRisorsaRow(
+                        ReadNullableInt(reader, "IdRisorsa") ?? 0,
+                        ReadString(reader, "NomeRisorsa"),
+                        ReadDecimal(reader, "OreSpeseTotali")));
                 }
             }
 
@@ -2523,13 +2904,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     .OrderBy(item => item.Requisito)
                     .ThenBy(item => item.NomeRisorsa)
                     .ThenBy(item => item.IdRisorsa)
+                    .ToArray(),
+                oreSpeseRisorse
+                    .OrderBy(item => item.NomeRisorsa)
+                    .ThenBy(item => item.IdRisorsa)
                     .ToArray());
         }
         catch
         {
             return new CommessaRequisitiOreDettaglio(
                 Array.Empty<CommessaRequisitoOreSummaryRow>(),
-                Array.Empty<CommessaRequisitoOreRisorsaRow>());
+                Array.Empty<CommessaRequisitoOreRisorsaRow>(),
+                Array.Empty<CommessaOreSpeseRisorsaRow>());
         }
     }
 
@@ -2785,7 +3171,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         var normalized = value.Trim();
         if (normalized.Equals(VenditeProvenienzaFatturaContabilita, StringComparison.OrdinalIgnoreCase) ||
             normalized.Equals("contabilita", StringComparison.OrdinalIgnoreCase) ||
-            normalized.Equals("contabilità", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("contabilitÃ ", StringComparison.OrdinalIgnoreCase) ||
             normalized.Equals("entrambe", StringComparison.OrdinalIgnoreCase))
         {
             return VenditeProvenienzaFatturaContabilita;
@@ -2820,7 +3206,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         }
 
         if (normalized.Equals("contabilita", StringComparison.OrdinalIgnoreCase) ||
-            normalized.Equals("contabilità", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("contabilitÃ ", StringComparison.OrdinalIgnoreCase) ||
             normalized.Equals("entrambe", StringComparison.OrdinalIgnoreCase))
         {
             return VenditeProvenienzaFatturaContabilita;
@@ -2856,6 +3242,12 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             clauses.Add($"mese_competenza = {request.Mese.Value}");
         }
 
+        if (request.AttiveDalAnno.HasValue && request.AttiveDalAnno.Value > 0)
+        {
+            clauses.Add(
+                $"EXISTS (SELECT 1 FROM dbo.commesse c WHERE c.id = idcommessa AND (c.data_chiu IS NULL OR YEAR(c.data_chiu) >= {request.AttiveDalAnno.Value}))");
+        }
+
         AddStringClause(clauses, "commessa", request.Commessa);
         AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
         AddStringClause(clauses, "stato", request.Stato);
@@ -2889,6 +3281,12 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         if (selectedAnni.Length > 1)
         {
             clauses.Add($"anno_competenza IN ({string.Join(", ", selectedAnni)})");
+        }
+
+        if (request.AttiveDalAnno.HasValue && request.AttiveDalAnno.Value > 0)
+        {
+            clauses.Add(
+                $"EXISTS (SELECT 1 FROM dbo.commesse c WHERE c.id = idcommessa AND (c.data_chiu IS NULL OR YEAR(c.data_chiu) >= {request.AttiveDalAnno.Value}))");
         }
 
         AddStringClause(clauses, "commessa", request.Commessa);
@@ -3581,6 +3979,79 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             ReadDecimal(reader, ordinals, "costo_personale_futuro", "CostoPersonaleFuturo"));
     }
 
+    private static async Task<List<CommessaSintesiRow>> ExecuteSintesiStoredProcedureAsync(
+        SqlConnection connection,
+        int idRisorsa,
+        IReadOnlyCollection<int> selectedAnni,
+        bool aggrega,
+        string? filterClause,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(SintesiCommesseStoredProcedure, connection);
+        command.CommandType = CommandType.StoredProcedure;
+        command.Parameters.AddWithValue("@IdRisorsa", idRisorsa);
+        command.Parameters.AddWithValue("@Anno", selectedAnni.Count == 1 ? selectedAnni.First() : DBNull.Value);
+        command.Parameters.AddWithValue("@Aggrega", aggrega ? 1 : 0);
+        command.Parameters.AddWithValue(
+            "@FiltroDaApplicare",
+            string.IsNullOrWhiteSpace(filterClause) ? DBNull.Value : filterClause);
+        command.Parameters.AddWithValue("@Take", Math.Clamp(take, 1, 100000));
+
+        var rows = new List<CommessaSintesiRow>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var ordinals = BuildColumnOrdinals(reader);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(BuildCommessaSintesiRowFromReader(reader, ordinals));
+        }
+
+        return rows;
+    }
+
+    private static IReadOnlyCollection<CommessaSintesiRow> ApplyLatestFutureProjectionForAggregatedRows(
+        IReadOnlyCollection<CommessaSintesiRow> aggregatedRows,
+        IReadOnlyCollection<CommessaSintesiRow> detailedRows)
+    {
+        if (aggregatedRows.Count == 0 || detailedRows.Count == 0)
+        {
+            return aggregatedRows;
+        }
+
+        var latestByCommessa = detailedRows
+            .Where(row => !string.IsNullOrWhiteSpace(row.Commessa))
+            .GroupBy(row => NormalizeCommessaKey(row.Commessa), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var ordered = group
+                        .OrderByDescending(item => item.Anno ?? int.MinValue)
+                        .ToArray();
+                    var latestNonZero = ordered.FirstOrDefault(item => item.OreFuture != 0m || item.CostoPersonaleFuturo != 0m);
+                    var selected = latestNonZero ?? ordered.First();
+                    return (selected.OreFuture, selected.CostoPersonaleFuturo);
+                },
+                StringComparer.OrdinalIgnoreCase);
+
+        return aggregatedRows
+            .Select(row =>
+            {
+                var key = NormalizeCommessaKey(row.Commessa);
+                if (string.IsNullOrWhiteSpace(key) || !latestByCommessa.TryGetValue(key, out var latest))
+                {
+                    return row;
+                }
+
+                return row with
+                {
+                    OreFuture = latest.OreFuture,
+                    CostoPersonaleFuturo = latest.CostoPersonaleFuturo
+                };
+            })
+            .ToArray();
+    }
+
     private static IReadOnlyCollection<CommessaSintesiRow> ApplyRicaviMaturatiRules(
         IReadOnlyCollection<CommessaSintesiRow> rows,
         bool aggrega,
@@ -3614,7 +4085,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .ToArray();
     }
 
-    private static IReadOnlyCollection<CommessaAndamentoMensileRow> ApplyRicaviMaturatiMensileRules(
+    private static IReadOnlyCollection<CommessaAndamentoMensileRow> ApplyAndamentoMensileProjectionRules(
         IReadOnlyCollection<CommessaAndamentoMensileRow> rows)
     {
         if (rows.Count == 0)
@@ -3622,20 +4093,31 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             return rows;
         }
 
-        var latestMonthByAnnoCommessa = rows
+        var referenceMonthByAnnoCommessa = rows
             .GroupBy(row => (row.AnnoCompetenza, Commessa: NormalizeCommessaKey(row.Commessa)))
             .ToDictionary(
                 group => group.Key,
                 group =>
                 {
-                    var latestNonZeroMonth = group
+                    var latestRicaviMaturatiMonth = group
                         .Where(item => item.RicaviMaturati != 0m)
                         .Select(item => item.MeseCompetenza)
                         .DefaultIfEmpty(0)
                         .Max();
 
-                    return latestNonZeroMonth > 0
-                        ? latestNonZeroMonth
+                    if (latestRicaviMaturatiMonth > 0)
+                    {
+                        return latestRicaviMaturatiMonth;
+                    }
+
+                    var latestFutureProjectionMonth = group
+                        .Where(item => item.OreFuture != 0m || item.CostoPersonaleFuturo != 0m)
+                        .Select(item => item.MeseCompetenza)
+                        .DefaultIfEmpty(0)
+                        .Max();
+
+                    return latestFutureProjectionMonth > 0
+                        ? latestFutureProjectionMonth
                         : group.Max(item => item.MeseCompetenza);
                 });
 
@@ -3643,14 +4125,92 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .Select(row =>
             {
                 var key = (row.AnnoCompetenza, Commessa: NormalizeCommessaKey(row.Commessa));
-                var isLatestMonth = latestMonthByAnnoCommessa.TryGetValue(key, out var latestMonth) &&
-                                    row.MeseCompetenza == latestMonth;
-                var ricaviMaturati = isLatestMonth ? row.RicaviMaturati : 0m;
+                var isReferenceMonth =
+                    referenceMonthByAnnoCommessa.TryGetValue(key, out var referenceMonth) &&
+                    row.MeseCompetenza == referenceMonth;
+                var ricaviMaturati = isReferenceMonth ? row.RicaviMaturati : 0m;
+                var oreFuture = isReferenceMonth ? row.OreFuture : 0m;
+                var costoPersonaleFuturo = isReferenceMonth ? row.CostoPersonaleFuturo : 0m;
+
                 return row with
                 {
                     RicaviMaturati = ricaviMaturati,
+                    OreFuture = oreFuture,
+                    CostoPersonaleFuturo = costoPersonaleFuturo,
+                    CostoGeneraleRibaltato = 0m,
                     UtileSpecifico = row.Ricavi + ricaviMaturati - row.Costi - row.CostoPersonale
                 };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<CommessaAndamentoMensileRow> AggregateAndamentoMensileRows(
+        IReadOnlyCollection<CommessaAndamentoMensileRow> rows,
+        int? meseRiferimento)
+    {
+        if (rows.Count == 0)
+        {
+            return rows;
+        }
+
+        return rows
+            .GroupBy(row => new
+            {
+                row.AnnoCompetenza,
+                Commessa = NormalizeCommessaKey(row.Commessa),
+                row.DescrizioneCommessa,
+                row.TipologiaCommessa,
+                row.Stato,
+                row.MacroTipologia,
+                row.Prodotto,
+                row.Controparte,
+                row.BusinessUnit,
+                row.Rcc,
+                row.Pm
+            })
+            .Select(group =>
+            {
+                var first = group.First();
+                var totaleRicavi = group.Sum(item => item.Ricavi);
+                var totaleCosti = group.Sum(item => item.Costi);
+                var totaleCostoPersonale = group.Sum(item => item.CostoPersonale);
+                var latestReferenceRow = group
+                    .OrderByDescending(item => item.MeseCompetenza)
+                    .FirstOrDefault(item =>
+                        item.RicaviMaturati != 0m ||
+                        item.OreFuture != 0m ||
+                        item.CostoPersonaleFuturo != 0m)
+                    ?? group.OrderByDescending(item => item.MeseCompetenza).First();
+                var totaleRicaviMaturati = latestReferenceRow.RicaviMaturati;
+                var totaleOreFuture = latestReferenceRow.OreFuture;
+                var totaleCostoPersonaleFuturo = latestReferenceRow.CostoPersonaleFuturo;
+                var meseOutput = meseRiferimento.HasValue && meseRiferimento.Value is >= 1 and <= 12
+                    ? meseRiferimento.Value
+                    : group.Max(item => item.MeseCompetenza);
+
+                return new CommessaAndamentoMensileRow(
+                    first.AnnoCompetenza,
+                    meseOutput,
+                    first.Commessa,
+                    first.DescrizioneCommessa,
+                    first.TipologiaCommessa,
+                    first.Stato,
+                    first.MacroTipologia,
+                    first.Prodotto,
+                    first.Controparte,
+                    first.BusinessUnit,
+                    first.Rcc,
+                    first.Pm,
+                    group.Any(item => item.Produzione),
+                    group.Sum(item => item.OreLavorate),
+                    totaleCostoPersonale,
+                    totaleRicavi,
+                    totaleCosti,
+                    totaleRicaviMaturati,
+                    totaleOreFuture,
+                    totaleCostoPersonaleFuturo,
+                    0m,
+                    totaleRicavi + totaleRicaviMaturati - totaleCosti - totaleCostoPersonale);
             })
             .ToArray();
     }

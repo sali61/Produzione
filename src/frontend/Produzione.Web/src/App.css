@@ -266,13 +266,24 @@
 
 .sintesi-filters-grid {
   display: grid;
-  grid-template-columns: 235px minmax(290px, 1.25fr) minmax(220px, 1fr) 88px minmax(220px, 1fr);
+  grid-template-columns: 235px 170px minmax(260px, 1.3fr) minmax(220px, 1fr) 88px minmax(220px, 1fr);
   gap: 0.28rem 0.55rem;
+}
+
+.andamento-mensile-filters-grid {
+  grid-template-columns: 235px minmax(260px, 1.3fr) minmax(220px, 1fr) minmax(120px, 0.7fr) minmax(220px, 1fr);
+}
+
+.andamento-mensile-filters-grid .sintesi-field {
+  max-width: none;
+  width: 100%;
+  justify-self: stretch;
 }
 
 .sintesi-field {
   display: grid;
   gap: 0.16rem;
+  min-width: 0;
 }
 
 .sintesi-field-checkbox {
@@ -281,6 +292,10 @@
 
 .sintesi-field-anni {
   max-width: 235px;
+}
+
+.sintesi-field-attive-dal {
+  max-width: 170px;
 }
 
 .sintesi-field-header-row {
@@ -323,6 +338,8 @@
   background: #ffffff;
   color: #1f3c63;
   min-height: 30px;
+  min-width: 0;
+  width: 100%;
   padding: 0.18rem 0.35rem;
   font-size: 0.82rem;
 }
@@ -703,6 +720,30 @@
 .analisi-inline-actions {
   flex-basis: 100%;
   margin-top: 0.1rem;
+}
+
+.analisi-aggrega-inline {
+  margin-left: 0.1rem;
+}
+
+.analisi-aggrega-mese-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: #274a74;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.analisi-aggrega-mese-inline select {
+  border: 1px solid #bfd0e8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1f3c63;
+  min-height: 30px;
+  min-width: 10.2rem;
+  padding: 0.18rem 0.35rem;
+  font-size: 0.82rem;
 }
 
 .analisi-rcc-year-field {
@@ -1414,6 +1455,21 @@ button:disabled {
   align-self: stretch;
 }
 
+.detail-requisiti-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.detail-requisiti-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .detail-card h3 {
   font-size: 0.9rem;
   color: #193d69;
@@ -1728,6 +1784,10 @@ button:disabled {
   .detail-card-table-wrap {
     height: auto;
     min-height: 44dvh;
+  }
+
+  .detail-requisiti-split {
+    grid-template-columns: 1fr;
   }
 
   .detail-page {

@@ -4,6 +4,7 @@ public sealed class CommessaRequisitoOreSummaryDto
 {
     public int IdRequisito { get; set; }
     public string Requisito { get; set; } = string.Empty;
+    public decimal DurataRequisito { get; set; }
     public decimal OrePreviste { get; set; }
     public decimal OreSpese { get; set; }
     public decimal OreRestanti { get; set; }

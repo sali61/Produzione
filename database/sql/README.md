@@ -46,3 +46,15 @@ Script presenti:
   e la sincronizza in automatico per l'applicazione `Produzione` con tutte le
   voci menu attualmente esposte in UI, valorizzando descrizioni di default
   senza sovrascrivere eventuali descrizioni gia' personalizzate.
+- `011_spAndamentoMensileCommesse.sql`:
+  crea/aggiorna `produzione.spAndamentoMensileCommesse(...)` per la pagina
+  `Commesse > Andamento Mensile`, con modalita dettaglio e aggregata
+  (anni storici per anno, anno corrente per mese fino al mese di riferimento).
+- `012_spCommesseAnomale.sql`:
+  crea/aggiorna `produzione.spCommesseAnomale` con output standard
+  (`TipoAnomalia`, `DettaglioAnomalia`, `IdCommessa`) e include, al momento:
+  commesse chiuse con importi ancora previsti, commesse senza ore lavorate
+  da oltre 6 mesi, commesse commerciali operative (>200 ore), commesse
+  commerciali con fatturato/fatturato futuro, controlli interaziendali fuori
+  tipologia `Servizi Interaziendali` e controlli su commesse di tipologia
+  `Servizi Interaziendali` con costi/ricavi.

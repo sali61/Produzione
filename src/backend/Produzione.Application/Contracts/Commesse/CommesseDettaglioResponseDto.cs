@@ -22,4 +22,5 @@ public sealed class CommesseDettaglioResponseDto
     public decimal PercentualeRaggiuntoProposta { get; set; }
     public IReadOnlyCollection<CommessaRequisitoOreSummaryDto> RequisitiOre { get; set; } = Array.Empty<CommessaRequisitoOreSummaryDto>();
     public IReadOnlyCollection<CommessaRequisitoOreRisorsaDto> RequisitiOreRisorse { get; set; } = Array.Empty<CommessaRequisitoOreRisorsaDto>();
+    public IReadOnlyCollection<CommessaOreSpeseRisorsaDto> OreSpeseRisorse { get; set; } = Array.Empty<CommessaOreSpeseRisorsaDto>();
 }
