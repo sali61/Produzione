@@ -53,6 +53,17 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         from cdg_qryComessaPmRcc c
         group by cast(ltrim(rtrim(isnull(c.COMMESSA, ''))) as nvarchar(128))
         """;
+    private const string BudgetBusinessUnitLookupQuery = """
+        select
+            Bu = cast(ltrim(rtrim(isnull(oggetto, N''))) as nvarchar(64)),
+            Budget = cast(max(isnull(budget, 0)) as decimal(18, 4))
+        from CDG.BIBudgetValutazioni
+        where eliminato = 0
+          and anno = @Anno
+          and upper(ltrim(rtrim(isnull(tipo, N'')))) in (N'BUSINESSUNIT', N'IDBUSINESSUNIT')
+          and len(ltrim(rtrim(isnull(oggetto, N'')))) > 0
+        group by cast(ltrim(rtrim(isnull(oggetto, N''))) as nvarchar(64))
+        """;
     private const string PianoFatturazioneBaseQuery = """
         WITH RankedRows AS (
             SELECT
@@ -1813,6 +1824,42 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             }
             while (await reader.NextResultAsync(cancellationToken));
 
+            await reader.CloseAsync();
+
+            if (campoAggregazione.Equals("BUSINESSUNIT", StringComparison.OrdinalIgnoreCase) &&
+                rows.Any(item => item.BudgetPrevisto == 0m))
+            {
+                var budgetByBusinessUnit = await LoadBudgetByBusinessUnitAsync(connection, anno, cancellationToken);
+                if (budgetByBusinessUnit.Count > 0)
+                {
+                    rows = rows
+                        .Select(item =>
+                        {
+                            if (item.BudgetPrevisto != 0m)
+                            {
+                                return item;
+                            }
+
+                            if (!budgetByBusinessUnit.TryGetValue(item.Rcc, out var fallbackBudget) || fallbackBudget == 0m)
+                            {
+                                return item;
+                            }
+
+                            var percentualeCertaRaggiunta = item.TotaleFatturatoCerto / fallbackBudget;
+                            var percentualeCompresoRicavoIpotetico = item.TotaleIpotetico / fallbackBudget;
+
+                            return item with
+                            {
+                                BudgetPrevisto = fallbackBudget,
+                                MargineColBudget = item.TotaleFatturatoCerto - fallbackBudget,
+                                PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
+                                PercentualeCompresoRicavoIpotetico = percentualeCompresoRicavoIpotetico
+                            };
+                        })
+                        .ToList();
+                }
+            }
+
             return rows;
         }
         catch
@@ -1861,6 +1908,31 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 ReadString(reader, "DescrizioneCommessa", "descrizione"),
                 ReadString(reader, "Rcc", "RCC", "rcc"),
                 ReadString(reader, "Pm", "PM", "pm"));
+        }
+
+        return map;
+    }
+
+    private static async Task<Dictionary<string, decimal>> LoadBudgetByBusinessUnitAsync(
+        SqlConnection connection,
+        int anno,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(BudgetBusinessUnitLookupQuery, connection);
+        command.Parameters.AddWithValue("@Anno", anno);
+
+        var map = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var businessUnit = ReadString(reader, "Bu");
+            if (string.IsNullOrWhiteSpace(businessUnit))
+            {
+                continue;
+            }
+
+            var budget = ReadDecimal(reader, "Budget");
+            map[businessUnit] = budget;
         }
 
         return map;

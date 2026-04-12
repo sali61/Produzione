@@ -1250,6 +1250,14 @@ const normalizeDateKey = (value?: string | Date | null) => {
     return literalPrefix
   }
 
+  const italianMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\b|$)/)
+  if (italianMatch) {
+    const day = italianMatch[1].padStart(2, '0')
+    const month = italianMatch[2].padStart(2, '0')
+    const year = italianMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
     return ''
@@ -2017,6 +2025,7 @@ function App() {
   const [analisiDettaglioFatturatoControparte, setAnalisiDettaglioFatturatoControparte] = useState('')
   const [analisiDettaglioFatturatoBusinessUnit, setAnalisiDettaglioFatturatoBusinessUnit] = useState('')
   const [analisiDettaglioFatturatoRcc, setAnalisiDettaglioFatturatoRcc] = useState('')
+  const [analisiDettaglioFatturatoSoloScadute, setAnalisiDettaglioFatturatoSoloScadute] = useState(false)
   const [analisiDettaglioFatturatoData, setAnalisiDettaglioFatturatoData] = useState<AnalisiRccDettaglioFatturatoResponse | null>(null)
   const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseAndamentoMensileAggrega, setCommesseAndamentoMensileAggrega] = useState(true)
@@ -5537,6 +5546,7 @@ function App() {
         setAnalisiDettaglioFatturatoControparte('')
         setAnalisiDettaglioFatturatoBusinessUnit('')
         setAnalisiDettaglioFatturatoRcc('')
+        setAnalisiDettaglioFatturatoSoloScadute(false)
         setAnalisiDettaglioFatturatoData(null)
         break
       case 'previsioni-funnel':
@@ -7354,7 +7364,27 @@ function App() {
       }
     })
   ), [analisiPianoFatturazioneMesiRiferimento, analisiPianoFatturazioneRows])
-  const analisiDettaglioFatturatoRows = analisiDettaglioFatturatoData?.items ?? []
+  const analisiDettaglioFatturatoRowsRaw = analisiDettaglioFatturatoData?.items ?? []
+  const analisiDettaglioFatturatoRows = useMemo(() => {
+    if (!analisiDettaglioFatturatoSoloScadute) {
+      return analisiDettaglioFatturatoRowsRaw
+    }
+
+    const todayKey = normalizeDateKey(new Date())
+    if (!todayKey) {
+      return analisiDettaglioFatturatoRowsRaw
+    }
+
+    return analisiDettaglioFatturatoRowsRaw.filter((row) => {
+      const provenienza = normalizeFilterText(row.provenienza ?? '').toLocaleLowerCase('it-IT')
+      if (provenienza !== 'fattura futura') {
+        return false
+      }
+
+      const dataKey = normalizeDateKey(row.data)
+      return Boolean(dataKey) && dataKey < todayKey
+    })
+  }, [analisiDettaglioFatturatoRowsRaw, analisiDettaglioFatturatoSoloScadute])
   const analisiDettaglioFatturatoAnnoOptions = useMemo(() => {
     const years = new Set<string>()
     sintesiFiltersCatalog.anni.forEach((option) => {
@@ -16074,6 +16104,15 @@ function App() {
                           </option>
                         ))}
                       </select>
+                    </label>
+                    <label className="checkbox-label checkbox-label-inline analisi-aggrega-inline" htmlFor="analisi-dettaglio-fatturato-solo-scadute">
+                      <input
+                        id="analisi-dettaglio-fatturato-solo-scadute"
+                        type="checkbox"
+                        checked={analisiDettaglioFatturatoSoloScadute}
+                        onChange={(event) => setAnalisiDettaglioFatturatoSoloScadute(event.target.checked)}
+                      />
+                      <span>Fatture scadute</span>
                     </label>
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>

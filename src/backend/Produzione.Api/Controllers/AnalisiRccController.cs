@@ -337,7 +337,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
                         PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, fatturatoAnno, budgetPrevisto),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -364,7 +364,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.FatturatoAnno, item.BudgetPrevisto),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -673,7 +673,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
                         PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, fatturatoAnno, budgetPrevisto),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -702,7 +702,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.FatturatoAnno, item.BudgetPrevisto),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -1117,7 +1117,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
                         PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, fatturatoAnno, budgetPrevisto),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -1147,7 +1147,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
-                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.FatturatoAnno, item.BudgetPrevisto),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -3048,26 +3048,40 @@ public sealed class AnalisiRccController(
         return rows.Average(item => item.PercentualePesato);
     }
 
-    private static decimal? CalculateAnnualTimeProgressRatio(int year, decimal percentualeCertaRaggiunta)
+    private static decimal? CalculateAnnualTimeProgressRatio(int year, decimal fatturatoAnno, decimal budgetAnnuale)
     {
-        if (year != DateTime.Now.Year)
+        if (budgetAnnuale <= 0m)
         {
             return null;
         }
 
-        var elapsedMonths = DateTime.Now.Month - 1;
-        if (elapsedMonths <= 0)
+        var currentDate = DateTime.Now;
+        if (year != currentDate.Year)
         {
             return null;
         }
 
-        var expectedProgress = elapsedMonths / 12m;
-        if (expectedProgress == 0m)
+        var endOfPreviousMonth = new DateTime(currentDate.Year, currentDate.Month, 1).AddDays(-1);
+        if (endOfPreviousMonth.Year != year)
         {
             return null;
         }
 
-        return percentualeCertaRaggiunta / expectedProgress;
+        const decimal daysInYear = 365m;
+        var giorniFineMese = (decimal)endOfPreviousMonth.DayOfYear;
+        var fattoreTemporale = giorniFineMese / daysInYear;
+        if (fattoreTemporale <= 0m)
+        {
+            return null;
+        }
+
+        var budgetRiparametrato = budgetAnnuale * fattoreTemporale;
+        if (budgetRiparametrato <= 0m)
+        {
+            return null;
+        }
+
+        return fatturatoAnno / budgetRiparametrato;
     }
 
     private static (string? BusinessUnit, string? Rcc) SplitBurccAggregation(string? value)
