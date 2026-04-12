@@ -15,6 +15,8 @@ public sealed class DatiContabiliVenditaRowDto
     public string Pm { get; set; } = string.Empty;
     public string NumeroDocumento { get; set; } = string.Empty;
     public string DescrizioneMovimento { get; set; } = string.Empty;
+    public string Causale { get; set; } = string.Empty;
+    public string Sottoconto { get; set; } = string.Empty;
     public string ControparteMovimento { get; set; } = string.Empty;
     public string Provenienza { get; set; } = string.Empty;
     public decimal Importo { get; set; }

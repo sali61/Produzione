@@ -5,6 +5,8 @@ public sealed class CommessaFatturaMovimentoDto
     public DateTime? DataMovimento { get; set; }
     public string NumeroDocumento { get; set; } = string.Empty;
     public string Descrizione { get; set; } = string.Empty;
+    public string Causale { get; set; } = string.Empty;
+    public string Sottoconto { get; set; } = string.Empty;
     public string Controparte { get; set; } = string.Empty;
     public string Provenienza { get; set; } = string.Empty;
     public decimal Importo { get; set; }

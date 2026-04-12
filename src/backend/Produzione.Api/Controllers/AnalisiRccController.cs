@@ -83,6 +83,15 @@ public sealed class AnalisiRccController(
         ProfileCatalog.ResponsabileCommercialeCommessa
     ];
 
+    private static readonly string[] AllowedProfilesDettaglioFatturato =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.ProjectManager
+    ];
+
     [HttpGet("risultato-mensile")]
     [ProducesResponseType(typeof(AnalisiRccRisultatoMensileResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -91,6 +100,7 @@ public sealed class AnalisiRccController(
     public async Task<IActionResult> RisultatoMensile(
         [FromQuery] string profile,
         [FromQuery] int? anno = null,
+        [FromQuery] string? rcc = null,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
     {
@@ -116,6 +126,9 @@ public sealed class AnalisiRccController(
 
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase);
+            var requestedRcc = string.IsNullOrWhiteSpace(rcc)
+                ? null
+                : rcc.Trim();
 
             string? rccFiltro = null;
             if (!vediTutto)
@@ -123,6 +136,20 @@ public sealed class AnalisiRccController(
                 rccFiltro = await analisiRccRepository.GetNomeRisorsaAsync(
                     contextData.EffectiveUser.IdRisorsa,
                     cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                    !string.IsNullOrWhiteSpace(rccFiltro) &&
+                    !rccFiltro.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new
+                    {
+                        message = $"RCC '{requestedRcc}' non autorizzato per il profilo '{profileResult}'."
+                    });
+                }
+            }
+            else
+            {
+                rccFiltro = requestedRcc;
             }
 
             var rows = await analisiRccRepository.GetRisultatoMensileSnapshotAsync(
@@ -142,7 +169,7 @@ public sealed class AnalisiRccController(
                 Profile = profileResult,
                 Anno = annoRiferimento,
                 VediTutto = vediTutto,
-                RccFiltro = rccFiltro,
+                RccFiltro = vediTutto ? requestedRcc : rccFiltro,
                 RisultatoPesato = BuildRisultatoPesatoGrid(rows, mesi),
                 PercentualePesata = BuildPercentualePesataGrid(rows, mesi)
             };
@@ -299,6 +326,7 @@ public sealed class AnalisiRccController(
                     var totaleRicavoIpotetico = group.Sum(item => item.TotaleRicavoIpotetico);
                     var totaleRicavoIpoteticoPesato = group.Sum(item => item.TotaleRicavoIpoteticoPesato);
                     var totaleIpotetico = group.Sum(item => item.TotaleIpotetico);
+                    var percentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto;
 
                     return new AnalisiRccPivotFatturatoTotaleAnnoDto
                     {
@@ -308,7 +336,8 @@ public sealed class AnalisiRccController(
                         TotaleFatturatoCerto = totaleFatturatoCerto,
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
-                        PercentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto,
+                        PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -335,6 +364,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -632,6 +662,7 @@ public sealed class AnalisiRccController(
                     var totaleRicavoIpotetico = group.Sum(item => item.TotaleRicavoIpotetico);
                     var totaleRicavoIpoteticoPesato = group.Sum(item => item.TotaleRicavoIpoteticoPesato);
                     var totaleIpotetico = group.Sum(item => item.TotaleIpotetico);
+                    var percentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto;
 
                     return new AnalisiRccPivotFatturatoTotaleAnnoDto
                     {
@@ -641,7 +672,8 @@ public sealed class AnalisiRccController(
                         TotaleFatturatoCerto = totaleFatturatoCerto,
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
-                        PercentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto,
+                        PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -670,6 +702,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -801,6 +834,55 @@ public sealed class AnalisiRccController(
                 rccFiltro,
                 allowedBusinessUnits,
                 cancellationToken);
+
+            // Fallback budget: se la snapshot mensile BURCC non riporta il budget, recuperiamolo
+            // dal report annuale BURCC (stessa base dati della pagina "Report Annuale RCC-BU").
+            if (rows.Any(item => item.Budget == 0m))
+            {
+                var budgetRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
+                    contextData.EffectiveUser.IdRisorsa,
+                    annoRiferimento,
+                    requestedBusinessUnit,
+                    rccFiltro,
+                    allowedBusinessUnits,
+                    cancellationToken);
+
+                if (budgetRows.Count > 0)
+                {
+                    var budgetLookup = budgetRows
+                        .Where(item => item.BudgetPrevisto != 0m)
+                        .GroupBy(
+                            item => BuildBurccKey(item.BusinessUnit, item.Rcc),
+                            StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(
+                            group => group.Key,
+                            group => group
+                                .Select(item => item.BudgetPrevisto)
+                                .FirstOrDefault(value => value != 0m),
+                            StringComparer.OrdinalIgnoreCase);
+
+                    rows = rows
+                        .Select(item =>
+                        {
+                            if (item.Budget != 0m)
+                            {
+                                return item;
+                            }
+
+                            var key = BuildBurccKey(item.BusinessUnit, item.Rcc);
+                            if (!budgetLookup.TryGetValue(key, out var fallbackBudget) || fallbackBudget == 0m)
+                            {
+                                return item;
+                            }
+
+                            return item with
+                            {
+                                Budget = fallbackBudget
+                            };
+                        })
+                        .ToArray();
+                }
+            }
 
             var businessUnitDisponibili = optionRows
                 .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
@@ -1024,6 +1106,7 @@ public sealed class AnalisiRccController(
                     var totaleRicavoIpotetico = group.Sum(item => item.TotaleRicavoIpotetico);
                     var totaleRicavoIpoteticoPesato = group.Sum(item => item.TotaleRicavoIpoteticoPesato);
                     var totaleIpotetico = group.Sum(item => item.TotaleIpotetico);
+                    var percentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto;
 
                     return new AnalisiRccPivotFatturatoTotaleAnnoDto
                     {
@@ -1033,7 +1116,8 @@ public sealed class AnalisiRccController(
                         TotaleFatturatoCerto = totaleFatturatoCerto,
                         BudgetPrevisto = budgetPrevisto,
                         MargineColBudget = totaleFatturatoCerto - budgetPrevisto,
-                        PercentualeCertaRaggiunta = budgetPrevisto == 0m ? 0m : totaleFatturatoCerto / budgetPrevisto,
+                        PercentualeCertaRaggiunta = percentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(group.Key, percentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = totaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = totaleRicavoIpoteticoPesato,
                         TotaleIpotetico = totaleIpotetico,
@@ -1063,6 +1147,7 @@ public sealed class AnalisiRccController(
                         BudgetPrevisto = item.BudgetPrevisto,
                         MargineColBudget = item.MargineColBudget,
                         PercentualeCertaRaggiunta = item.PercentualeCertaRaggiunta,
+                        PercentualeRaggiungimentoTemporale = CalculateAnnualTimeProgressRatio(item.Anno, item.PercentualeCertaRaggiunta),
                         TotaleRicavoIpotetico = item.TotaleRicavoIpotetico,
                         TotaleRicavoIpoteticoPesato = item.TotaleRicavoIpoteticoPesato,
                         TotaleIpotetico = item.TotaleIpotetico,
@@ -2140,6 +2225,7 @@ public sealed class AnalisiRccController(
         [FromQuery] string profile,
         [FromQuery] int? anno = null,
         [FromQuery(Name = "mesiSnapshot")] int[]? mesiSnapshot = null,
+        [FromQuery] string? businessUnit = null,
         [FromQuery] string? rcc = null,
         [FromQuery] string? tipoCalcolo = null,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
@@ -2185,6 +2271,9 @@ public sealed class AnalisiRccController(
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
                 : rcc.Trim();
+            var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
+                ? null
+                : businessUnit.Trim();
 
             string? rccFiltro;
             if (!vediTutto)
@@ -2201,6 +2290,7 @@ public sealed class AnalisiRccController(
                         mesiSnapshotRiferimento,
                         tipoCalcoloNormalizzato,
                         false,
+                        requestedBusinessUnit,
                         null));
                 }
             }
@@ -2212,6 +2302,7 @@ public sealed class AnalisiRccController(
             var rows = await analisiRccRepository.GetPianoFatturazioneMensileAsync(
                 annoRiferimento,
                 mesiSnapshotRiferimento,
+                requestedBusinessUnit,
                 rccFiltro,
                 cancellationToken);
 
@@ -2228,6 +2319,20 @@ public sealed class AnalisiRccController(
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            var businessUnitDisponibili = rows
+                .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                !businessUnitDisponibili.Contains(requestedBusinessUnit, StringComparer.OrdinalIgnoreCase))
+            {
+                businessUnitDisponibili.Add(requestedBusinessUnit);
+                businessUnitDisponibili = businessUnitDisponibili
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
 
             if (!vediTutto && !string.IsNullOrWhiteSpace(rccFiltro) &&
                 !rccDisponibili.Contains(rccFiltro, StringComparer.OrdinalIgnoreCase))
@@ -2294,6 +2399,8 @@ public sealed class AnalisiRccController(
                 MesiRiferimento = mesiRiferimento,
                 TipoCalcolo = tipoCalcoloNormalizzato,
                 VediTutto = vediTutto,
+                BusinessUnitFiltro = requestedBusinessUnit,
+                BusinessUnitDisponibili = businessUnitDisponibili.ToArray(),
                 RccFiltro = rccFiltro,
                 RccDisponibili = rccDisponibili.ToArray(),
                 Righe = righe.ToArray()
@@ -2319,12 +2426,225 @@ public sealed class AnalisiRccController(
         }
     }
 
+    [HttpGet("dettaglio-fatturato")]
+    [ProducesResponseType(typeof(AnalisiRccDettaglioFatturatoResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioFatturato(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? commessa = null,
+        [FromQuery] string? commessaSearch = null,
+        [FromQuery] string? provenienza = null,
+        [FromQuery] string? controparte = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            if (!AllowedProfilesDettaglioFatturato.Contains(profileResult, StringComparer.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfilesDettaglioFatturato)}."
+                });
+            }
+
+            var anniRiferimento = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+
+            if (anniRiferimento.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                anniRiferimento = [anno.Value];
+            }
+
+            if (anniRiferimento.Length == 0)
+            {
+                anniRiferimento = [DateTime.Now.Year];
+            }
+
+            var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+
+            var commessaFiltro = string.IsNullOrWhiteSpace(commessa) ? null : commessa.Trim();
+            var commessaSearchFiltro = string.IsNullOrWhiteSpace(commessaSearch) ? null : commessaSearch.Trim();
+            var provenienzaFiltro = string.IsNullOrWhiteSpace(provenienza) ? null : provenienza.Trim();
+            var controparteFiltro = string.IsNullOrWhiteSpace(controparte) ? null : controparte.Trim();
+            var businessUnitFiltro = string.IsNullOrWhiteSpace(businessUnit) ? null : businessUnit.Trim();
+            var requestedRccFiltro = string.IsNullOrWhiteSpace(rcc) ? null : rcc.Trim();
+
+            string? rccFiltro = null;
+            string? pmFiltro = null;
+            if (!vediTutto)
+            {
+                var nomeRisorsa = await analisiRccRepository.GetNomeRisorsaAsync(
+                    contextData.EffectiveUser.IdRisorsa,
+                    cancellationToken);
+                if (string.IsNullOrWhiteSpace(nomeRisorsa))
+                {
+                    return Ok(new AnalisiRccDettaglioFatturatoResponseDto
+                    {
+                        Profile = profileResult,
+                        Anni = anniRiferimento,
+                        VediTutto = false,
+                        BusinessUnitFiltro = businessUnitFiltro,
+                        RccFiltro = null,
+                        PmFiltro = null,
+                        BusinessUnitDisponibili = [],
+                        RccDisponibili = [],
+                        CommesseDisponibili = [],
+                        ProvenienzeDisponibili = [],
+                        ContropartiDisponibili = [],
+                        Items = []
+                    });
+                }
+
+                if (profileResult.Equals(ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase))
+                {
+                    rccFiltro = nomeRisorsa.Trim();
+                }
+                else
+                {
+                    pmFiltro = nomeRisorsa.Trim();
+                }
+            }
+
+            var effectiveRccFiltro = !string.IsNullOrWhiteSpace(rccFiltro)
+                ? rccFiltro
+                : requestedRccFiltro;
+
+            var rows = await analisiRccRepository.GetDettaglioFatturatoAsync(
+                contextData.EffectiveUser.IdRisorsa,
+                anniRiferimento,
+                commessaFiltro,
+                commessaSearchFiltro,
+                provenienzaFiltro,
+                controparteFiltro,
+                businessUnitFiltro,
+                effectiveRccFiltro,
+                pmFiltro,
+                cancellationToken);
+
+            var commesseDisponibili = rows
+                .Select(item =>
+                {
+                    var codice = item.Commessa?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(codice))
+                    {
+                        return string.Empty;
+                    }
+
+                    var descrizione = item.DescrizioneCommessa?.Trim() ?? string.Empty;
+                    return string.IsNullOrWhiteSpace(descrizione)
+                        ? codice
+                        : $"{codice} - {descrizione}";
+                })
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var provenienzeDisponibili = rows
+                .Select(item => item.Provenienza?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var contropartiDisponibili = rows
+                .Select(item => item.Controparte?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var businessUnitDisponibili = rows
+                .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var rccDisponibili = rows
+                .Select(item => item.Rcc?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var response = new AnalisiRccDettaglioFatturatoResponseDto
+            {
+                Profile = profileResult,
+                Anni = anniRiferimento,
+                VediTutto = vediTutto,
+                BusinessUnitFiltro = businessUnitFiltro,
+                RccFiltro = effectiveRccFiltro,
+                PmFiltro = pmFiltro,
+                BusinessUnitDisponibili = businessUnitDisponibili,
+                RccDisponibili = rccDisponibili,
+                CommesseDisponibili = commesseDisponibili,
+                ProvenienzeDisponibili = provenienzeDisponibili,
+                ContropartiDisponibili = contropartiDisponibili,
+                Items = rows
+                    .Select(item => new AnalisiRccDettaglioFatturatoRowDto
+                    {
+                        Anno = item.Anno,
+                        Data = item.Data,
+                        Commessa = item.Commessa,
+                        BusinessUnit = item.BusinessUnit,
+                        Controparte = item.Controparte,
+                        Provenienza = item.Provenienza,
+                        Fatturato = item.Fatturato,
+                        FatturatoFuturo = item.FatturatoFuturo,
+                        RicavoIpotetico = item.RicavoIpotetico,
+                        Rcc = item.Rcc,
+                        Pm = item.Pm,
+                        DescrizioneMastro = item.DescrizioneMastro,
+                        DescrizioneConto = item.DescrizioneConto,
+                        DescrizioneSottoconto = item.DescrizioneSottoconto
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/analisi-rcc/dettaglio-fatturato.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/analisi-rcc/dettaglio-fatturato.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero dettaglio fatturato."
+            });
+        }
+    }
+
     private static AnalisiRccPianoFatturazioneResponseDto BuildEmptyPianoFatturazioneResponse(
         string profile,
         int anno,
         IReadOnlyCollection<int> mesiSnapshot,
         string tipoCalcolo,
         bool vediTutto,
+        string? businessUnitFiltro,
         string? rccFiltro)
     {
         return new AnalisiRccPianoFatturazioneResponseDto
@@ -2335,6 +2655,8 @@ public sealed class AnalisiRccController(
             MesiRiferimento = Enumerable.Range(1, 12).ToArray(),
             TipoCalcolo = tipoCalcolo,
             VediTutto = vediTutto,
+            BusinessUnitFiltro = businessUnitFiltro,
+            BusinessUnitDisponibili = [],
             RccFiltro = rccFiltro,
             RccDisponibili = [],
             Righe = []
@@ -2561,22 +2883,26 @@ public sealed class AnalisiRccController(
         var righe = rows
             .GroupBy(item => item.Rcc)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new AnalisiRccRisultatoMensileRowDto
+            .Select(group =>
             {
-                Aggregazione = group.Key,
-                Budget = group
-                    .OrderBy(item => item.MeseSnapshot)
-                    .Select(item => item.Budget)
-                    .FirstOrDefault(),
-                ValoriMensili = mesi
-                    .Select(mese => new AnalisiRccMensileValueDto
-                    {
-                        Mese = mese,
-                        Valore = group
-                            .Where(item => item.MeseSnapshot == mese)
-                            .Sum(item => item.TotaleRisultatoPesato)
-                    })
-                    .ToArray()
+                var groupRows = group.ToArray();
+                var (businessUnit, rcc) = SplitBurccAggregation(group.Key);
+                return new AnalisiRccRisultatoMensileRowDto
+                {
+                    Aggregazione = group.Key,
+                    BusinessUnit = businessUnit,
+                    Rcc = rcc,
+                    Budget = ResolveMonthlyBudget(groupRows),
+                    ValoriMensili = mesi
+                        .Select(mese => new AnalisiRccMensileValueDto
+                        {
+                            Mese = mese,
+                            Valore = groupRows
+                                .Where(item => item.MeseSnapshot == mese)
+                                .Sum(item => item.TotaleRisultatoPesato)
+                        })
+                        .ToArray()
+                };
             })
             .ToList();
 
@@ -2586,6 +2912,8 @@ public sealed class AnalisiRccController(
             righe.Add(new AnalisiRccRisultatoMensileRowDto
             {
                 Aggregazione = "Totale complessivo",
+                BusinessUnit = "Totale complessivo",
+                Rcc = null,
                 Budget = totaleBudget,
                 ValoriMensili = mesi
                     .Select(mese => new AnalisiRccMensileValueDto
@@ -2615,26 +2943,31 @@ public sealed class AnalisiRccController(
         var righe = rows
             .GroupBy(item => item.Rcc)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new AnalisiRccRisultatoMensileRowDto
+            .Select(group =>
             {
-                Aggregazione = group.Key,
-                Budget = null,
-                ValoriMensili = mesi
-                    .Select(mese =>
-                    {
-                        var meseRows = group
-                            .Where(item => item.MeseSnapshot == mese)
-                            .ToArray();
-                        var value = meseRows.Length == 0
-                            ? 0m
-                            : meseRows.Average(item => item.PercentualePesato);
-                        return new AnalisiRccMensileValueDto
+                var groupRows = group.ToArray();
+                var (businessUnit, rcc) = SplitBurccAggregation(group.Key);
+                return new AnalisiRccRisultatoMensileRowDto
+                {
+                    Aggregazione = group.Key,
+                    BusinessUnit = businessUnit,
+                    Rcc = rcc,
+                    Budget = null,
+                    ValoriMensili = mesi
+                        .Select(mese =>
                         {
-                            Mese = mese,
-                            Valore = value
-                        };
-                    })
-                    .ToArray()
+                            var meseRows = groupRows
+                                .Where(item => item.MeseSnapshot == mese)
+                                .ToArray();
+                            var value = ResolveMonthlyPercent(meseRows);
+                            return new AnalisiRccMensileValueDto
+                            {
+                                Mese = mese,
+                                Valore = value
+                            };
+                        })
+                        .ToArray()
+                };
             })
             .ToList();
 
@@ -2643,6 +2976,8 @@ public sealed class AnalisiRccController(
             righe.Add(new AnalisiRccRisultatoMensileRowDto
             {
                 Aggregazione = "Totale complessivo",
+                BusinessUnit = "Totale complessivo",
+                Rcc = null,
                 Budget = null,
                 ValoriMensili = mesi
                     .Select(mese =>
@@ -2650,9 +2985,7 @@ public sealed class AnalisiRccController(
                         var meseRows = rows
                             .Where(item => item.MeseSnapshot == mese)
                             .ToArray();
-                        var value = meseRows.Length == 0
-                            ? 0m
-                            : meseRows.Average(item => item.PercentualePesato);
+                        var value = ResolveMonthlyPercent(meseRows);
                         return new AnalisiRccMensileValueDto
                         {
                             Mese = mese,
@@ -2670,6 +3003,95 @@ public sealed class AnalisiRccController(
             ValoriPercentuali = true,
             Righe = righe
         };
+    }
+
+    private static string BuildBurccKey(string? businessUnit, string? rcc)
+    {
+        return $"{businessUnit?.Trim() ?? string.Empty}|{rcc?.Trim() ?? string.Empty}";
+    }
+
+    private static decimal ResolveMonthlyBudget(IEnumerable<AnalisiRccMensileSnapshotRow> rows)
+    {
+        var budgets = rows
+            .Select(item => item.Budget)
+            .ToArray();
+        if (budgets.Length == 0)
+        {
+            return 0m;
+        }
+
+        var nonZeroBudgets = budgets
+            .Where(value => value != 0m)
+            .ToArray();
+        if (nonZeroBudgets.Length > 0)
+        {
+            return nonZeroBudgets.Max();
+        }
+
+        return budgets.FirstOrDefault();
+    }
+
+    private static decimal ResolveMonthlyPercent(IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return 0m;
+        }
+
+        var totalBudget = rows.Sum(item => item.Budget);
+        if (totalBudget != 0m)
+        {
+            var totalRisultato = rows.Sum(item => item.TotaleRisultatoPesato);
+            return totalRisultato / totalBudget;
+        }
+
+        return rows.Average(item => item.PercentualePesato);
+    }
+
+    private static decimal? CalculateAnnualTimeProgressRatio(int year, decimal percentualeCertaRaggiunta)
+    {
+        if (year != DateTime.Now.Year)
+        {
+            return null;
+        }
+
+        var elapsedMonths = DateTime.Now.Month - 1;
+        if (elapsedMonths <= 0)
+        {
+            return null;
+        }
+
+        var expectedProgress = elapsedMonths / 12m;
+        if (expectedProgress == 0m)
+        {
+            return null;
+        }
+
+        return percentualeCertaRaggiunta / expectedProgress;
+    }
+
+    private static (string? BusinessUnit, string? Rcc) SplitBurccAggregation(string? value)
+    {
+        var raw = value?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return (null, null);
+        }
+
+        var separatorIndex = raw.IndexOf('-', StringComparison.Ordinal);
+        if (separatorIndex <= 0 || separatorIndex >= raw.Length - 1)
+        {
+            return (null, null);
+        }
+
+        var businessUnit = raw[..separatorIndex].Trim();
+        var rcc = raw[(separatorIndex + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(businessUnit) || string.IsNullOrWhiteSpace(rcc))
+        {
+            return (null, null);
+        }
+
+        return (businessUnit, rcc);
     }
 
     private static (int Anno, string Aggregazione, string Tipo, decimal PercentualeSuccesso) BuildPivotFunnelKey(

@@ -15,6 +15,8 @@ public sealed class DatiContabiliAcquistoRowDto
     public string Pm { get; set; } = string.Empty;
     public string CodiceSocieta { get; set; } = string.Empty;
     public string DescrizioneFattura { get; set; } = string.Empty;
+    public string Causale { get; set; } = string.Empty;
+    public string Sottoconto { get; set; } = string.Empty;
     public string ControparteMovimento { get; set; } = string.Empty;
     public string Provenienza { get; set; } = string.Empty;
     public decimal ImportoComplessivo { get; set; }

@@ -14,6 +14,8 @@ public sealed record ContabilitaVenditaRow(
     string Pm,
     string NumeroDocumento,
     string DescrizioneMovimento,
+    string Causale,
+    string Sottoconto,
     string ControparteMovimento,
     string Provenienza,
     decimal Importo,

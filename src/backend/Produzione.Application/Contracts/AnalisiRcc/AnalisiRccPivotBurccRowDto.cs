@@ -11,6 +11,7 @@ public sealed class AnalisiRccPivotBurccRowDto
     public decimal BudgetPrevisto { get; set; }
     public decimal MargineColBudget { get; set; }
     public decimal PercentualeCertaRaggiunta { get; set; }
+    public decimal? PercentualeRaggiungimentoTemporale { get; set; }
     public decimal TotaleRicavoIpotetico { get; set; }
     public decimal TotaleRicavoIpoteticoPesato { get; set; }
     public decimal TotaleIpotetico { get; set; }

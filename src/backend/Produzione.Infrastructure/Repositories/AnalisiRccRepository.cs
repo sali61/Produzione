@@ -43,6 +43,16 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
     private const string PivotFatturatoStoredProcedure = "produzione.spBixeniaValutazioneProiezioni";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
     private const string PianoFatturazioneTipoRcc = "RCC";
+    private const string PianoFatturazioneTipoBurcc = "BURCC";
+    private const string CommesseRccPmLookupQuery = """
+        select
+            cast(ltrim(rtrim(isnull(c.COMMESSA, ''))) as nvarchar(128)) as Commessa,
+            cast(max(ltrim(rtrim(isnull(c.descrizione, '')))) as nvarchar(512)) as DescrizioneCommessa,
+            cast(max(ltrim(rtrim(isnull(c.RCC, '')))) as nvarchar(256)) as Rcc,
+            cast(max(ltrim(rtrim(isnull(c.PM, '')))) as nvarchar(256)) as Pm
+        from cdg_qryComessaPmRcc c
+        group by cast(ltrim(rtrim(isnull(c.COMMESSA, ''))) as nvarchar(128))
+        """;
     private const string PianoFatturazioneBaseQuery = """
         WITH RankedRows AS (
             SELECT
@@ -56,6 +66,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 TotaleComplessivo = src.totale_complessivo,
                 Budget = src.Budget,
                 Aggregazione = LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))),
+                BusinessUnit = CAST(NULL AS NVARCHAR(64)),
                 TipoAggregazione = UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))),
                 rn = ROW_NUMBER() OVER (
                     PARTITION BY src.AnnoRiferimento, src.MeseRiferimento, LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128))))
@@ -81,10 +92,97 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             TotaleComplessivo,
             Budget,
             Aggregazione,
+            BusinessUnit,
             TipoAggregazione
         FROM RankedRows
         WHERE rn = 1
         ORDER BY Aggregazione, MeseRiferimento
+        """;
+
+    private const string PianoFatturazioneBurccQuery = """
+        WITH SourceRows AS (
+            SELECT
+                AnnoSnapshot = src.AnnoSnapshot,
+                MeseSnapshot = src.MeseSnapshot,
+                AnnoRiferimento = src.AnnoRiferimento,
+                MeseRiferimento = src.MeseRiferimento,
+                InseritoIl = src.InseritoIl,
+                TotaleFatturato = src.totale_fatturato,
+                TotaleFatturatoFuturo = src.totale_fatturato_futuro,
+                TotaleComplessivo = src.totale_complessivo,
+                Budget = src.Budget,
+                AggregazioneRaw = LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128)))),
+                TipoAggregazione = UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50)))))
+            FROM CDG.BIXeniaPianoFatturazione_Mensile src
+            WHERE src.AnnoSnapshot = @AnnoSnapshot
+              AND src.AnnoRiferimento = @AnnoSnapshot
+              AND src.MeseSnapshot IN ({0})
+              AND src.MeseRiferimento BETWEEN 1 AND 12
+              AND UPPER(LTRIM(RTRIM(CAST(ISNULL(src.TipoAggregazione, N'') AS NVARCHAR(50))))) = @TipoAggregazione
+              AND LEN(LTRIM(RTRIM(CAST(ISNULL(src.Aggregazione, N'') AS NVARCHAR(128))))) > 0
+        ),
+        ParsedRows AS (
+            SELECT
+                AnnoSnapshot,
+                MeseSnapshot,
+                AnnoRiferimento,
+                MeseRiferimento,
+                InseritoIl,
+                TotaleFatturato,
+                TotaleFatturatoFuturo,
+                TotaleComplessivo,
+                Budget,
+                BusinessUnit = LTRIM(RTRIM(CASE
+                    WHEN CHARINDEX('-', AggregazioneRaw) > 0 THEN LEFT(AggregazioneRaw, CHARINDEX('-', AggregazioneRaw) - 1)
+                    ELSE N''
+                END)),
+                Aggregazione = LTRIM(RTRIM(CASE
+                    WHEN CHARINDEX('-', AggregazioneRaw) > 0 THEN SUBSTRING(AggregazioneRaw, CHARINDEX('-', AggregazioneRaw) + 1, 4000)
+                    ELSE N''
+                END)),
+                TipoAggregazione
+            FROM SourceRows
+        ),
+        RankedRows AS (
+            SELECT
+                AnnoSnapshot,
+                MeseSnapshot,
+                AnnoRiferimento,
+                MeseRiferimento,
+                InseritoIl,
+                TotaleFatturato,
+                TotaleFatturatoFuturo,
+                TotaleComplessivo,
+                Budget,
+                Aggregazione,
+                BusinessUnit,
+                TipoAggregazione,
+                rn = ROW_NUMBER() OVER (
+                    PARTITION BY AnnoRiferimento, MeseRiferimento, BusinessUnit, Aggregazione
+                    ORDER BY MeseSnapshot DESC, InseritoIl DESC
+                )
+            FROM ParsedRows
+            WHERE LEN(BusinessUnit) > 0
+              AND LEN(Aggregazione) > 0
+              AND (@BusinessUnit IS NULL OR BusinessUnit = @BusinessUnit)
+              AND (@Rcc IS NULL OR Aggregazione = @Rcc)
+        )
+        SELECT
+            AnnoSnapshot,
+            MeseSnapshot,
+            AnnoRiferimento,
+            MeseRiferimento,
+            InseritoIl,
+            TotaleFatturato,
+            TotaleFatturatoFuturo,
+            TotaleComplessivo,
+            Budget,
+            Aggregazione,
+            BusinessUnit,
+            TipoAggregazione
+        FROM RankedRows
+        WHERE rn = 1
+        ORDER BY BusinessUnit, Aggregazione, MeseRiferimento
         """;
 
     public async Task<string?> GetNomeRisorsaAsync(int idRisorsa, CancellationToken cancellationToken = default)
@@ -202,6 +300,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
     public async Task<IReadOnlyCollection<AnalisiRccPianoFatturazioneRow>> GetPianoFatturazioneMensileAsync(
         int annoSnapshot,
         IReadOnlyCollection<int>? mesiSnapshot,
+        string? businessUnit,
         string? rcc,
         CancellationToken cancellationToken = default)
     {
@@ -223,7 +322,13 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         var snapshotParamNames = normalizedMesiSnapshot
             .Select((_, index) => $"@MeseSnapshot{index}")
             .ToArray();
-        var sql = string.Format(CultureInfo.InvariantCulture, PianoFatturazioneBaseQuery, string.Join(", ", snapshotParamNames));
+        var normalizedBusinessUnit = businessUnit?.Trim();
+        var normalizedRcc = rcc?.Trim();
+        var queryIsBurcc = !string.IsNullOrWhiteSpace(normalizedBusinessUnit);
+        var sql = string.Format(
+            CultureInfo.InvariantCulture,
+            queryIsBurcc ? PianoFatturazioneBurccQuery : PianoFatturazioneBaseQuery,
+            string.Join(", ", snapshotParamNames));
 
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -231,8 +336,9 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         await using var command = new SqlCommand(sql, connection);
         command.CommandType = CommandType.Text;
         command.Parameters.AddWithValue("@AnnoSnapshot", annoSnapshot);
-        command.Parameters.AddWithValue("@TipoAggregazione", PianoFatturazioneTipoRcc);
-        command.Parameters.AddWithValue("@Rcc", NormalizeForSql(rcc));
+        command.Parameters.AddWithValue("@TipoAggregazione", queryIsBurcc ? PianoFatturazioneTipoBurcc : PianoFatturazioneTipoRcc);
+        command.Parameters.AddWithValue("@BusinessUnit", NormalizeForSql(normalizedBusinessUnit));
+        command.Parameters.AddWithValue("@Rcc", NormalizeForSql(normalizedRcc));
 
         for (var index = 0; index < normalizedMesiSnapshot.Length; index += 1)
         {
@@ -270,12 +376,14 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 TotaleComplessivo: ReadDecimal(reader, "TotaleComplessivo", "totale_complessivo"),
                 Budget: ReadDecimal(reader, "Budget", "budget"),
                 Aggregazione: aggregationValue.Trim(),
+                BusinessUnit: ReadString(reader, "BusinessUnit", "businessUnit", "IDBUSINESSUNIT", "idbusinessunit"),
                 TipoAggregazione: ReadString(reader, "TipoAggregazione", "tipoAggregazione"));
             rows.Add(row);
         }
 
         return rows
-            .OrderBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.MeseRiferimento)
             .ThenByDescending(item => item.MeseSnapshot)
             .ToArray();
@@ -856,6 +964,222 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 .ThenBy(item => item.StatoDocumento, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(item => item.Data)
                 .ThenBy(item => item.Protocollo, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<AnalisiRccDettaglioFatturatoRow>> GetDettaglioFatturatoAsync(
+        int idRisorsa,
+        IReadOnlyCollection<int>? anni,
+        string? commessa,
+        string? commessaSearch,
+        string? provenienza,
+        string? controparte,
+        string? businessUnit,
+        string? rcc,
+        string? pm,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var selectedYears = (anni ?? Array.Empty<int>())
+            .Where(value => value > 0)
+            .Distinct()
+            .ToHashSet();
+        var commessaFilter = commessa?.Trim();
+        var commessaSearchFilter = commessaSearch?.Trim();
+        var provenienzaFilter = provenienza?.Trim();
+        var controparteFilter = controparte?.Trim();
+        var businessUnitFilter = businessUnit?.Trim();
+        var rccFilter = rcc?.Trim();
+        var pmFilter = pm?.Trim();
+        var idRisorsaParam = idRisorsa > 0
+            ? idRisorsa
+            : DefaultAnalisiIdRisorsa;
+
+        var filterClauses = new List<string>();
+        if (selectedYears.Count == 1)
+        {
+            filterClauses.Add($"anno = {selectedYears.First()}");
+        }
+        else if (selectedYears.Count > 1)
+        {
+            filterClauses.Add($"anno in ({string.Join(", ", selectedYears.OrderBy(value => value))})");
+        }
+
+        if (!string.IsNullOrWhiteSpace(commessaFilter))
+        {
+            filterClauses.Add($"commessa = {SqlQuote(commessaFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(commessaSearchFilter))
+        {
+            filterClauses.Add($"commessa like {SqlQuote($"%{commessaSearchFilter}%")}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(provenienzaFilter))
+        {
+            filterClauses.Add($"provenienza = {SqlQuote(provenienzaFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(controparteFilter))
+        {
+            filterClauses.Add($"controparte = {SqlQuote(controparteFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(businessUnitFilter))
+        {
+            filterClauses.Add($"IDBUSINESSUNIT = {SqlQuote(businessUnitFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(rccFilter))
+        {
+            filterClauses.Add($"RCC = {SqlQuote(rccFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(pmFilter))
+        {
+            filterClauses.Add($"PM = {SqlQuote(pmFilter)}");
+        }
+
+        var filter = string.Join(" AND ", filterClauses);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            var commessaMap = await LoadCommesseRccPmMapAsync(connection, cancellationToken);
+
+            await using var command = new SqlCommand(PivotFatturatoStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", idRisorsaParam);
+            command.Parameters.AddWithValue("@tiporicerca", "Fatturato");
+            command.Parameters.AddWithValue("@FiltroDaApplicare", string.IsNullOrWhiteSpace(filter) ? DBNull.Value : filter);
+            command.Parameters.AddWithValue("@CampoAggregazione", DBNull.Value);
+
+            var rows = new List<AnalisiRccDettaglioFatturatoRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            do
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var dataValue = ReadNullableDateTime(reader, "data", "Data");
+                    var annoValue = ReadNullableInt(reader, "anno", "Anno") ?? (dataValue?.Year ?? 0);
+                    var commessaValue = ReadString(reader, "COMMESSA", "commessa");
+                    if (string.IsNullOrWhiteSpace(commessaValue))
+                    {
+                        continue;
+                    }
+
+                    var descrizioneCommessa = ReadString(reader, "descrizionecommessa", "DescrizioneCommessa", "descrizione", "Descrizione");
+                    var businessUnitValue = ReadString(reader, "IDBUSINESSUNIT", "idbusinessunit", "BusinessUnit");
+                    var controparteValue = ReadString(reader, "controparte", "Controparte");
+                    var provenienzaValue = ReadString(reader, "provenienza", "Provenienza");
+                    var rccValue = ReadString(reader, "RCC", "rcc");
+                    var pmValue = ReadString(reader, "PM", "pm");
+
+                    if (commessaMap.TryGetValue(commessaValue, out var fallback))
+                    {
+                        if (string.IsNullOrWhiteSpace(descrizioneCommessa))
+                        {
+                            descrizioneCommessa = fallback.DescrizioneCommessa;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(rccValue))
+                        {
+                            rccValue = fallback.Rcc;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(pmValue))
+                        {
+                            pmValue = fallback.Pm;
+                        }
+                    }
+
+                    if (selectedYears.Count > 0 && (annoValue <= 0 || !selectedYears.Contains(annoValue)))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(commessaFilter) &&
+                        !commessaValue.Equals(commessaFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(commessaSearchFilter))
+                    {
+                        var commessaContains = commessaValue.Contains(commessaSearchFilter, StringComparison.OrdinalIgnoreCase);
+                        var descrizioneContains = descrizioneCommessa.Contains(commessaSearchFilter, StringComparison.OrdinalIgnoreCase);
+                        if (!commessaContains && !descrizioneContains)
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(provenienzaFilter) &&
+                        !provenienzaValue.Equals(provenienzaFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(controparteFilter) &&
+                        !controparteValue.Equals(controparteFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(businessUnitFilter) &&
+                        !businessUnitValue.Equals(businessUnitFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(rccFilter) &&
+                        !rccValue.Equals(rccFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(pmFilter) &&
+                        !pmValue.Equals(pmFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new AnalisiRccDettaglioFatturatoRow(
+                        annoValue,
+                        dataValue,
+                        commessaValue,
+                        descrizioneCommessa,
+                        businessUnitValue,
+                        controparteValue,
+                        provenienzaValue,
+                        ReadDecimal(reader, "fatturato", "Fatturato", "fatturato_emesso"),
+                        ReadDecimal(reader, "fatturato_futuro", "FatturatoFuturo", "futura_anno"),
+                        ReadDecimal(reader, "ricavo_ipotetico", "Ricavo_ipotetico", "totale_ricavo_ipotetico"),
+                        rccValue,
+                        pmValue,
+                        ReadString(reader, "DescrizioneMastro", "descrizionemastro"),
+                        ReadString(reader, "DescrizioneConto", "descrizioneconto"),
+                        ReadString(reader, "DescrizioneSottoconto", "descrizionesottoconto")));
+                }
+            }
+            while (await reader.NextResultAsync(cancellationToken));
+
+            return rows
+                .OrderByDescending(item => item.Anno)
+                .ThenBy(item => item.Data)
+                .ThenBy(item => item.Commessa, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Provenienza, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         catch
@@ -1516,6 +1840,30 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         return string.IsNullOrWhiteSpace(businessUnit) || string.IsNullOrWhiteSpace(rcc)
             ? (string.Empty, string.Empty)
             : (businessUnit, rcc);
+    }
+
+    private static async Task<Dictionary<string, (string DescrizioneCommessa, string Rcc, string Pm)>> LoadCommesseRccPmMapAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(CommesseRccPmLookupQuery, connection);
+        var map = new Dictionary<string, (string DescrizioneCommessa, string Rcc, string Pm)>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var commessa = ReadString(reader, "Commessa", "COMMESSA", "commessa");
+            if (string.IsNullOrWhiteSpace(commessa))
+            {
+                continue;
+            }
+
+            map[commessa] = (
+                ReadString(reader, "DescrizioneCommessa", "descrizione"),
+                ReadString(reader, "Rcc", "RCC", "rcc"),
+                ReadString(reader, "Pm", "PM", "pm"));
+        }
+
+        return map;
     }
 
     private static HashSet<string>? BuildAllowedSet(IReadOnlyCollection<string>? values)

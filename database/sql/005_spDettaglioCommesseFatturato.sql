@@ -40,6 +40,8 @@ BEGIN
             CAST(NULL AS DATE) AS DataMovimento,
             CAST(N'' AS NVARCHAR(64)) AS NumeroDocumento,
             CAST(N'' AS NVARCHAR(512)) AS Descrizione,
+            CAST(N'' AS NVARCHAR(256)) AS Causale,
+            CAST(N'' AS NVARCHAR(256)) AS Sottoconto,
             CAST(N'' AS NVARCHAR(256)) AS Controparte,
             CAST(N'' AS NVARCHAR(128)) AS Provenienza,
             CAST(0 AS DECIMAL(18, 2)) AS Importo,
@@ -50,6 +52,8 @@ BEGIN
             CAST(NULL AS DATE) AS DataMovimento,
             CAST(N'' AS NVARCHAR(64)) AS NumeroDocumento,
             CAST(N'' AS NVARCHAR(512)) AS Descrizione,
+            CAST(N'' AS NVARCHAR(256)) AS Causale,
+            CAST(N'' AS NVARCHAR(256)) AS Sottoconto,
             CAST(N'' AS NVARCHAR(256)) AS Controparte,
             CAST(N'' AS NVARCHAR(128)) AS Provenienza,
             CAST(0 AS DECIMAL(18, 2)) AS Importo,
@@ -75,6 +79,8 @@ BEGIN
         DataMovimento DATE NULL,
         NumeroDocumento NVARCHAR(64) NULL,
         Descrizione NVARCHAR(512) NULL,
+        Causale NVARCHAR(256) NULL,
+        Sottoconto NVARCHAR(256) NULL,
         Controparte NVARCHAR(256) NULL,
         Provenienza NVARCHAR(128) NULL,
         Importo DECIMAL(18, 2) NULL,
@@ -87,6 +93,8 @@ BEGIN
         DataMovimento,
         NumeroDocumento,
         Descrizione,
+        Causale,
+        Sottoconto,
         Controparte,
         Provenienza,
         Importo,
@@ -97,25 +105,70 @@ BEGIN
         CAST(a.[data] AS DATE) AS DataMovimento,
         CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), 64) AS NVARCHAR(64)) AS NumeroDocumento,
         CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS Descrizione,
+        CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
+        CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
         CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(a.[codice_cliente] AS NVARCHAR(64)), N''))), 256) AS NVARCHAR(256)) AS Controparte,
         CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
-        CAST(ABS(COALESCE(
+        CAST(COALESCE(
             CONVERT(DECIMAL(18, 2), a.[importocomplessivo]),
             CONVERT(DECIMAL(18, 2), a.[impcomplessivodettaglio]),
             CONVERT(DECIMAL(18, 2), a.[ImportoImponibileEuro]),
             0
-        )) AS DECIMAL(18, 2)) AS Importo,
+        ) AS DECIMAL(18, 2)) AS Importo,
         CAST(CASE WHEN CAST(a.[data] AS DATE) > @DataRef THEN 1 ELSE 0 END AS BIT) AS IsFuture,
         CAST(CASE WHEN CAST(a.[data] AS DATE) > @DataRef THEN N'Futuro' ELSE N'Passato' END AS NVARCHAR(16)) AS StatoTemporale
     FROM [CDG].[CdgFattureAttive] a
-    WHERE UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) = UPPER(@CommessaNorm)
-       OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) = UPPER(@CommessaNorm);
+    OUTER APPLY
+    (
+        SELECT TOP (1)
+            x.[CB_CodiceCausale],
+            x.[cb_CodiceSottoConto]
+        FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) IN
+        (
+            UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))),
+            UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N''))))
+        )
+          AND
+          (
+              NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+              NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+              OR
+              (
+                  a.[numeroregistrazione] IS NOT NULL
+                  AND CASE
+                          WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
+                              THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
+                          ELSE NULL
+                      END = a.[numeroregistrazione]
+              )
+          )
+        ORDER BY
+            CASE
+                WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                     NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                    THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN CAST(x.[CDG_Data] AS DATE) = CAST(a.[data] AS DATE) THEN 0
+                ELSE 1
+            END
+    ) inc
+    WHERE (UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) = UPPER(@CommessaNorm)
+       OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) = UPPER(@CommessaNorm))
+      AND (
+            inc.[CB_CodiceCausale] IS NULL
+            OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
+          );
 
     CREATE TABLE #Acquisti
     (
         DataMovimento DATE NULL,
         NumeroDocumento NVARCHAR(64) NULL,
         Descrizione NVARCHAR(512) NULL,
+        Causale NVARCHAR(256) NULL,
+        Sottoconto NVARCHAR(256) NULL,
         Controparte NVARCHAR(256) NULL,
         Provenienza NVARCHAR(128) NULL,
         Importo DECIMAL(18, 2) NULL,
@@ -128,6 +181,8 @@ BEGIN
         DataMovimento,
         NumeroDocumento,
         Descrizione,
+        Causale,
+        Sottoconto,
         Controparte,
         Provenienza,
         Importo,
@@ -138,13 +193,52 @@ BEGIN
         CAST(p.[Data Documento] AS DATE) AS DataMovimento,
         CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), 64) AS NVARCHAR(64)) AS NumeroDocumento,
         CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS Descrizione,
+        CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
+        CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
         CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(p.[RagioneSociale], N''), NULLIF(p.[controparte], N'')))), 256) AS NVARCHAR(256)) AS Controparte,
         CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
-        CAST(ABS(ISNULL(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0)) AS DECIMAL(18, 2)) AS Importo,
+        CAST(ISNULL(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0) AS DECIMAL(18, 2)) AS Importo,
         CAST(CASE WHEN CAST(p.[Data Documento] AS DATE) > @DataRef THEN 1 ELSE 0 END AS BIT) AS IsFuture,
         CAST(CASE WHEN CAST(p.[Data Documento] AS DATE) > @DataRef THEN N'Futuro' ELSE N'Passato' END AS NVARCHAR(16)) AS StatoTemporale
     FROM [CDG].[CdgFatturePassive] p
-    WHERE UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) = UPPER(@CommessaNorm);
+    OUTER APPLY
+    (
+        SELECT TOP (1)
+            x.[CB_CodiceCausale],
+            x.[cb_CodiceSottoConto]
+        FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) = UPPER(@CommessaNorm)
+          AND
+          (
+              NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+              NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+              OR
+              (
+                  p.[numeroregistrazione] IS NOT NULL
+                  AND CASE
+                          WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
+                              THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
+                          ELSE NULL
+                      END = p.[numeroregistrazione]
+              )
+          )
+        ORDER BY
+            CASE
+                WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                     NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                    THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN CAST(x.[CDG_Data] AS DATE) = CAST(p.[Data Documento] AS DATE) THEN 0
+                ELSE 1
+            END
+    ) inc
+    WHERE UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N'')))) = UPPER(@CommessaNorm)
+      AND (
+            inc.[CB_CodiceCausale] IS NULL
+            OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
+          );
 
     CREATE TABLE #Pivot
     (
@@ -226,6 +320,8 @@ BEGIN
         DataMovimento,
         NumeroDocumento,
         Descrizione,
+        Causale,
+        Sottoconto,
         Controparte,
         Provenienza,
         Importo,
@@ -238,6 +334,8 @@ BEGIN
         DataMovimento,
         NumeroDocumento,
         Descrizione,
+        Causale,
+        Sottoconto,
         Controparte,
         Provenienza,
         Importo,

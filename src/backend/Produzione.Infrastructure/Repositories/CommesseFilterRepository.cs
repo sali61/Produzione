@@ -2046,19 +2046,64 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(a.[data] AS DATE) AS DataMovimento,
                 CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), 64) AS NVARCHAR(64)) AS NumeroDocumento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneMovimento,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(a.[codice_cliente] AS NVARCHAR(64)), N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
-                CAST(ABS(COALESCE(
+                CAST(COALESCE(
                     CONVERT(DECIMAL(18, 2), a.[importocomplessivo]),
                     CONVERT(DECIMAL(18, 2), a.[impcomplessivodettaglio]),
                     CONVERT(DECIMAL(18, 2), a.[ImportoImponibileEuro]),
                     0
-                )) AS DECIMAL(18, 2)) AS Importo,
+                ) AS DECIMAL(18, 2)) AS Importo,
                 CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) AS NVARCHAR(128)) AS CommessaIntranetUpper,
                 CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) AS NVARCHAR(128)) AS ContCommessaUpper
             FROM [CDG].[CdgFattureAttive] a
-            WHERE UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) IN ({commesseInClause})
-               OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) IN ({commesseInClause})
+            OUTER APPLY
+            (
+                SELECT TOP (1)
+                    x.[CB_CodiceCausale],
+                    x.[cb_CodiceSottoConto]
+                FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) IN
+                (
+                    UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))),
+                    UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N''))))
+                )
+                  AND
+                  (
+                      NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                      NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                      OR
+                      (
+                          a.[numeroregistrazione] IS NOT NULL
+                          AND CASE
+                                  WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
+                                      THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
+                                  ELSE NULL
+                              END = a.[numeroregistrazione]
+                      )
+                  )
+                ORDER BY
+                    CASE
+                        WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                             NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                            THEN 0
+                        ELSE 1
+                    END,
+                    CASE
+                        WHEN CAST(x.[CDG_Data] AS DATE) = CAST(a.[data] AS DATE) THEN 0
+                        ELSE 1
+                    END
+            ) inc
+            WHERE (
+                    UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) IN ({commesseInClause})
+                    OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) IN ({commesseInClause})
+                  )
+              AND (
+                    inc.[CB_CodiceCausale] IS NULL
+                    OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
+                  )
             ORDER BY
                 CAST(a.[data] AS DATE),
                 NumeroDocumento;
@@ -2143,6 +2188,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     commessaInfo.Pm,
                     ReadString(reader, "NumeroDocumento"),
                     ReadString(reader, "DescrizioneMovimento"),
+                    ReadString(reader, "Causale"),
+                    ReadString(reader, "Sottoconto"),
                     ReadString(reader, "ControparteMovimento"),
                     provenienza,
                     importo,
@@ -2239,8 +2286,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(p.[Data Documento] AS DATE) AS DataDocumento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(p.[idsocieta] AS NVARCHAR(64)), N''))), 64) AS NVARCHAR(64)) AS CodiceSocieta,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneFattura,
-                CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0)) AS DECIMAL(18, 2)) AS ImportoComplessivo,
-                CAST(ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0)) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
+                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
+                CAST(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0) AS DECIMAL(18, 2)) AS ImportoComplessivo,
+                CAST(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[controparte], N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
                 CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N''))), 128) AS NVARCHAR(128)) AS Commessa,
@@ -2248,7 +2297,45 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             FROM [CDG].[CdgFatturePassive] p
             LEFT JOIN [cdg_qryComessaPmRcc] q
                 ON q.[idcommessa] = p.[idcommessa]
-            WHERE UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) IN ({commesseInClause});
+            OUTER APPLY
+            (
+                SELECT TOP (1)
+                    x.[CB_CodiceCausale],
+                    x.[cb_CodiceSottoConto]
+                FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) =
+                      UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N''))))
+                  AND
+                  (
+                      NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                      NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                      OR
+                      (
+                          p.[numeroregistrazione] IS NOT NULL
+                          AND CASE
+                                  WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
+                                      THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
+                                  ELSE NULL
+                              END = p.[numeroregistrazione]
+                      )
+                  )
+                ORDER BY
+                    CASE
+                        WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
+                             NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
+                            THEN 0
+                        ELSE 1
+                    END,
+                    CASE
+                        WHEN CAST(x.[CDG_Data] AS DATE) = CAST(p.[Data Documento] AS DATE) THEN 0
+                        ELSE 1
+                    END
+            ) inc
+            WHERE UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) IN ({commesseInClause})
+              AND (
+                    inc.[CB_CodiceCausale] IS NULL
+                    OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
+                  );
             """;
 
         try
@@ -2317,6 +2404,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     commessaInfo.Pm,
                     ReadString(reader, "CodiceSocieta"),
                     ReadString(reader, "DescrizioneFattura"),
+                    ReadString(reader, "Causale"),
+                    ReadString(reader, "Sottoconto"),
                     ReadString(reader, "ControparteMovimento"),
                     provenienza,
                     ReadDecimal(reader, "ImportoComplessivo"),
@@ -2375,6 +2464,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ReadNullableDate(reader, "DataMovimento"),
                     ReadString(reader, "NumeroDocumento"),
                     ReadString(reader, "Descrizione"),
+                    ReadString(reader, "Causale"),
+                    ReadString(reader, "Sottoconto"),
                     ReadString(reader, "Controparte"),
                     ReadString(reader, "Provenienza"),
                     ReadDecimal(reader, "Importo"),
@@ -2390,6 +2481,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         ReadNullableDate(reader, "DataMovimento"),
                         ReadString(reader, "NumeroDocumento"),
                         ReadString(reader, "Descrizione"),
+                        ReadString(reader, "Causale"),
+                        ReadString(reader, "Sottoconto"),
                         ReadString(reader, "Controparte"),
                         ReadString(reader, "Provenienza"),
                         ReadDecimal(reader, "Importo"),

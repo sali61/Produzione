@@ -11,4 +11,5 @@ public sealed record AnalisiRccPianoFatturazioneRow(
     decimal TotaleComplessivo,
     decimal Budget,
     string Aggregazione,
+    string? BusinessUnit,
     string TipoAggregazione);

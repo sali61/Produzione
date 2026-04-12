@@ -14,6 +14,8 @@ public sealed record ContabilitaAcquistoRow(
     string Pm,
     string CodiceSocieta,
     string DescrizioneFattura,
+    string Causale,
+    string Sottoconto,
     string ControparteMovimento,
     string Provenienza,
     decimal ImportoComplessivo,

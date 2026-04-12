@@ -8,6 +8,8 @@ public sealed class AnalisiRccPianoFatturazioneResponseDto
     public int[] MesiRiferimento { get; set; } = [];
     public string TipoCalcolo { get; set; } = "complessivo";
     public bool VediTutto { get; set; }
+    public string? BusinessUnitFiltro { get; set; }
+    public string[] BusinessUnitDisponibili { get; set; } = [];
     public string? RccFiltro { get; set; }
     public string[] RccDisponibili { get; set; } = [];
     public AnalisiRccPianoFatturazioneRowDto[] Righe { get; set; } = [];
