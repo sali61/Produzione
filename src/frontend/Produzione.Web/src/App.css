@@ -21,7 +21,16 @@
 }
 
 .brand-area {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.brand-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(13, 45, 86, 0.22);
 }
 
 .brand {

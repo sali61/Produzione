@@ -1,0 +1,5241 @@
+{
+  "summary": {
+    "OK": 272,
+    "FAIL": 0,
+    "WARN": 8
+  },
+  "results": [
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 22,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse",
+      "descrizione": "Vista principale commesse con filtri, export e accesso al dettaglio",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 38,
+      "note": "OK",
+      "endpoint": "/api/commesse/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 2,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Prodotti",
+      "descrizione": "Analisi commesse raggruppata per prodotto con totali",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 16,
+      "note": "OK",
+      "endpoint": "/api/prodotti/sintesi",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Andamento Mensile",
+      "descrizione": "Andamento mensile ricavi/costi/utile/ore",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 50,
+      "note": "OK",
+      "endpoint": "/api/commesse/andamento-mensile",
+      "params": {
+        "anni": "2026",
+        "take": "50",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 2,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Dati Annuali Aggregati",
+      "descrizione": "Pivot annuale aggregata per dimensioni di business",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/commesse/dati-annuali-aggregati",
+      "params": {
+        "anni": "2026",
+        "aggregazione": "rcc",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 147,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 147,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 147,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 147,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Commesse Anomale",
+      "descrizione": "Elenco anomalie operative e contabili commesse",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 14,
+      "note": "OK",
+      "endpoint": "/api/commesse/anomale",
+      "params": {
+        "take": "200",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 11,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile RCC",
+      "descrizione": "Consuntivo utile mensile con aggregazione RCC",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 2,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 4,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Commesse",
+      "voce": "Utile Mensile BU",
+      "descrizione": "Consuntivo utile mensile con aggregazione BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/utile-mensile-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Annuale",
+      "descrizione": "Vista analitica annuale per risorsa",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Annuale",
+      "descrizione": "Pivot annuale risorse con aggregazioni multilivello",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "false",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Valutazione Mensile",
+      "descrizione": "Vista analitica mensile per risorsa",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Pivot Mensile",
+      "descrizione": "Pivot mensile risorse con aggregazioni multilivello",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse",
+      "descrizione": "Analisi economica risorse su perimetro OU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOu": "true",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 70,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi OU Risorse Pivot",
+      "descrizione": "Pivot OU risorse con totali per gruppo",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "analisiOuPivot": "true",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse",
+      "descrizione": "Analisi OU risorse su base mensile",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOu": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 27,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 27,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 7,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 27,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 27,
+      "note": "OK",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Risorse",
+      "voce": "Analisi Mensile OU Risorse Pivot",
+      "descrizione": "Pivot mensile OU risorse",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/commesse/risorse/valutazione",
+      "params": {
+        "mensile": "true",
+        "analisiOuPivot": "true",
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC",
+      "descrizione": "Proiezione mensile per RCC su budget/risultato",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 9,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 9,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 9,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC",
+      "descrizione": "Report annuale per RCC con KPI fatturato e budget",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile BU",
+      "descrizione": "Proiezione mensile per Business Unit",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": "",
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-bu",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale BU",
+      "descrizione": "Report annuale per Business Unit",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Proiezione Mensile RCC-BU",
+      "descrizione": "Proiezione mensile integrata RCC-BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 1,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/risultato-mensile-burcc",
+      "params": {
+        "anno": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 41,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 41,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 41,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Report Annuale RCC-BU",
+      "descrizione": "Report annuale integrato RCC-BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 2,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-fatturato-burcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 10,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 10,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 2,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 10,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Piano Fatturazione",
+      "descrizione": "Piano mensile/trimestrale e progressivo budget",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/piano-fatturazione",
+      "params": {
+        "anno": "2026",
+        "mesiSnapshot": "4",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 1030,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 1030,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 126,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 1030,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "WARN",
+      "http": 200,
+      "count": 0,
+      "note": "Ricerca eseguita ma 0 risultati",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Analisi Proiezioni",
+      "voce": "Dettaglio Fatturato",
+      "descrizione": "Dettaglio analitico movimenti fatturato/futuro/ipotetico",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 60,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/dettaglio-fatturato",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 413,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 413,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 413,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Funnel",
+      "descrizione": "Elenco opportunita e ordini con filtri di stato/tipo",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/funnel",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 47,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 47,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 4,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 47,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel RCC",
+      "descrizione": "Pivot funnel aggregata per RCC",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 59,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 59,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 59,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Previsioni",
+      "voce": "Report Funnel BU",
+      "descrizione": "Pivot funnel aggregata per BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/analisi-rcc/pivot-funnel-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 241,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 241,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 32,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 241,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Offerte",
+      "descrizione": "Dettaglio offerte con stato documento ed esito",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 24,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/offerte",
+      "params": {
+        "anni": "2026",
+        "take": "200",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi RCC",
+      "descrizione": "Sintesi processo offerta per RCC",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 6,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 15,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Sintesi BU",
+      "descrizione": "Sintesi processo offerta per BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 4,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo RCC",
+      "descrizione": "Percentuale successo offerte per RCC",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 6,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 15,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Percentuale Successo BU",
+      "descrizione": "Percentuale successo offerte per BU",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 4,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 5,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 29,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza RCC",
+      "descrizione": "Incidenza risultato RCC sul totale annuo",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 6,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-rcc",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 15,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 39,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Processo Offerta",
+      "voce": "Incidenza BU",
+      "descrizione": "Incidenza risultato BU sul totale annuo",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 4,
+      "note": "OK",
+      "endpoint": "/api/processo-offerta/sintesi-bu",
+      "params": {
+        "anni": "2026",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Vendite",
+      "descrizione": "Elenco fatture/ricavi con filtri contabili e commessa",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 52,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/vendite",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "Sup",
+      "user": "Stefano",
+      "profile": "Supervisore",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Supervisore"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "RC",
+      "user": "lamico",
+      "profile": "Responsabile Commerciale",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "RCC",
+      "user": "aaltana",
+      "profile": "Responsabile Commerciale Commessa",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 12,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Commerciale Commessa"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "RP",
+      "user": "eragusa",
+      "profile": "Responsabile Produzione",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile Produzione"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "PM",
+      "user": "rguarnaccia",
+      "profile": "Project Manager",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 3,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Project Manager"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "GPM",
+      "user": "ccampione",
+      "profile": "General Project Manager",
+      "right": "T",
+      "status": "OK",
+      "http": 200,
+      "count": 100,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "General Project Manager"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "HR",
+      "user": "agarilli",
+      "profile": "Risorse Umane",
+      "right": "-",
+      "status": "OK",
+      "http": 403,
+      "count": "",
+      "note": "Accesso negato come atteso",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Risorse Umane"
+      }
+    },
+    {
+      "menu": "Dati Contabili",
+      "voce": "Acquisti",
+      "descrizione": "Elenco fatture passive con filtri contabili e commessa",
+      "col": "ROU",
+      "user": "ascuderi",
+      "profile": "Responsabile OU",
+      "right": "P",
+      "status": "OK",
+      "http": 200,
+      "count": 86,
+      "note": "OK",
+      "endpoint": "/api/dati-contabili/acquisti",
+      "params": {
+        "anni": "2026",
+        "take": "100",
+        "profile": "Responsabile OU"
+      }
+    }
+  ]
+}

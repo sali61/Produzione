@@ -1,6 +1,21 @@
 ﻿import { Fragment, type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
+import { AnalisiBuPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiBuPivotFatturatoPage'
+import { AnalisiBurccPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiBurccPivotFatturatoPage'
+import { AnalisiBurccRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiBurccRisultatoMensilePage'
+import { AnalisiBuRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiBuRisultatoMensilePage'
+import { AnalisiDettaglioFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiDettaglioFatturatoPage'
+import { AnalisiPianoFatturazionePage } from './modules/pages/analisiProiezioni/AnalisiPianoFatturazionePage'
+import { AnalisiRccPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiRccPivotFatturatoPage'
+import { AnalisiRccRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiRccRisultatoMensilePage'
+import { PrevisioniFunnelPage } from './modules/pages/analisiProiezioni/PrevisioniFunnelPage'
+import { PrevisioniReportFunnelBuPage } from './modules/pages/analisiProiezioni/PrevisioniReportFunnelBuPage'
+import { PrevisioniReportFunnelRccPage } from './modules/pages/analisiProiezioni/PrevisioniReportFunnelRccPage'
+import { PrevisioniUtileMensileBuPage } from './modules/pages/analisiProiezioni/PrevisioniUtileMensileBuPage'
+import { PrevisioniUtileMensileRccPage } from './modules/pages/analisiProiezioni/PrevisioniUtileMensileRccPage'
+import { RisorsePage } from './modules/pages/analisiRisorse/RisorsePage'
+import { ProcessoOffertaPage } from './modules/pages/processoOfferta/ProcessoOffertaPage'
 
 type CurrentUser = {
   idRisorsa: number
@@ -1066,15 +1081,40 @@ type SintesiTableRow =
   }
 
 const tokenStorageKey = 'produzione.jwt'
+const sharedSsoCookieKey = 'xenia.sso.jwt'
 const redirectGuardKey = 'produzione.sso.redirecting'
 const impersonationStorageKey = 'produzione.sso.actas'
 const impersonationHeaderName = 'X-Act-As-Username'
 const sintesiStateStorageKey = 'produzione.sintesi.state'
+
+const writeSharedSsoCookie = (token: string) => {
+  const value = token.trim()
+  if (!value) {
+    return
+  }
+
+  document.cookie = `${sharedSsoCookieKey}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Secure`
+}
+
+const readSharedSsoCookie = () => {
+  const cookies = document.cookie.split(';').map((item) => item.trim())
+  const entry = cookies.find((cookie) => cookie.startsWith(`${sharedSsoCookieKey}=`))
+  if (!entry) {
+    return ''
+  }
+
+  const rawValue = entry.slice(sharedSsoCookieKey.length + 1)
+  try {
+    return decodeURIComponent(rawValue).trim()
+  } catch {
+    return rawValue.trim()
+  }
+}
 const analisiCommesseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
 const datiContabiliAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
-const risultatiRisorseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU', 'Risorse Umane']
-const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa']
-const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale']
+const risultatiRisorseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa', 'Responsabile OU', 'Risorse Umane']
+const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
+const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 const analisiBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
 const analisiBuPivotBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 const analisiBurccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
@@ -1088,7 +1128,7 @@ const previsioniUtileMensileBuAllowedProfiles = ['Supervisore', 'Responsabile Co
 const previsioniUtileMensileBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
 const analisiPianoFatturazioneAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
 const analisiPianoFatturazioneSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const analisiDettaglioFatturatoAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Project Manager']
+const analisiDettaglioFatturatoAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Project Manager', 'Responsabile OU']
 const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 const analisiSearchCollapsiblePages = new Set<AppPage>([
   'commesse-andamento-mensile',
@@ -1319,6 +1359,12 @@ const normalizeTextForMatch = (value: string) => (
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
+)
+
+const normalizeProfileLabel = (value: string) => (
+  value
+    .replace(/\s+/g, ' ')
+    .trim()
 )
 
 const isProcessoOffertaEsitoPositivo = (value: string) => {
@@ -2182,7 +2228,7 @@ function App() {
     : (isDatiContabiliAcquistiPage
       ? 'Dati Contabili - Acquisti'
       : (isProdottiSintesiPage ? 'Prodotti - Sintesi' : 'Commesse - Sintesi'))
-  const currentProfile = selectedProfile || profiles[0] || ''
+  const currentProfile = normalizeProfileLabel(selectedProfile || profiles[0] || '')
   const canEditAppInfo = currentProfile.localeCompare('Supervisore', 'it', { sensitivity: 'base' }) === 0
   const canAccessAnalisiCommesseMenu = analisiCommesseAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
@@ -2606,7 +2652,13 @@ function App() {
     }
 
     const payload = (await response.json()) as AvailableProfilesResponse
-    if (!payload.profiles || payload.profiles.length === 0) {
+    const normalizedProfiles = Array.from(new Set(
+      (payload.profiles ?? [])
+        .map((profile) => normalizeProfileLabel(profile))
+        .filter((profile) => profile.length > 0),
+    ))
+
+    if (normalizedProfiles.length === 0) {
       forceLogoutForAuthorization(
         'missing_profile',
         'Profilo non individuabile per l utente autenticato. Logout automatico.',
@@ -2614,14 +2666,15 @@ function App() {
       return false
     }
 
-    setProfiles(payload.profiles)
+    setProfiles(normalizedProfiles)
     setOuScopes(payload.ouScopes)
     setSelectedProfile((current) => {
-      if (current && payload.profiles.includes(current)) {
-        return current
+      const normalizedCurrent = normalizeProfileLabel(current)
+      if (normalizedCurrent && normalizedProfiles.includes(normalizedCurrent)) {
+        return normalizedCurrent
       }
 
-      return payload.profiles[0] ?? ''
+      return normalizedProfiles[0] ?? ''
     })
 
     return true
@@ -6295,6 +6348,7 @@ function App() {
     if (tokenFromAuth) {
       sessionStorage.removeItem(redirectGuardKey)
       saveToken(tokenFromAuth)
+      writeSharedSsoCookie(tokenFromAuth)
       params.delete('token')
       params.delete('expiresAtUtc')
       const queryString = params.toString()
@@ -6311,8 +6365,18 @@ function App() {
     if (savedToken) {
       sessionStorage.removeItem(redirectGuardKey)
       saveToken(savedToken)
+      writeSharedSsoCookie(savedToken)
       setStatusMessage('Sessione locale trovata. Verifica in corso...')
       void ensureSession(savedToken, 'stale_token', initialImpersonation)
+      return
+    }
+
+    const sharedSsoToken = readSharedSsoCookie()
+    if (sharedSsoToken) {
+      sessionStorage.removeItem(redirectGuardKey)
+      saveToken(sharedSsoToken)
+      setStatusMessage('Sessione SSO condivisa trovata. Verifica in corso...')
+      void ensureSession(sharedSsoToken, 'stale_token', initialImpersonation)
       return
     }
 
@@ -11806,6 +11870,271 @@ function App() {
     XLSX.writeFile(workbook, filename)
     setStatusMessage(`Export Excel completato: ${filename}`)
   }
+  const remainingPagesProps = {
+    analisiPageCountLabel,
+    addRisorsePivotSelectedFields,
+    analisiRccLoading,
+    analisiBuBusinessUnitOptions,
+    analisiBuPivotAnnoOptions,
+    analisiBuPivotBusinessUnitOptions,
+    analisiBurccBusinessUnitOptions,
+    analisiBurccPivotAnnoOptions,
+    analisiBurccPivotBusinessUnitOptions,
+    analisiBurccPivotRccOptions,
+    analisiBurccRccOptions,
+    analisiDettaglioFatturatoAnnoOptions,
+    analisiDettaglioFatturatoBusinessUnitOptions,
+    analisiDettaglioFatturatoCommesseOptions,
+    analisiDettaglioFatturatoControparteOptions,
+    analisiDettaglioFatturatoProvenienzaOptions,
+    analisiDettaglioFatturatoRccOptions,
+    analisiPianoFatturazioneAnnoOptions,
+    analisiPianoFatturazioneBusinessUnitOptions,
+    analisiPianoFatturazioneMesiSnapshotOptions,
+    analisiPianoFatturazioneRccOptions,
+    analisiRccPivotAnnoOptions,
+    analisiRccPivotRccOptions,
+    analisiRccRccOptions,
+    canAccessPrevisioniUtileMensileBuPage,
+    canAccessPrevisioniUtileMensileRccPage,
+    canAccessRisultatiRisorseMenu,
+    canExportAnalisiPage,
+    canSelectPrevisioniUtileMensileBu,
+    canSelectPrevisioniUtileMensileRcc,
+    currentProfile,
+    asRisorsePivotFieldKeys,
+    exportAnalisiExcel,
+    formatAnalisiRccPercent,
+    formatCurrency,
+    formatNumber,
+    formatPercentRatioUnbounded,
+    formatReferenceMonthLabel,
+    handleAnalisiSubmit,
+    isRisorseMensilePage,
+    isRisorseOuMode,
+    isRisorsePivotPage,
+    isAnalisiRccPercentUnderTarget,
+    isAnalisiSearchCollapsed,
+    isAnalisiSearchCollapsible,
+    mesiItaliani,
+    moveRisorsePivotField,
+    normalizeRisorsaLabel,
+    openCommessaDetail,
+    previsioniFunnelAnnoOptions,
+    previsioniFunnelRccOptions,
+    previsioniFunnelStatoDocumentoOptions,
+    previsioniFunnelTipoOptions,
+    previsioniReportFunnelBuAnnoOptions,
+    previsioniReportFunnelBuAnnoSelezionato,
+    previsioniReportFunnelBuHasMultipleAggregazioni,
+    previsioniReportFunnelBuOptions,
+    previsioniReportFunnelBuRccOptions,
+    previsioniReportFunnelBuTotaliDettaglioRows,
+    previsioniReportFunnelRccAnnoOptions,
+    previsioniReportFunnelRccAnnoSelezionato,
+    previsioniReportFunnelRccHasMultipleAggregazioni,
+    previsioniReportFunnelRccOptions,
+    previsioniReportFunnelRccTotaliDettaglioRows,
+    previsioniUtileMensileBu,
+    previsioniUtileMensileBuAnno,
+    previsioniUtileMensileBuAnnoOptions,
+    previsioniUtileMensileBuData,
+    previsioniUtileMensileBuMeseRiferimento,
+    previsioniUtileMensileBuMeseRiferimentoValue,
+    previsioniUtileMensileBuOptions,
+    previsioniUtileMensileBuProduzione,
+    previsioniUtileMensileBuRows,
+    previsioniUtileMensileBuTotaliPerAnno,
+    previsioniUtileMensileRcc,
+    previsioniUtileMensileRccAnno,
+    previsioniUtileMensileRccAnnoOptions,
+    previsioniUtileMensileRccData,
+    previsioniUtileMensileRccMeseRiferimento,
+    previsioniUtileMensileRccMeseRiferimentoValue,
+    previsioniUtileMensileRccOptions,
+    previsioniUtileMensileRccProduzione,
+    previsioniUtileMensileRccRows,
+    previsioniUtileMensileRccTotaliPerAnno,
+    processoOffertaAggregazioneLabel,
+    processoOffertaAnnoOptions,
+    processoOffertaCountLabel,
+    processoOffertaEsitiOptions,
+    processoOffertaPercentualeAggregazioneOptions,
+    processoOffertaPercentualeSelectedAggregazione,
+    processoOffertaSuccessoSintesiTotale,
+    processoOffertaSuccessoTotale,
+    processoOffertaSuccessoTotaleNegativo,
+    processoOffertaSuccessoTotaleNonDefinito,
+    processoOffertaSuccessoTotalePositivo,
+    processoOffertaTitle,
+    processoOffertaVisibilityMessage,
+    refreshRisorseFilters,
+    removeRisorsePivotSelectedFields,
+    resetAnalisiFilters,
+    resetRisorseFilters,
+    resolveOuValue,
+    risorseAnnoOptions,
+    risorseCommessaOptions,
+    risorseCommessaSearch,
+    risorseCountLabel,
+    risorseEntityFilterLabel,
+    risorseFatturatoLabel,
+    risorseFiltersForm,
+    risorseFormDisabled,
+    risorseMeseOptions,
+    risorsePivotAvailableFieldOptions,
+    risorsePivotAvailableSelection,
+    risorsePivotRows,
+    risorsePivotSelectedFieldOptions,
+    risorsePivotSelectedSelection,
+    risorseRisorsaOptions,
+    risorseRisorsaSearch,
+    risorseRowsSorted,
+    risorseSearched,
+    risorseSelects,
+    risorseTitle,
+    risorseTotals,
+    risorseUtileLabel,
+    setRisorseCommessaSearch,
+    setRisorseFiltersForm,
+    setRisorsePivotAvailableSelection,
+    setRisorsePivotSelectedSelection,
+    setRisorseRisorsaSearch,
+    setPrevisioniUtileMensileBu,
+    setPrevisioniUtileMensileBuAnno,
+    setPrevisioniUtileMensileBuMeseRiferimento,
+    setPrevisioniUtileMensileBuProduzione,
+    setPrevisioniUtileMensileRcc,
+    setPrevisioniUtileMensileRccAnno,
+    setPrevisioniUtileMensileRccMeseRiferimento,
+    setPrevisioniUtileMensileRccProduzione,
+    statusMessageVisible,
+    toggleAnalisiSearchCollapsed,
+  } as const
+  const analisiProiezioniPageProps = {
+    ...remainingPagesProps,
+    Fragment,
+    analisiRccAnno,
+    analisiRccData,
+    analisiRccGrids,
+    analisiRccRcc,
+    analisiRccPivotAnni,
+    analisiRccPivotRcc,
+    analisiRccPivotRows,
+    analisiRccPivotTotaliPerAnno,
+    analisiBuAnno,
+    analisiBuBusinessUnit,
+    analisiBuData,
+    analisiBuGrids,
+    analisiBuPivotAnni,
+    analisiBuPivotBusinessUnit,
+    analisiBuPivotRows,
+    analisiBuPivotTotaliPerAnno,
+    analisiBurccAnno,
+    analisiBurccBusinessUnit,
+    analisiBurccData,
+    analisiBurccGrids,
+    analisiBurccRcc,
+    analisiBurccPivotAnni,
+    analisiBurccPivotBusinessUnit,
+    analisiBurccPivotRcc,
+    analisiBurccPivotRows,
+    analisiBurccPivotTotaliPerAnno,
+    analisiDettaglioFatturatoAnni,
+    analisiDettaglioFatturatoBusinessUnit,
+    analisiDettaglioFatturatoCommessa,
+    analisiDettaglioFatturatoCommessaSearch,
+    analisiDettaglioFatturatoControparte,
+    analisiDettaglioFatturatoProvenienza,
+    analisiDettaglioFatturatoRcc,
+    analisiDettaglioFatturatoRows,
+    analisiDettaglioFatturatoSoloScadute,
+    analisiPianoFatturazioneAnno,
+    analisiPianoFatturazioneBusinessUnit,
+    analisiPianoFatturazioneMesiRiferimento,
+    analisiPianoFatturazioneMesiSnapshot,
+    analisiPianoFatturazioneProgressRows,
+    analisiPianoFatturazioneRcc,
+    analisiPianoFatturazioneRows,
+    analisiPianoFatturazioneTipoCalcolo,
+    canAccessAnalisiBuPage,
+    canAccessAnalisiBurccPage,
+    canAccessAnalisiDettaglioFatturatoPage,
+    canAccessAnalisiPianoFatturazionePage,
+    canAccessAnalisiRccPage,
+    canAccessPrevisioniFunnelBuPage,
+    canAccessPrevisioniFunnelRccPage,
+    canSelectAnalisiBuBusinessUnit,
+    canSelectAnalisiBuPivotBusinessUnit,
+    canSelectAnalisiBurccBusinessUnit,
+    canSelectAnalisiBurccRcc,
+    canSelectAnalisiPianoFatturazioneBusinessUnit,
+    canSelectAnalisiPianoFatturazioneRcc,
+    canSelectAnalisiRccPivotRcc,
+    canSelectAnalisiRccRcc,
+    canSelectPrevisioniFunnelBu,
+    canSelectPrevisioniFunnelRcc,
+    formatDate,
+    getAnalisiPianoFatturazioneProgressAmountForMonth,
+    getAnalisiPianoFatturazioneProgressPercentForMonth,
+    getAnalisiPianoFatturazioneQuarterTotal,
+    getAnalisiPianoFatturazioneValueForMonth,
+    getAnalisiRccValueForMonth,
+    getQuarterFromMonth,
+    isQuarterEndMonth,
+    previsioniFunnelAnni,
+    previsioniFunnelData,
+    previsioniFunnelRcc,
+    previsioniFunnelRows,
+    previsioniFunnelStatoDocumento,
+    previsioniFunnelTipo,
+    previsioniFunnelTotals,
+    previsioniReportFunnelBu,
+    previsioniReportFunnelBuData,
+    previsioniReportFunnelBuPivotRows,
+    previsioniReportFunnelBuRcc,
+    previsioniReportFunnelBuTotaliPerAnno,
+    previsioniReportFunnelRcc,
+    previsioniReportFunnelRccData,
+    previsioniReportFunnelRccPivotRows,
+    previsioniReportFunnelRccTotaliPerAnno,
+    setAnalisiBuAnno,
+    setAnalisiBuBusinessUnit,
+    setAnalisiBuPivotAnni,
+    setAnalisiBuPivotBusinessUnit,
+    setAnalisiBurccAnno,
+    setAnalisiBurccBusinessUnit,
+    setAnalisiBurccPivotAnni,
+    setAnalisiBurccPivotBusinessUnit,
+    setAnalisiBurccPivotRcc,
+    setAnalisiBurccRcc,
+    setAnalisiDettaglioFatturatoAnni,
+    setAnalisiDettaglioFatturatoBusinessUnit,
+    setAnalisiDettaglioFatturatoCommessa,
+    setAnalisiDettaglioFatturatoCommessaSearch,
+    setAnalisiDettaglioFatturatoControparte,
+    setAnalisiDettaglioFatturatoProvenienza,
+    setAnalisiDettaglioFatturatoRcc,
+    setAnalisiDettaglioFatturatoSoloScadute,
+    setAnalisiPianoFatturazioneAnno,
+    setAnalisiPianoFatturazioneBusinessUnit,
+    setAnalisiPianoFatturazioneMesiSnapshot,
+    setAnalisiPianoFatturazioneRcc,
+    setAnalisiPianoFatturazioneTipoCalcolo,
+    setAnalisiRccAnno,
+    setAnalisiRccPivotAnni,
+    setAnalisiRccPivotRcc,
+    setAnalisiRccRcc,
+    setPrevisioniFunnelAnni,
+    setPrevisioniFunnelRcc,
+    setPrevisioniFunnelStatoDocumento,
+    setPrevisioniFunnelTipo,
+    setPrevisioniReportFunnelBu,
+    setPrevisioniReportFunnelBuAnni,
+    setPrevisioniReportFunnelBuRcc,
+    setPrevisioniReportFunnelRcc,
+    setPrevisioniReportFunnelRccAnni,
+  } as const
 
   return (
     <div className="app-shell">
@@ -12041,7 +12370,7 @@ function App() {
                 id="context-switcher-profile"
                 value={currentProfile}
                 onChange={(event) => {
-                  setSelectedProfile(event.target.value)
+                  setSelectedProfile(normalizeProfileLabel(event.target.value))
                 }}
               >
                 {profiles.map((profile) => (
@@ -13584,3746 +13913,51 @@ function App() {
         )}
 
         {isRisorsePage && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>{risorseTitle}</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessRisultatiRisorseMenu && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a Risultati Risorse.
-              </p>
-            )}
-
-            {canAccessRisultatiRisorseMenu && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    {!isAnalisiSearchCollapsed && (
-                      <>
-                        <label className="analisi-rcc-year-field" htmlFor="risorse-anni">
-                          <span>{isRisorseMensilePage ? 'Anni competenza (corrente + precedente)' : 'Anni competenza'}</span>
-                          <select
-                            id="risorse-anni"
-                            multiple
-                            size={4}
-                            value={risorseFiltersForm.anni}
-                            disabled={risorseFormDisabled}
-                            onChange={(event) => setRisorseFiltersForm((current) => ({
-                              ...current,
-                              anni: Array.from(event.target.selectedOptions).map((option) => option.value),
-                            }))}
-                          >
-                            {risorseAnnoOptions.map((year) => (
-                              <option key={`risorse-anno-${year}`} value={year}>
-                                {year}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        {isRisorseMensilePage && (
-                          <label className="analisi-rcc-year-field" htmlFor="risorse-mesi">
-                            <span>Mesi competenza</span>
-                            <select
-                              id="risorse-mesi"
-                              multiple
-                              size={4}
-                              value={risorseFiltersForm.mesi}
-                              disabled={risorseFormDisabled}
-                              onChange={(event) => setRisorseFiltersForm((current) => ({
-                                ...current,
-                                mesi: Array.from(event.target.selectedOptions).map((option) => option.value),
-                              }))}
-                            >
-                              {risorseMeseOptions.map((option) => (
-                                <option key={`risorse-mese-${option.value}`} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        )}
-
-                        <label className="analisi-rcc-year-field" htmlFor="risorse-commessa-search">
-                          <span>Ricerca Commessa</span>
-                          <div className="commessa-inline-controls">
-                            <input
-                              id="risorse-commessa-search"
-                              value={risorseCommessaSearch}
-                              disabled={risorseFormDisabled}
-                              onChange={(event) => setRisorseCommessaSearch(event.target.value)}
-                              placeholder="Cerca commessa..."
-                            />
-                            <select
-                              id="risorse-commessa"
-                              value={risorseFiltersForm.commessa}
-                              disabled={risorseFormDisabled}
-                              onChange={(event) => setRisorseFiltersForm((current) => ({
-                                ...current,
-                                commessa: event.target.value,
-                              }))}
-                            >
-                              <option value="">Tutte</option>
-                              {risorseCommessaOptions.map((option) => (
-                                <option key={`risorse-commessa-${option.value}`} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </label>
-
-                        {risorseSelects.map((selectField) => (
-                          <label
-                            key={selectField.id}
-                            className="analisi-rcc-year-field"
-                            htmlFor={selectField.id}
-                          >
-                            <span>{selectField.label}</span>
-                            <select
-                              id={selectField.id}
-                              value={risorseFiltersForm[selectField.key]}
-                              disabled={risorseFormDisabled}
-                              onChange={(event) => setRisorseFiltersForm((current) => ({
-                                ...current,
-                                [selectField.key]: event.target.value,
-                              }))}
-                            >
-                              <option value="">Tutti</option>
-                              {selectField.options.map((option) => (
-                                <option key={`${selectField.id}-${option.value}`} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ))}
-
-                        {!isRisorseOuMode && (
-                          <>
-                            <label className="analisi-rcc-year-field" htmlFor="risorse-risorsa-search">
-                              <span>{`Filtro ${risorseEntityFilterLabel}`}</span>
-                              <input
-                                id="risorse-risorsa-search"
-                                value={risorseRisorsaSearch}
-                                disabled={risorseFormDisabled}
-                                onChange={(event) => setRisorseRisorsaSearch(event.target.value)}
-                                placeholder="Cerca risorsa..."
-                              />
-                            </label>
-
-                            <label className="analisi-rcc-year-field" htmlFor="risorse-id-risorsa">
-                              <span>{risorseEntityFilterLabel}</span>
-                              <select
-                                id="risorse-id-risorsa"
-                                value={risorseFiltersForm.idRisorsa}
-                                disabled={risorseFormDisabled}
-                                onChange={(event) => setRisorseFiltersForm((current) => ({
-                                  ...current,
-                                  idRisorsa: event.target.value,
-                                }))}
-                              >
-                                <option value="">Tutte</option>
-                                {risorseRisorsaOptions.map((option) => (
-                                  <option key={`risorse-anagrafica-${option.value}`} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </>
-                        )}
-
-                        <label className="checkbox-label" htmlFor="risorse-vista-costo">
-                          <input
-                            id="risorse-vista-costo"
-                            type="checkbox"
-                            checked={risorseFiltersForm.vistaCosto}
-                            disabled={risorseFormDisabled}
-                            onChange={(event) => setRisorseFiltersForm((current) => ({
-                              ...current,
-                              vistaCosto: event.target.checked,
-                            }))}
-                          />
-                          Visualizza valori su costo
-                        </label>
-                      </>
-                    )}
-
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={risorseFormDisabled}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={refreshRisorseFilters}
-                        disabled={risorseFormDisabled}
-                      >
-                        Aggiorna Filtri
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetRisorseFilters}
-                        disabled={risorseFormDisabled}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={risorseFormDisabled || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {risorseCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {risorseSearched
-                        ? `Ricerca completata (${isRisorseMensilePage ? 'mensile' : 'annuale'}, ${risorseFiltersForm.vistaCosto ? 'base costo' : 'base ore'}).`
-                        : statusMessageVisible}
-                    </p>
-                  </div>
-                </section>
-
-                {isRisorsePivotPage && !isAnalisiSearchCollapsed && (
-                  <section className="panel analisi-rcc-grid-card dati-annuali-pivot-config-panel">
-                    <header className="panel-header">
-                      <h3>Configurazione Pivot Risorse</h3>
-                    </header>
-                    <div className="dati-annuali-pivot-config-grid">
-                      <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="risorse-pivot-fields-available">
-                        <span>Campi disponibili</span>
-                        <select
-                          id="risorse-pivot-fields-available"
-                          multiple
-                          size={8}
-                          value={risorsePivotAvailableSelection}
-                          onChange={(event) => setRisorsePivotAvailableSelection(
-                            asRisorsePivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
-                          )}
-                        >
-                          {risorsePivotAvailableFieldOptions.map((option) => (
-                            <option key={`risorse-pivot-available-${option.key}`} value={option.key}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="dati-annuali-pivot-config-actions">
-                        <button
-                          type="button"
-                          onClick={addRisorsePivotSelectedFields}
-                          disabled={risorsePivotAvailableSelection.length === 0}
-                        >
-                          Aggiungi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={removeRisorsePivotSelectedFields}
-                          disabled={risorsePivotSelectedSelection.length === 0}
-                        >
-                          Rimuovi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveRisorsePivotField('up')}
-                          disabled={risorsePivotSelectedSelection.length !== 1}
-                        >
-                          Su
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveRisorsePivotField('down')}
-                          disabled={risorsePivotSelectedSelection.length !== 1}
-                        >
-                          Giu
-                        </button>
-                      </div>
-                      <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="risorse-pivot-fields-selected">
-                        <span>Livelli aggregazione (ordine pivot)</span>
-                        <select
-                          id="risorse-pivot-fields-selected"
-                          multiple
-                          size={8}
-                          value={risorsePivotSelectedSelection}
-                          onChange={(event) => setRisorsePivotSelectedSelection(
-                            asRisorsePivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
-                          )}
-                        >
-                          {risorsePivotSelectedFieldOptions.map((option) => (
-                            <option key={`risorse-pivot-selected-${option.key}`} value={option.key}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  </section>
-                )}
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>{isRisorsePivotPage ? 'Risultati Risorse (Pivot)' : 'Risultati Risorse'}</h3>
-                  </header>
-
-                  {!risorseSearched && !analisiRccLoading && (
-                    <p className="empty-state">Imposta i filtri e premi Cerca.</p>
-                  )}
-
-                  {risorseSearched && !analisiRccLoading && (isRisorsePivotPage ? risorsePivotRows.length : risorseRowsSorted.length) === 0 && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {isRisorsePivotPage && risorsePivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Etichette di riga</th>
-                            <th className="num">Numero Commesse</th>
-                            <th className="num">Ore Totali</th>
-                            <th className="num">Costo Specifico Risorsa</th>
-                            <th className="num">{risorseFatturatoLabel}</th>
-                            <th className="num">{risorseUtileLabel}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {risorsePivotRows.map((row) => (
-                            <tr key={row.key} className={row.kind === 'totale' ? 'table-totals-row' : 'table-group-summary-row'}>
-                              <td className="table-group-summary-label">
-                                <span className={`dati-annuali-pivot-label level-${Math.min(row.level, 6)}`}>
-                                  {row.label}
-                                </span>
-                              </td>
-                              <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
-                              <td className="num">{formatNumber(row.oreTotali)}</td>
-                              <td className={`num ${row.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoSpecificoRisorsa)}</td>
-                              <td className={`num ${row.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturato)}</td>
-                              <td className={`num ${row.utile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utile)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {!isRisorsePivotPage && risorseRowsSorted.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            {isRisorseMensilePage && <th>Mese</th>}
-                            <th>Commessa</th>
-                            <th>Descrizione</th>
-                            <th>Tipologia</th>
-                            <th>Stato</th>
-                            <th>Macrotipologia</th>
-                            <th>Controparte</th>
-                            <th>Business Unit</th>
-                            <th>OU</th>
-                            <th>RCC</th>
-                            <th>PM</th>
-                            <th>{risorseEntityFilterLabel}</th>
-                            <th className="num">Ore Totali</th>
-                            <th className="num">Costo Specifico Risorsa</th>
-                            <th className="num">{risorseFatturatoLabel}</th>
-                            <th className="num">{risorseUtileLabel}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {risorseRowsSorted.map((row, index) => (
-                            <tr key={`risorse-row-${row.annoCompetenza}-${row.meseCompetenza ?? 0}-${row.commessa}-${row.idRisorsa}-${index}`}>
-                              <td>{row.annoCompetenza}</td>
-                              {isRisorseMensilePage && <td>{row.meseCompetenza ? row.meseCompetenza.toString().padStart(2, '0') : ''}</td>}
-                              <td>
-                                <button
-                                  type="button"
-                                  className="inline-link-button"
-                                  onClick={() => openCommessaDetail(row.commessa)}
-                                  title={`Apri dettaglio commessa ${row.commessa}`}
-                                >
-                                  {row.commessa}
-                                </button>
-                              </td>
-                              <td>{row.descrizioneCommessa}</td>
-                              <td>{row.tipologiaCommessa}</td>
-                              <td>{row.stato}</td>
-                              <td>{row.macroTipologia}</td>
-                              <td>{row.controparte}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{resolveOuValue(row)}</td>
-                              <td>{row.rcc}</td>
-                              <td>{row.pm}</td>
-                              <td>{normalizeRisorsaLabel(row)}</td>
-                              <td className="num">{formatNumber(row.oreTotali)}</td>
-                              <td className={`num ${row.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoSpecificoRisorsa)}</td>
-                              <td className={`num ${(risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre) < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(risorseFiltersForm.vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre)}
-                              </td>
-                              <td className={`num ${(risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre) < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(risorseFiltersForm.vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="table-totals-row">
-                            <td colSpan={isRisorseMensilePage ? 13 : 12} className="table-totals-label">Totale</td>
-                            <td className="num">{formatNumber(risorseTotals.oreTotali)}</td>
-                            <td className={`num ${risorseTotals.costoSpecificoRisorsa < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.costoSpecificoRisorsa)}</td>
-                            <td className={`num ${risorseTotals.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.fatturato)}</td>
-                            <td className={`num ${risorseTotals.utile < 0 ? 'num-negative' : ''}`}>{formatNumber(risorseTotals.utile)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <RisorsePage {...remainingPagesProps} />
         )}
 
         {isProcessoOffertaPage && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>{processoOffertaTitle}</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessProcessoOffertaPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a Processo Offerta.
-              </p>
-            )}
-
-            {canAccessProcessoOffertaPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="processo-offerta-anni">
-                      <span>Anni</span>
-                      <select
-                        id="processo-offerta-anni"
-                        multiple
-                        size={4}
-                        value={processoOffertaAnni}
-                        onChange={(event) => setProcessoOffertaAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {processoOffertaAnnoOptions.map((year) => (
-                          <option key={`processo-offerta-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {(isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage)
-                      ? (
-                        <label className="analisi-rcc-year-field" htmlFor="processo-offerta-percentuale-aggregazione">
-                          <span>{processoOffertaAggregazioneLabel}</span>
-                          <select
-                            id="processo-offerta-percentuale-aggregazione"
-                            value={processoOffertaPercentualeSelectedAggregazione}
-                            onChange={(event) => {
-                              const nextValue = event.target.value
-                              if (isProcessoOffertaPercentualeSuccessoRccPage) {
-                                setProcessoOffertaPercentualeRcc(nextValue)
-                              } else {
-                                setProcessoOffertaPercentualeBu(nextValue)
-                              }
-                            }}
-                          >
-                            <option value="">Tutti</option>
-                            {processoOffertaPercentualeAggregazioneOptions.map((value) => (
-                              <option key={`processo-offerta-aggregazione-${value}`} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )
-                      : (
-                        <label className="analisi-rcc-year-field" htmlFor="processo-offerta-esiti">
-                          <span>Esito</span>
-                          <select
-                            id="processo-offerta-esiti"
-                            multiple
-                            size={Math.max(3, Math.min(6, processoOffertaEsitiOptions.length || 3))}
-                            value={processoOffertaEsiti}
-                            onChange={(event) => setProcessoOffertaEsiti(
-                              Array.from(event.target.selectedOptions).map((option) => option.value),
-                            )}
-                          >
-                            {processoOffertaEsitiOptions.map((value) => (
-                              <option key={`processo-offerta-esito-${value}`} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {processoOffertaCurrentData
-                        ? `Anni ${processoOffertaCurrentData.anni.join(', ') || '-'}, ${processoOffertaVisibilityMessage}.`
-                        : processoOffertaVisibilityMessage}
-                    </p>
-                    <span className="status-badge neutral">{processoOffertaCountLabel}</span>
-                  </div>
-                </section>
-
-                {isProcessoOffertaOffertePage && (
-                  <section className="panel analisi-rcc-grid-card">
-                    <header className="panel-header">
-                      <h3>Offerte</h3>
-                    </header>
-                    {processoOffertaOfferteRows.length === 0 && !analisiRccLoading && (
-                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                    )}
-                    {processoOffertaOfferteRows.length > 0 && (
-                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                        <table className="bonifici-table">
-                          <thead>
-                            <tr>
-                              <th>Anno</th>
-                              <th>Data</th>
-                              <th>Business Unit</th>
-                              <th>RCC</th>
-                              <th>Commessa</th>
-                              <th>Protocollo</th>
-                              <th>Tipo</th>
-                              <th>Stato Documento</th>
-                              <th>Esito</th>
-                              <th>Esito Positivo</th>
-                              <th>Oggetto</th>
-                              <th>Controparte</th>
-                              <th className="num">% Successo</th>
-                              <th className="num">Importo Prevedibile</th>
-                              <th className="num">Costo Prevedibile</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {processoOffertaOfferteRows.map((row) => (
-                              <tr key={`processo-offerta-offerta-${row.id}`}>
-                                <td>{row.anno}</td>
-                                <td>{formatDate(row.data)}</td>
-                                <td>{row.businessUnit}</td>
-                                <td>{row.rcc}</td>
-                                <td>
-                                  {row.commessa.trim()
-                                    ? (
-                                      <button
-                                        type="button"
-                                        className="inline-link-button"
-                                        onClick={() => openCommessaDetail(row.commessa)}
-                                        title={`Apri dettaglio commessa ${row.commessa}`}
-                                      >
-                                        {row.commessa}
-                                      </button>
-                                    )
-                                    : ''}
-                                </td>
-                                <td>{row.protocollo}</td>
-                                <td>{row.tipo}</td>
-                                <td>{row.statoDocumento}</td>
-                                <td>{row.esito}</td>
-                                <td>{row.esitoPositivoTesto}</td>
-                                <td>{row.oggetto}</td>
-                                <td>{row.controparte}</td>
-                                <td className="num">{formatPercentValue(row.percentualeSuccesso)}</td>
-                                <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
-                                <td className={`num ${row.costoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevedibile)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="table-totals-row">
-                              <td colSpan={13} className="table-totals-label">Totale</td>
-                              <td className={`num ${processoOffertaOfferteTotals.importoPrevedibile < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(processoOffertaOfferteTotals.importoPrevedibile)}
-                              </td>
-                              <td className={`num ${processoOffertaOfferteTotals.costoPrevedibile < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(processoOffertaOfferteTotals.costoPrevedibile)}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                {(isProcessoOffertaSintesiRccPage || isProcessoOffertaSintesiBuPage) && (
-                  <section className="panel analisi-rcc-grid-card">
-                    <header className="panel-header">
-                      <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Sintesi RCC' : 'Sintesi BU'}</h3>
-                    </header>
-                    {processoOffertaSintesiRows.length === 0 && !analisiRccLoading && (
-                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                    )}
-                    {processoOffertaSintesiRows.length > 0 && (
-                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                        <table className="bonifici-table">
-                          <thead>
-                            <tr>
-                              <th>Anno</th>
-                              <th>{processoOffertaAggregazioneLabel}</th>
-                              <th>Tipo</th>
-                              <th>Esito Positivo</th>
-                              <th className="num">Numero</th>
-                              <th className="num">Importo Prevedibile</th>
-                              <th className="num">Costo Prevedibile</th>
-                              <th className="num">% Ricarico</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {processoOffertaSintesiRows.map((row, index) => (
-                              <tr key={`processo-offerta-sintesi-${row.anno}-${row.aggregazione}-${row.tipo}-${row.esitoPositivoTesto}-${index}`}>
-                                <td>{row.anno}</td>
-                                <td>{row.aggregazione}</td>
-                                <td>{row.tipo}</td>
-                                <td>{row.esitoPositivoTesto}</td>
-                                <td className="num">{row.numero.toLocaleString('it-IT')}</td>
-                                <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
-                                <td className={`num ${row.costoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevedibile)}</td>
-                                <td className="num">{formatPercentValue(row.percentualeRicarico)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="table-totals-row">
-                              <td colSpan={4} className="table-totals-label">Totale</td>
-                              <td className="num">{processoOffertaSintesiTotals.numero.toLocaleString('it-IT')}</td>
-                              <td className={`num ${processoOffertaSintesiTotals.importoPrevedibile < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(processoOffertaSintesiTotals.importoPrevedibile)}
-                              </td>
-                              <td className={`num ${processoOffertaSintesiTotals.costoPrevedibile < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(processoOffertaSintesiTotals.costoPrevedibile)}
-                              </td>
-                              <td className="num">{formatPercentValue(processoOffertaSintesiRicaricoTotale)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                {(isProcessoOffertaPercentualeSuccessoRccPage || isProcessoOffertaPercentualeSuccessoBuPage) && (
-                  <>
-                    <section className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Percentuale Successo RCC' : 'Percentuale Successo BU'}</h3>
-                      </header>
-                      {processoOffertaSuccessoRows.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                      )}
-                    {processoOffertaSuccessoRows.length > 0 && (
-                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                        <table className="bonifici-table">
-                          <thead>
-                            <tr>
-                              <th rowSpan={2}>Anno</th>
-                              <th rowSpan={2}>{processoOffertaAggregazioneLabel}</th>
-                              <th colSpan={4}>Negativo</th>
-                              <th colSpan={4}>Non definito</th>
-                              <th colSpan={4}>Positivo</th>
-                              <th colSpan={4}>Totale</th>
-                            </tr>
-                            <tr>
-                              <th className="num">Ricavo in Offerta</th>
-                              <th className="num">Costo in Offerta</th>
-                              <th className="num">Margine Operativo</th>
-                              <th className="num">Ricarico %</th>
-                              <th className="num">Ricavo in Offerta</th>
-                              <th className="num">Costo in Offerta</th>
-                              <th className="num">Margine Operativo</th>
-                              <th className="num">Ricarico %</th>
-                              <th className="num">Ricavo in Offerta</th>
-                              <th className="num">Costo in Offerta</th>
-                              <th className="num">Margine Operativo</th>
-                              <th className="num">Ricarico %</th>
-                              <th className="num">Ricavo in Offerta</th>
-                              <th className="num">Costo in Offerta</th>
-                              <th className="num">Margine Operativo</th>
-                              <th className="num">Ricarico % totale</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {processoOffertaSuccessoRows.map((row) => (
-                              <tr key={`processo-offerta-successo-${row.anno}-${row.aggregazione}`}>
-                                <td>{row.anno}</td>
-                                <td>{row.aggregazione}</td>
-                                <td className={`num ${row.negativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.ricavo)}</td>
-                                <td className={`num ${row.negativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.costo)}</td>
-                                <td className={`num ${row.negativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.margine)}</td>
-                                <td className="num">{formatPercentValue(row.negativo.ricarico)}</td>
-                                <td className={`num ${row.nonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.ricavo)}</td>
-                                <td className={`num ${row.nonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.costo)}</td>
-                                <td className={`num ${row.nonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.margine)}</td>
-                                <td className="num">{formatPercentValue(row.nonDefinito.ricarico)}</td>
-                                <td className={`num ${row.positivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.ricavo)}</td>
-                                <td className={`num ${row.positivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.costo)}</td>
-                                <td className={`num ${row.positivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.margine)}</td>
-                                <td className="num">{formatPercentValue(row.positivo.ricarico)}</td>
-                                <td className={`num ${row.totale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.ricavo)}</td>
-                                <td className={`num ${row.totale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.costo)}</td>
-                                <td className={`num ${row.totale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.margine)}</td>
-                                <td className="num">{formatPercentValue(row.totale.ricarico)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="table-totals-row">
-                              <td colSpan={2} className="table-totals-label">Totale complessivo</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.ricavo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.costo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNegativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNegativo.margine)}</td>
-                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotaleNegativo.ricarico)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.ricavo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.costo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotaleNonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotaleNonDefinito.margine)}</td>
-                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotaleNonDefinito.ricarico)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotalePositivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.ricavo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotalePositivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.costo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotalePositivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotalePositivo.margine)}</td>
-                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotalePositivo.ricarico)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.ricavo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.costo)}</td>
-                              <td className={`num ${processoOffertaSuccessoTotale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoTotale.margine)}</td>
-                              <td className="num">{formatPercentValue(processoOffertaSuccessoTotale.ricarico)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="panel analisi-rcc-grid-card">
-                    <header className="panel-header">
-                      <h3>Sintesi successo ({processoOffertaAggregazioneLabel})</h3>
-                    </header>
-                    {processoOffertaSuccessoSintesiRows.length === 0 && !analisiRccLoading && (
-                      <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                    )}
-                    {processoOffertaSuccessoSintesiRows.length > 0 && (
-                      <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                        <table className="bonifici-table">
-                          <thead>
-                            <tr>
-                              <th rowSpan={2}>Anno</th>
-                              <th rowSpan={2}>{processoOffertaAggregazioneLabel}</th>
-                              <th colSpan={4}>Negativo</th>
-                              <th colSpan={4}>Non definito</th>
-                              <th colSpan={4}>Positivo</th>
-                              <th colSpan={2}>Totale</th>
-                            </tr>
-                            <tr>
-                              <th className="num">N Offerte</th>
-                              <th className="num">Importo</th>
-                              <th className="num">% Numero</th>
-                              <th className="num">% Importo</th>
-                              <th className="num">N Offerte</th>
-                              <th className="num">Importo</th>
-                              <th className="num">% Numero</th>
-                              <th className="num">% Importo</th>
-                              <th className="num">N Offerte</th>
-                              <th className="num">Importo</th>
-                              <th className="num">% Numero</th>
-                              <th className="num">% Importo</th>
-                              <th className="num">N Offerte</th>
-                              <th className="num">Importo</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {processoOffertaSuccessoSintesiRows.map((row) => (
-                              <tr key={`processo-offerta-successo-sintesi-${row.anno}-${row.aggregazione}`}>
-                                <td>{row.anno}</td>
-                                <td>{row.aggregazione}</td>
-                                <td className="num">{row.negativo.numero.toLocaleString('it-IT')}</td>
-                                <td className={`num ${row.negativo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.importo)}</td>
-                                <td className="num">{formatPercentRatio(row.negativo.percentualeNumero)}</td>
-                                <td className="num">{formatPercentRatio(row.negativo.percentualeImporto)}</td>
-                                <td className="num">{row.nonDefinito.numero.toLocaleString('it-IT')}</td>
-                                <td className={`num ${row.nonDefinito.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.importo)}</td>
-                                <td className="num">{formatPercentRatio(row.nonDefinito.percentualeNumero)}</td>
-                                <td className="num">{formatPercentRatio(row.nonDefinito.percentualeImporto)}</td>
-                                <td className="num">{row.positivo.numero.toLocaleString('it-IT')}</td>
-                                <td className={`num ${row.positivo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.importo)}</td>
-                                <td className="num">{formatPercentRatio(row.positivo.percentualeNumero)}</td>
-                                <td className="num">{formatPercentRatio(row.positivo.percentualeImporto)}</td>
-                                <td className="num">{row.totaleNumero.toLocaleString('it-IT')}</td>
-                                <td className={`num ${row.totaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleImporto)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="table-totals-row">
-                              <td colSpan={2} className="table-totals-label">Totale complessivo</td>
-                              <td className="num">{processoOffertaSuccessoSintesiTotale.negativo.numero.toLocaleString('it-IT')}</td>
-                              <td className={`num ${processoOffertaSuccessoSintesiTotale.negativo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.negativo.importo)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.negativo.percentualeNumero)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.negativo.percentualeImporto)}</td>
-                              <td className="num">{processoOffertaSuccessoSintesiTotale.nonDefinito.numero.toLocaleString('it-IT')}</td>
-                              <td className={`num ${processoOffertaSuccessoSintesiTotale.nonDefinito.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.nonDefinito.importo)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.nonDefinito.percentualeNumero)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.nonDefinito.percentualeImporto)}</td>
-                              <td className="num">{processoOffertaSuccessoSintesiTotale.positivo.numero.toLocaleString('it-IT')}</td>
-                              <td className={`num ${processoOffertaSuccessoSintesiTotale.positivo.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.positivo.importo)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.positivo.percentualeNumero)}</td>
-                              <td className="num">{formatPercentRatio(processoOffertaSuccessoSintesiTotale.positivo.percentualeImporto)}</td>
-                              <td className="num">{processoOffertaSuccessoSintesiTotale.totaleNumero.toLocaleString('it-IT')}</td>
-                              <td className={`num ${processoOffertaSuccessoSintesiTotale.totaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(processoOffertaSuccessoSintesiTotale.totaleImporto)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-
-                    <section className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>Totali per anno</h3>
-                      </header>
-                      {processoOffertaSuccessoTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                      )}
-                      {processoOffertaSuccessoTotaliPerAnno.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                          <table className="bonifici-table">
-                            <thead>
-                              <tr>
-                                <th rowSpan={2}>Anno</th>
-                                <th colSpan={4}>Negativo</th>
-                                <th colSpan={4}>Non definito</th>
-                                <th colSpan={4}>Positivo</th>
-                                <th colSpan={4}>Totale</th>
-                              </tr>
-                              <tr>
-                                <th className="num">Ricavo in Offerta</th>
-                                <th className="num">Costo in Offerta</th>
-                                <th className="num">Margine Operativo</th>
-                                <th className="num">Ricarico %</th>
-                                <th className="num">Ricavo in Offerta</th>
-                                <th className="num">Costo in Offerta</th>
-                                <th className="num">Margine Operativo</th>
-                                <th className="num">Ricarico %</th>
-                                <th className="num">Ricavo in Offerta</th>
-                                <th className="num">Costo in Offerta</th>
-                                <th className="num">Margine Operativo</th>
-                                <th className="num">Ricarico %</th>
-                                <th className="num">Ricavo in Offerta</th>
-                                <th className="num">Costo in Offerta</th>
-                                <th className="num">Margine Operativo</th>
-                                <th className="num">Ricarico % totale</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {processoOffertaSuccessoTotaliPerAnno.map((row) => (
-                                <tr key={`processo-offerta-successo-totale-${row.anno}`} className="table-totals-row">
-                                  <td>{row.anno}</td>
-                                  <td className={`num ${row.negativo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.ricavo)}</td>
-                                  <td className={`num ${row.negativo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.costo)}</td>
-                                  <td className={`num ${row.negativo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.negativo.margine)}</td>
-                                  <td className="num">{formatPercentValue(row.negativo.ricarico)}</td>
-                                  <td className={`num ${row.nonDefinito.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.ricavo)}</td>
-                                  <td className={`num ${row.nonDefinito.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.costo)}</td>
-                                  <td className={`num ${row.nonDefinito.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.nonDefinito.margine)}</td>
-                                  <td className="num">{formatPercentValue(row.nonDefinito.ricarico)}</td>
-                                  <td className={`num ${row.positivo.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.ricavo)}</td>
-                                  <td className={`num ${row.positivo.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.costo)}</td>
-                                  <td className={`num ${row.positivo.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.positivo.margine)}</td>
-                                  <td className="num">{formatPercentValue(row.positivo.ricarico)}</td>
-                                  <td className={`num ${row.totale.ricavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.ricavo)}</td>
-                                  <td className={`num ${row.totale.costo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.costo)}</td>
-                                  <td className={`num ${row.totale.margine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totale.margine)}</td>
-                                  <td className="num">{formatPercentValue(row.totale.ricarico)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-                  </>
-                )}
-
-                {(isProcessoOffertaIncidenzaRccPage || isProcessoOffertaIncidenzaBuPage) && (
-                  <>
-                    <section className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>{processoOffertaAggregazioneLabel === 'RCC' ? 'Incidenza RCC su totale anno' : 'Incidenza BU su totale anno'}</h3>
-                      </header>
-                      {processoOffertaIncidenzaRows.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                      )}
-                      {processoOffertaIncidenzaRows.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                          <table className="bonifici-table">
-                            <thead>
-                              <tr>
-                                <th>Anno</th>
-                                <th>{processoOffertaAggregazioneLabel}</th>
-                                <th className="num">Numero</th>
-                                <th className="num">Importo Prevedibile</th>
-                                <th className="num">Totale anno</th>
-                                <th className="num">% su totale anno</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {processoOffertaIncidenzaRows.map((row) => (
-                                <tr key={`processo-offerta-incidenza-${row.anno}-${row.aggregazione}`}>
-                                  <td>{row.anno}</td>
-                                  <td>{row.aggregazione}</td>
-                                  <td className="num">{row.numero.toLocaleString('it-IT')}</td>
-                                  <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
-                                  <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuAnno)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-
-                    <section className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>Totali per anno</h3>
-                      </header>
-                      {processoOffertaIncidenzaTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                      )}
-                      {processoOffertaIncidenzaTotaliPerAnno.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                          <table className="bonifici-table">
-                            <thead>
-                              <tr>
-                                <th>Anno</th>
-                                <th className="num">Numero</th>
-                                <th className="num">Importo Prevedibile</th>
-                                <th className="num">Totale anno</th>
-                                <th className="num">% su totale anno</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {processoOffertaIncidenzaTotaliPerAnno.map((row) => (
-                                <tr key={`processo-offerta-incidenza-totale-${row.anno}`} className="table-totals-row">
-                                  <td>{row.anno}</td>
-                                  <td className="num">{row.numero.toLocaleString('it-IT')}</td>
-                                  <td className={`num ${row.importoPrevedibile < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoPrevedibile)}</td>
-                                  <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
-                                  <td className="num">{formatPercentRatio(row.percentualeSuAnno)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-                  </>
-                )}
-              </>
-            )}
-          </section>
+          <ProcessoOffertaPage {...remainingPagesProps} />
         )}
 
         {activePage === 'analisi-rcc-risultato-mensile' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Proiezione Mensile RCC</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiRccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiRccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-anno">
-                      <span>Anno Snapshot</span>
-                      <input
-                        id="analisi-rcc-anno"
-                        type="number"
-                        min={2000}
-                        max={2100}
-                        step={1}
-                        value={analisiRccAnno}
-                        onChange={(event) => setAnalisiRccAnno(event.target.value)}
-                      />
-                    </label>
-                    {canSelectAnalisiRccRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="analisi-rcc-rcc"
-                          value={analisiRccRcc}
-                          onChange={(event) => setAnalisiRccRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {analisiRccRccOptions.map((value) => (
-                            <option key={`analisi-rcc-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="analisi-rcc-grids">
-                  {analisiRccData && analisiRccGrids.length > 0 && analisiRccGrids.map((grid) => (
-                    <section key={grid.titolo} className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>{grid.titolo}</h3>
-                      </header>
-                      {grid.righe.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                      )}
-                      {grid.righe.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main analisi-rcc-table-wrap">
-                          <table className="bonifici-table analisi-rcc-table">
-                            <thead>
-                              <tr>
-                                <th>Aggregazione</th>
-                                {!grid.valoriPercentuali && <th className="num">Budget</th>}
-                                {grid.mesi.map((mese) => (
-                                  <th key={`${grid.titolo}-mese-${mese}`} className="num">{mese.toString().padStart(2, '0')}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {grid.righe.map((row) => {
-                                const isTotalRow = row.aggregazione.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
-                                const budgetValue = Number(row.budget ?? 0)
-                                return (
-                                  <tr key={`${grid.titolo}-${row.aggregazione}`} className={isTotalRow ? 'table-totals-row' : ''}>
-                                    <td>{row.aggregazione}</td>
-                                    {!grid.valoriPercentuali && (
-                                      <td className={`num ${Number(row.budget ?? 0) < 0 ? 'num-negative' : ''}`}>
-                                        {row.budget === null || row.budget === undefined
-                                          ? ''
-                                          : formatCurrency(row.budget)}
-                                      </td>
-                                    )}
-                                    {grid.mesi.map((mese) => {
-                                      const value = getAnalisiRccValueForMonth(row, mese)
-                                      const isUnderBudget = !grid.valoriPercentuali &&
-                                        !isTotalRow &&
-                                        row.budget !== null &&
-                                        row.budget !== undefined &&
-                                        value < budgetValue
-                                      return (
-                                        <td
-                                          key={`${grid.titolo}-${row.aggregazione}-${mese}`}
-                                          className={`num ${grid.valoriPercentuali
-                                            ? (isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : '')
-                                            : (isUnderBudget ? 'num-under-target' : (value < 0 ? 'num-negative' : ''))}`}
-                                        >
-                                          {grid.valoriPercentuali ? formatAnalisiRccPercent(value) : formatCurrency(value)}
-                                        </td>
-                                      )
-                                    })}
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-                  ))}
-                  {!analisiRccLoading && (!analisiRccData || analisiRccGrids.every((grid) => grid.righe.length === 0)) && (
-                    <section className="panel">
-                      <p className="empty-state">Nessun dato disponibile. Imposta l'anno e premi Aggiorna.</p>
-                    </section>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiRccRisultatoMensilePage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-rcc-pivot-fatturato' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Report Annuale RCC</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiRccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiRccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-pivot-anni">
-                      <span>Anni confronto</span>
-                      <select
-                        id="analisi-rcc-pivot-anni"
-                        multiple
-                        size={4}
-                        value={analisiRccPivotAnni}
-                        onChange={(event) => setAnalisiRccPivotAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {analisiRccPivotAnnoOptions.map((year) => (
-                          <option key={`analisi-rcc-pivot-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectAnalisiRccPivotRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-rcc-pivot-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="analisi-rcc-pivot-rcc"
-                          value={analisiRccPivotRcc}
-                          onChange={(event) => setAnalisiRccPivotRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {analisiRccPivotRccOptions.map((value) => (
-                            <option key={`analisi-rcc-pivot-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Report Annuale RCC</h3>
-                  </header>
-
-                  {analisiRccPivotRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {analisiRccPivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>RCC</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiRccPivotRows.map((row) => {
-                            const isTotalRow = row.rcc.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
-                            return (
-                              <tr key={`analisi-rcc-pivot-${row.anno}-${row.rcc}`} className={isTotalRow ? 'table-totals-row' : ''}>
-                                <td>{row.anno}</td>
-                                <td>{row.rcc}</td>
-                                <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                                <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                                <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                                <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                                <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                  {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                                </td>
-                                <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                  {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                    ? '-'
-                                    : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                                </td>
-                                <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                                <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                                <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                  {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Totali per anno</h3>
-                  </header>
-                  {analisiRccPivotTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {analisiRccPivotTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiRccPivotTotaliPerAnno.map((row) => (
-                            <tr key={`analisi-rcc-pivot-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                              </td>
-                              <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                  ? '-'
-                                  : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                              </td>
-                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiRccPivotFatturatoPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-bu-risultato-mensile' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Proiezione Mensile BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiBuPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiBuPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-bu-anno">
-                      <span>Anno Snapshot</span>
-                      <input
-                        id="analisi-bu-anno"
-                        type="number"
-                        min={2000}
-                        max={2100}
-                        step={1}
-                        value={analisiBuAnno}
-                        onChange={(event) => setAnalisiBuAnno(event.target.value)}
-                      />
-                    </label>
-                    {canSelectAnalisiBuBusinessUnit && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-bu-business-unit">
-                        <span>BU</span>
-                        <select
-                          id="analisi-bu-business-unit"
-                          value={analisiBuBusinessUnit}
-                          onChange={(event) => setAnalisiBuBusinessUnit(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {analisiBuBusinessUnitOptions.map((value) => (
-                            <option key={`analisi-bu-business-unit-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="analisi-rcc-grids">
-                  {analisiBuData && analisiBuGrids.length > 0 && analisiBuGrids.map((grid) => (
-                    <section key={`bu-${grid.titolo}`} className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>{grid.titolo}</h3>
-                      </header>
-                      {grid.righe.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                      )}
-                      {grid.righe.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main analisi-rcc-table-wrap">
-                          <table className="bonifici-table analisi-rcc-table">
-                            <thead>
-                              <tr>
-                                <th>Aggregazione</th>
-                                {!grid.valoriPercentuali && <th className="num">Budget</th>}
-                                {grid.mesi.map((mese) => (
-                                  <th key={`bu-${grid.titolo}-mese-${mese}`} className="num">{mese.toString().padStart(2, '0')}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {grid.righe.map((row) => {
-                                const isTotalRow = row.aggregazione.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
-                                const budgetValue = Number(row.budget ?? 0)
-                                return (
-                                  <tr key={`bu-${grid.titolo}-${row.aggregazione}`} className={isTotalRow ? 'table-totals-row' : ''}>
-                                    <td>{row.aggregazione}</td>
-                                    {!grid.valoriPercentuali && (
-                                      <td className={`num ${Number(row.budget ?? 0) < 0 ? 'num-negative' : ''}`}>
-                                        {row.budget === null || row.budget === undefined
-                                          ? ''
-                                          : formatCurrency(row.budget)}
-                                      </td>
-                                    )}
-                                    {grid.mesi.map((mese) => {
-                                      const value = getAnalisiRccValueForMonth(row, mese)
-                                      const isUnderBudget = !grid.valoriPercentuali &&
-                                        !isTotalRow &&
-                                        row.budget !== null &&
-                                        row.budget !== undefined &&
-                                        value < budgetValue
-                                      return (
-                                        <td
-                                          key={`bu-${grid.titolo}-${row.aggregazione}-${mese}`}
-                                          className={`num ${grid.valoriPercentuali
-                                            ? (isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : '')
-                                            : (isUnderBudget ? 'num-under-target' : (value < 0 ? 'num-negative' : ''))}`}
-                                        >
-                                          {grid.valoriPercentuali ? formatAnalisiRccPercent(value) : formatCurrency(value)}
-                                        </td>
-                                      )
-                                    })}
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-                  ))}
-                  {!analisiRccLoading && (!analisiBuData || analisiBuGrids.every((grid) => grid.righe.length === 0)) && (
-                    <section className="panel">
-                      <p className="empty-state">Nessun dato disponibile. Imposta l'anno e premi Aggiorna.</p>
-                    </section>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiBuRisultatoMensilePage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-bu-pivot-fatturato' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Report Annuale BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiBuPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiBuPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-bu-pivot-anni">
-                      <span>Anni confronto</span>
-                      <select
-                        id="analisi-bu-pivot-anni"
-                        multiple
-                        size={4}
-                        value={analisiBuPivotAnni}
-                        onChange={(event) => setAnalisiBuPivotAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {analisiBuPivotAnnoOptions.map((year) => (
-                          <option key={`analisi-bu-pivot-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectAnalisiBuPivotBusinessUnit && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-bu-pivot-bu">
-                        <span>BU</span>
-                        <select
-                          id="analisi-bu-pivot-bu"
-                          value={analisiBuPivotBusinessUnit}
-                          onChange={(event) => setAnalisiBuPivotBusinessUnit(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {analisiBuPivotBusinessUnitOptions.map((value) => (
-                            <option key={`analisi-bu-pivot-bu-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Report Annuale BU</h3>
-                  </header>
-
-                  {analisiBuPivotRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {analisiBuPivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>BU</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiBuPivotRows.map((row) => {
-                            const isTotalRow = row.rcc.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
-                            return (
-                              <tr key={`analisi-bu-pivot-${row.anno}-${row.rcc}`} className={isTotalRow ? 'table-totals-row' : ''}>
-                                <td>{row.anno}</td>
-                                <td>{row.rcc}</td>
-                                <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                                <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                                <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                                <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                                <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                  {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                                </td>
-                                <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                  {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                    ? '-'
-                                    : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                                </td>
-                                <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                                <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                                <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                                <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                  {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Totali per anno</h3>
-                  </header>
-                  {analisiBuPivotTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {analisiBuPivotTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiBuPivotTotaliPerAnno.map((row) => (
-                            <tr key={`analisi-bu-pivot-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                              </td>
-                              <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                  ? '-'
-                                  : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                              </td>
-                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiBuPivotFatturatoPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-burcc-risultato-mensile' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Proiezione Mensile RCC-BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiBurccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiBurccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-anno">
-                      <span>Anno Snapshot</span>
-                      <input
-                        id="analisi-burcc-anno"
-                        type="number"
-                        min={2000}
-                        max={2100}
-                        step={1}
-                        value={analisiBurccAnno}
-                        onChange={(event) => setAnalisiBurccAnno(event.target.value)}
-                      />
-                    </label>
-                    {canSelectAnalisiBurccBusinessUnit && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-bu">
-                        <span>BU</span>
-                        <select
-                          id="analisi-burcc-bu"
-                          value={analisiBurccBusinessUnit}
-                          onChange={(event) => setAnalisiBurccBusinessUnit(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {analisiBurccBusinessUnitOptions.map((value) => (
-                            <option key={`analisi-burcc-bu-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    {canSelectAnalisiBurccRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="analisi-burcc-rcc"
-                          value={analisiBurccRcc}
-                          onChange={(event) => setAnalisiBurccRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {analisiBurccRccOptions.map((value) => (
-                            <option key={`analisi-burcc-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="analisi-rcc-grids">
-                  {analisiBurccData && analisiBurccGrids.length > 0 && analisiBurccGrids.map((grid) => (
-                    <section key={`burcc-${grid.titolo}`} className="panel analisi-rcc-grid-card">
-                      <header className="panel-header">
-                        <h3>{grid.titolo}</h3>
-                      </header>
-                      {grid.righe.length === 0 && !analisiRccLoading && (
-                        <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                      )}
-                      {grid.righe.length > 0 && (
-                        <div className="bonifici-table-wrap bonifici-table-wrap-main analisi-rcc-table-wrap">
-                          {(() => {
-                            const hasBurccSplitColumns = grid.righe.some((row) => (
-                              (row.businessUnit ?? '').trim().length > 0 || (row.rcc ?? '').trim().length > 0
-                            ))
-                            return (
-                          <table className="bonifici-table analisi-rcc-table">
-                            <thead>
-                              <tr>
-                                {hasBurccSplitColumns
-                                  ? (
-                                    <>
-                                      <th>BU</th>
-                                      <th>RCC</th>
-                                    </>
-                                  )
-                                  : <th>Aggregazione</th>}
-                                {!grid.valoriPercentuali && <th className="num">Budget</th>}
-                                {grid.mesi.map((mese) => (
-                                  <th key={`burcc-${grid.titolo}-mese-${mese}`} className="num">{mese.toString().padStart(2, '0')}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {grid.righe.map((row) => {
-                                const isTotalRow = row.aggregazione.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
-                                const budgetValue = Number(row.budget ?? 0)
-                                return (
-                                  <tr key={`burcc-${grid.titolo}-${row.aggregazione}`} className={isTotalRow ? 'table-totals-row' : ''}>
-                                    {hasBurccSplitColumns
-                                      ? (
-                                        <>
-                                          <td>{isTotalRow ? row.aggregazione : (row.businessUnit ?? row.aggregazione)}</td>
-                                          <td>{isTotalRow ? '' : (row.rcc ?? '')}</td>
-                                        </>
-                                      )
-                                      : <td>{row.aggregazione}</td>}
-                                    {!grid.valoriPercentuali && (
-                                      <td className={`num ${Number(row.budget ?? 0) < 0 ? 'num-negative' : ''}`}>
-                                        {row.budget === null || row.budget === undefined
-                                          ? ''
-                                          : formatCurrency(row.budget)}
-                                      </td>
-                                    )}
-                                    {grid.mesi.map((mese) => {
-                                      const value = getAnalisiRccValueForMonth(row, mese)
-                                      const isUnderBudget = !grid.valoriPercentuali &&
-                                        !isTotalRow &&
-                                        row.budget !== null &&
-                                        row.budget !== undefined &&
-                                        value < budgetValue
-                                      return (
-                                        <td
-                                          key={`burcc-${grid.titolo}-${row.aggregazione}-${mese}`}
-                                          className={`num ${grid.valoriPercentuali
-                                            ? (isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : '')
-                                            : (isUnderBudget ? 'num-under-target' : (value < 0 ? 'num-negative' : ''))}`}
-                                        >
-                                          {grid.valoriPercentuali ? formatAnalisiRccPercent(value) : formatCurrency(value)}
-                                        </td>
-                                      )
-                                    })}
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                            )
-                          })()}
-                        </div>
-                      )}
-                    </section>
-                  ))}
-                  {!analisiRccLoading && (!analisiBurccData || analisiBurccGrids.every((grid) => grid.righe.length === 0)) && (
-                    <section className="panel">
-                      <p className="empty-state">Nessun dato disponibile. Imposta l'anno e premi Aggiorna.</p>
-                    </section>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiBurccRisultatoMensilePage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-burcc-pivot-fatturato' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Report Annuale RCC-BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiBurccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiBurccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-pivot-anni">
-                      <span>Anni confronto</span>
-                      <select
-                        id="analisi-burcc-pivot-anni"
-                        multiple
-                        size={4}
-                        value={analisiBurccPivotAnni}
-                        onChange={(event) => setAnalisiBurccPivotAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {analisiBurccPivotAnnoOptions.map((year) => (
-                          <option key={`analisi-burcc-pivot-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectAnalisiBurccBusinessUnit && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-pivot-bu">
-                        <span>BU</span>
-                        <select
-                          id="analisi-burcc-pivot-bu"
-                          value={analisiBurccPivotBusinessUnit}
-                          onChange={(event) => setAnalisiBurccPivotBusinessUnit(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {analisiBurccPivotBusinessUnitOptions.map((value) => (
-                            <option key={`analisi-burcc-pivot-bu-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    {canSelectAnalisiBurccRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-pivot-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="analisi-burcc-pivot-rcc"
-                          value={analisiBurccPivotRcc}
-                          onChange={(event) => setAnalisiBurccPivotRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {analisiBurccPivotRccOptions.map((value) => (
-                            <option key={`analisi-burcc-pivot-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Report Annuale RCC-BU</h3>
-                  </header>
-
-                  {analisiBurccPivotRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {analisiBurccPivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>BU</th>
-                            <th>RCC</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiBurccPivotRows.map((row) => (
-                            <tr key={`analisi-burcc-pivot-${row.anno}-${row.businessUnit}-${row.rcc}`}>
-                              <td>{row.anno}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{row.rcc}</td>
-                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                              </td>
-                              <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                  ? '-'
-                                  : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                              </td>
-                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Totali per anno</h3>
-                  </header>
-                  {analisiBurccPivotTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {analisiBurccPivotTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Fatturato anno</th>
-                            <th className="num">Fatturato futuro anno</th>
-                            <th className="num">Totale fatturato certo</th>
-                            <th className="num">Budget Previsto</th>
-                            <th className="num">Margine col budget</th>
-                            <th className="num">% Certa Raggiunta</th>
-                            <th className="num">% Raggiungimento temporale</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th className="num">Ricavo ipotetico pesato</th>
-                            <th className="num">Totale ipotetico</th>
-                            <th className="num">% Compreso ricavo ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiBurccPivotTotaliPerAnno.map((row) => (
-                            <tr key={`analisi-burcc-pivot-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
-                              <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
-                              <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
-                              <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
-                              <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCertaRaggiunta) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCertaRaggiunta)}
-                              </td>
-                              <td className={`num ${row.percentualeRaggiungimentoTemporale !== null && row.percentualeRaggiungimentoTemporale !== undefined && isAnalisiRccPercentUnderTarget(row.percentualeRaggiungimentoTemporale) ? 'num-under-target' : ''}`}>
-                                {row.percentualeRaggiungimentoTemporale === null || row.percentualeRaggiungimentoTemporale === undefined
-                                  ? '-'
-                                  : formatAnalisiRccPercent(row.percentualeRaggiungimentoTemporale)}
-                              </td>
-                              <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
-                              <td className={`num ${row.totaleRicavoIpoteticoPesato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpoteticoPesato)}</td>
-                              <td className={`num ${row.totaleIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleIpotetico)}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeCompresoRicavoIpotetico) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeCompresoRicavoIpotetico)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiBurccPivotFatturatoPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-piano-fatturazione' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Piano Fatturazione</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiPianoFatturazionePage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiPianoFatturazionePage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-anno">
-                      <span>Anno</span>
-                      <select
-                        id="analisi-piano-fatturazione-anno"
-                        value={analisiPianoFatturazioneAnno}
-                        onChange={(event) => setAnalisiPianoFatturazioneAnno(event.target.value)}
-                      >
-                        {analisiPianoFatturazioneAnnoOptions.map((year) => (
-                          <option key={`analisi-piano-fatturazione-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-mesi-snapshot">
-                      <span>Mesi snapshot</span>
-                      <select
-                        id="analisi-piano-fatturazione-mesi-snapshot"
-                        multiple
-                        size={4}
-                        value={analisiPianoFatturazioneMesiSnapshot}
-                        onChange={(event) => setAnalisiPianoFatturazioneMesiSnapshot(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {analisiPianoFatturazioneMesiSnapshotOptions.map((month) => (
-                          <option key={`analisi-piano-fatturazione-snapshot-${month}`} value={month.toString()}>
-                            {formatReferenceMonthLabel(month)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-tipo-calcolo">
-                      <span>Tipo calcolo</span>
-                      <select
-                        id="analisi-piano-fatturazione-tipo-calcolo"
-                        value={analisiPianoFatturazioneTipoCalcolo}
-                        onChange={(event) => setAnalisiPianoFatturazioneTipoCalcolo(event.target.value)}
-                      >
-                        <option value="complessivo">Complessivo</option>
-                        <option value="fatturato">Fatturato</option>
-                        <option value="futuro">Futuro</option>
-                      </select>
-                    </label>
-                    {canSelectAnalisiPianoFatturazioneBusinessUnit && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-business-unit">
-                        <span>BU</span>
-                        <select
-                          id="analisi-piano-fatturazione-business-unit"
-                          value={analisiPianoFatturazioneBusinessUnit}
-                          onChange={(event) => setAnalisiPianoFatturazioneBusinessUnit(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {analisiPianoFatturazioneBusinessUnitOptions.map((value) => (
-                            <option key={`analisi-piano-fatturazione-business-unit-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    {canSelectAnalisiPianoFatturazioneRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="analisi-piano-fatturazione-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="analisi-piano-fatturazione-rcc"
-                          value={analisiPianoFatturazioneRcc}
-                          onChange={(event) => setAnalisiPianoFatturazioneRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {analisiPianoFatturazioneRccOptions.map((value) => (
-                            <option key={`analisi-piano-fatturazione-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Piano Fatturazione - Valori</h3>
-                  </header>
-                  {analisiPianoFatturazioneRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-                  {analisiPianoFatturazioneRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>RCC</th>
-                            <th className="num">Budget</th>
-                            {analisiPianoFatturazioneMesiRiferimento.map((mese) => (
-                              <Fragment key={`analisi-piano-fatturazione-mese-head-${mese}`}>
-                                <th className="num">
-                                  {formatReferenceMonthLabel(mese).slice(5)}
-                                </th>
-                                {isQuarterEndMonth(mese) && (
-                                  <th className="num piano-quarter-total-col">
-                                    Trim{getQuarterFromMonth(mese)} Totale
-                                  </th>
-                                )}
-                              </Fragment>
-                            ))}
-                            <th className="num">Totale complessivo</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiPianoFatturazioneRows.map((row) => (
-                            <tr key={`analisi-piano-fatturazione-row-${row.rcc}`} className={row.isTotale ? 'table-totals-row' : ''}>
-                              <td>{row.rcc}</td>
-                              <td className={`num ${row.budget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budget)}</td>
-                              {analisiPianoFatturazioneMesiRiferimento.map((mese) => {
-                                const value = getAnalisiPianoFatturazioneValueForMonth(row, mese)
-                                const quarter = getQuarterFromMonth(mese)
-                                const quarterTotal = getAnalisiPianoFatturazioneQuarterTotal(row, quarter)
-                                return (
-                                  <Fragment key={`analisi-piano-fatturazione-value-wrap-${row.rcc}-${mese}`}>
-                                    <td className={`num ${value < 0 ? 'num-negative' : ''}`}>
-                                      {formatNumber(value)}
-                                    </td>
-                                    {isQuarterEndMonth(mese) && (
-                                      <td className={`num piano-quarter-total-col ${quarterTotal < 0 ? 'num-negative' : ''}`}>
-                                        {formatNumber(quarterTotal)}
-                                      </td>
-                                    )}
-                                  </Fragment>
-                                )
-                              })}
-                              <td className={`num ${row.totaleComplessivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleComplessivo)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Piano Fatturazione - Progressivo % Budget</h3>
-                  </header>
-                  {analisiPianoFatturazioneProgressRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-                  {analisiPianoFatturazioneProgressRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>RCC</th>
-                            <th className="num">Budget</th>
-                            {analisiPianoFatturazioneMesiRiferimento.map((mese) => (
-                              <th key={`analisi-piano-fatturazione-progress-mese-${mese}`} className="num">
-                                {formatReferenceMonthLabel(mese).slice(5)}
-                              </th>
-                            ))}
-                            <th className="num">Importo totale prog.</th>
-                            <th className="num">% Totale su Budget</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiPianoFatturazioneProgressRows.map((row) => (
-                            <tr key={`analisi-piano-fatturazione-progress-row-${row.rcc}`} className={row.isTotale ? 'table-totals-row' : ''}>
-                              <td>{row.rcc}</td>
-                              <td className={`num ${row.budget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budget)}</td>
-                              {analisiPianoFatturazioneMesiRiferimento.map((mese) => {
-                                const importo = getAnalisiPianoFatturazioneProgressAmountForMonth(row, mese)
-                                const percentuale = getAnalisiPianoFatturazioneProgressPercentForMonth(row, mese)
-                                return (
-                                  <td key={`analisi-piano-fatturazione-progress-value-${row.rcc}-${mese}`} className="num">
-                                    <div className={`piano-progress-amount ${importo < 0 ? 'num-negative' : ''}`}>{formatNumber(importo)}</div>
-                                    <div className={`piano-progress-percent ${percentuale < 0 ? 'num-negative' : ''}`}>{formatPercentRatioUnbounded(percentuale)}</div>
-                                  </td>
-                                )
-                              })}
-                              <td className={`num ${row.importoTotaleProgressivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoTotaleProgressivo)}</td>
-                              <td className={`num ${row.percentualeTotaleBudget < 0 ? 'num-negative' : ''}`}>{formatPercentRatioUnbounded(row.percentualeTotaleBudget)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiPianoFatturazionePage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'analisi-dettaglio-fatturato' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Proiezioni - Dettaglio Fatturato</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessAnalisiDettaglioFatturatoPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessAnalisiDettaglioFatturatoPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-anni">
-                      <span>Anni</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-anni"
-                        multiple
-                        size={4}
-                        value={analisiDettaglioFatturatoAnni}
-                        onChange={(event) => setAnalisiDettaglioFatturatoAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {analisiDettaglioFatturatoAnnoOptions.map((year) => (
-                          <option key={`analisi-dettaglio-fatturato-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-commessa-search">
-                      <span>Ricerca Commessa</span>
-                      <input
-                        id="analisi-dettaglio-fatturato-commessa-search"
-                        type="search"
-                        value={analisiDettaglioFatturatoCommessaSearch}
-                        onChange={(event) => setAnalisiDettaglioFatturatoCommessaSearch(event.target.value)}
-                        placeholder="Cerca..."
-                        autoComplete="off"
-                      />
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-commessa">
-                      <span>Commessa</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-commessa"
-                        value={analisiDettaglioFatturatoCommessa}
-                        onChange={(event) => setAnalisiDettaglioFatturatoCommessa(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {analisiDettaglioFatturatoCommesseOptions.map((value) => (
-                          <option key={`analisi-dettaglio-fatturato-commessa-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-provenienza">
-                      <span>Provenienza</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-provenienza"
-                        value={analisiDettaglioFatturatoProvenienza}
-                        onChange={(event) => setAnalisiDettaglioFatturatoProvenienza(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {analisiDettaglioFatturatoProvenienzaOptions.map((value) => (
-                          <option key={`analisi-dettaglio-fatturato-provenienza-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-controparte">
-                      <span>Controparte</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-controparte"
-                        value={analisiDettaglioFatturatoControparte}
-                        onChange={(event) => setAnalisiDettaglioFatturatoControparte(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {analisiDettaglioFatturatoControparteOptions.map((value) => (
-                          <option key={`analisi-dettaglio-fatturato-controparte-${value}`} value={value}>
-                            {value}
-                          </option>
-                          ))}
-                        </select>
-                      </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-business-unit">
-                      <span>BU</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-business-unit"
-                        value={analisiDettaglioFatturatoBusinessUnit}
-                        onChange={(event) => setAnalisiDettaglioFatturatoBusinessUnit(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {analisiDettaglioFatturatoBusinessUnitOptions.map((value) => (
-                          <option key={`analisi-dettaglio-fatturato-business-unit-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="analisi-dettaglio-fatturato-rcc">
-                      <span>RCC</span>
-                      <select
-                        id="analisi-dettaglio-fatturato-rcc"
-                        value={analisiDettaglioFatturatoRcc}
-                        onChange={(event) => setAnalisiDettaglioFatturatoRcc(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {analisiDettaglioFatturatoRccOptions.map((value) => (
-                          <option key={`analisi-dettaglio-fatturato-rcc-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="checkbox-label checkbox-label-inline analisi-aggrega-inline" htmlFor="analisi-dettaglio-fatturato-solo-scadute">
-                      <input
-                        id="analisi-dettaglio-fatturato-solo-scadute"
-                        type="checkbox"
-                        checked={analisiDettaglioFatturatoSoloScadute}
-                        onChange={(event) => setAnalisiDettaglioFatturatoSoloScadute(event.target.checked)}
-                      />
-                      <span>Fatture scadute</span>
-                    </label>
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Dettaglio Fatturato</h3>
-                  </header>
-
-                  {analisiDettaglioFatturatoRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {analisiDettaglioFatturatoRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>Data</th>
-                            <th>Commessa</th>
-                            <th>Business Unit</th>
-                            <th>Controparte</th>
-                            <th>Provenienza</th>
-                            <th className="num">Fatturato</th>
-                            <th className="num">Fatturato futuro</th>
-                            <th className="num">Ricavo ipotetico</th>
-                            <th>RCC</th>
-                            <th>PM</th>
-                            <th>Descrizione Mastro</th>
-                            <th>Descrizione Conto</th>
-                            <th>Descrizione Sottoconto</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analisiDettaglioFatturatoRows.map((row, index) => (
-                            <tr key={`analisi-dettaglio-fatturato-row-${row.commessa}-${row.data ?? 'na'}-${index}`}>
-                              <td>{row.anno}</td>
-                              <td>{formatDate(row.data)}</td>
-                              <td>{row.commessa}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{row.controparte}</td>
-                              <td>{row.provenienza}</td>
-                              <td className={`num ${row.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturato)}</td>
-                              <td className={`num ${row.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturo)}</td>
-                              <td className={`num ${row.ricavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoIpotetico)}</td>
-                              <td>{row.rcc}</td>
-                              <td>{row.pm}</td>
-                              <td>{row.descrizioneMastro}</td>
-                              <td>{row.descrizioneConto}</td>
-                              <td>{row.descrizioneSottoconto}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <AnalisiDettaglioFatturatoPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'previsioni-funnel' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Previsioni - Funnel</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessPrevisioniFunnelRccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessPrevisioniFunnelRccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-anni">
-                      <span>Anni confronto</span>
-                      <select
-                        id="previsioni-funnel-anni"
-                        multiple
-                        size={4}
-                        value={previsioniFunnelAnni}
-                        onChange={(event) => setPrevisioniFunnelAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {previsioniFunnelAnnoOptions.map((year) => (
-                          <option key={`previsioni-funnel-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectPrevisioniFunnelRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="previsioni-funnel-rcc"
-                          value={previsioniFunnelRcc}
-                          onChange={(event) => setPrevisioniFunnelRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {previsioniFunnelRccOptions.map((value) => (
-                            <option key={`previsioni-funnel-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-tipo">
-                      <span>Tipo</span>
-                      <select
-                        id="previsioni-funnel-tipo"
-                        value={previsioniFunnelTipo}
-                        onChange={(event) => setPrevisioniFunnelTipo(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {previsioniFunnelTipoOptions.map((value) => (
-                          <option key={`previsioni-funnel-tipo-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-stato-documento">
-                      <span>Stato documento</span>
-                      <select
-                        id="previsioni-funnel-stato-documento"
-                        value={previsioniFunnelStatoDocumento}
-                        onChange={(event) => setPrevisioniFunnelStatoDocumento(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {previsioniFunnelStatoDocumentoOptions.map((value) => (
-                          <option key={`previsioni-funnel-stato-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {previsioniFunnelData
-                        ? `Anni ${previsioniFunnelData.anni.join(', ') || '-'}. Visibilita: ${previsioniFunnelData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniFunnelData.rccFiltro || 'RCC corrente'}`}.`
-                        : statusMessageVisible}
-                    </p>
-                    <span className="status-badge neutral">
-                      {previsioniFunnelData ? `${previsioniFunnelRows.length} righe` : '0 righe'}
-                    </span>
-                  </div>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Funnel</h3>
-                  </header>
-
-                  {previsioniFunnelRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {previsioniFunnelRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>RCC</th>
-                            <th>BU</th>
-                            <th>Tipo</th>
-                            <th>Stato Documento</th>
-                            <th>Commessa</th>
-                            <th>Protocollo</th>
-                            <th>Data</th>
-                            <th>Oggetto</th>
-                            <th className="num">% Successo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Personale</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Ricavo atteso</th>
-                            <th className="num">Fatturato emesso</th>
-                            <th className="num">Fatturato futuro</th>
-                            <th className="num">Totale anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniFunnelRows.map((row, index) => (
-                            <tr key={`previsioni-funnel-${row.anno}-${row.rcc}-${row.protocollo}-${index}`}>
-                              <td>{row.anno}</td>
-                              <td>{row.rcc}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{row.tipo}</td>
-                              <td>{row.statoDocumento}</td>
-                              <td>{row.commessa}</td>
-                              <td>{row.protocollo}</td>
-                              <td>{formatDate(row.data)}</td>
-                              <td>{row.oggetto}</td>
-                              <td className={`num ${isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
-                                {formatAnalisiRccPercent(row.percentualeSuccesso)}
-                              </td>
-                              <td className={`num ${row.budgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetRicavo)}</td>
-                              <td className={`num ${row.budgetPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPersonale)}</td>
-                              <td className={`num ${row.budgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetCosti)}</td>
-                              <td className={`num ${row.ricavoAtteso < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoAtteso)}</td>
-                              <td className={`num ${row.fatturatoEmesso < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoEmesso)}</td>
-                              <td className={`num ${row.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleAnno)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="table-totals-row">
-                            <td colSpan={9} className="table-totals-label">Totale</td>
-                            <td className={`num ${isAnalisiRccPercentUnderTarget(previsioniFunnelTotals.percentualeSuccesso) ? 'num-under-target' : ''}`}>
-                              {formatAnalisiRccPercent(previsioniFunnelTotals.percentualeSuccesso)}
-                            </td>
-                            <td className={`num ${previsioniFunnelTotals.budgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetRicavo)}</td>
-                            <td className={`num ${previsioniFunnelTotals.budgetPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetPersonale)}</td>
-                            <td className={`num ${previsioniFunnelTotals.budgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.budgetCosti)}</td>
-                            <td className={`num ${previsioniFunnelTotals.ricavoAtteso < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.ricavoAtteso)}</td>
-                            <td className={`num ${previsioniFunnelTotals.fatturatoEmesso < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.fatturatoEmesso)}</td>
-                            <td className={`num ${previsioniFunnelTotals.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.fatturatoFuturo)}</td>
-                            <td className={`num ${previsioniFunnelTotals.totaleAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(previsioniFunnelTotals.totaleAnno)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <PrevisioniFunnelPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'previsioni-report-funnel-rcc' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Previsioni - Report Funnel RCC</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessPrevisioniFunnelRccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessPrevisioniFunnelRccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-anno">
-                      <span>Anno</span>
-                      <select
-                        id="previsioni-report-funnel-rcc-anno"
-                        value={previsioniReportFunnelRccAnnoSelezionato}
-                        onChange={(event) => setPrevisioniReportFunnelRccAnni([event.target.value])}
-                      >
-                        {previsioniReportFunnelRccAnnoOptions.map((year) => (
-                          <option key={`previsioni-report-funnel-rcc-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectPrevisioniFunnelRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="previsioni-report-funnel-rcc-rcc"
-                          value={previsioniReportFunnelRcc}
-                          onChange={(event) => setPrevisioniReportFunnelRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {previsioniReportFunnelRccOptions.map((value) => (
-                            <option key={`previsioni-report-funnel-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {previsioniReportFunnelRccData
-                        ? `Anno ${previsioniReportFunnelRccAnnoSelezionato}. Visibilita: ${previsioniReportFunnelRccData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniReportFunnelRccData.aggregazioneFiltro || 'RCC corrente'}`}.`
-                        : statusMessageVisible}
-                    </p>
-                    <span className="status-badge neutral">
-                      {previsioniReportFunnelRccData ? `${previsioniReportFunnelRccPivotRows.length} righe` : '0 righe'}
-                    </span>
-                  </div>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Report Funnel RCC</h3>
-                  </header>
-
-                  {previsioniReportFunnelRccPivotRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {previsioniReportFunnelRccPivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>Etichette di riga</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelRccPivotRows.map((row) => (
-                            <tr key={row.key} className={`funnel-pivot-row level-${row.livello}`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
-                              </td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>{previsioniReportFunnelRccHasMultipleAggregazioni ? 'Totali per anno (ripartiti per tipo/% successo)' : 'Totali per anno'}</h3>
-                  </header>
-                  {previsioniReportFunnelRccTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniReportFunnelRccHasMultipleAggregazioni && previsioniReportFunnelRccTotaliDettaglioRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>Etichette di riga</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelRccTotaliDettaglioRows.map((row) => (
-                            <tr key={`previsioni-report-funnel-rcc-totale-dettaglio-${row.key}`} className={`funnel-pivot-row level-${row.livello} table-totals-row`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
-                              </td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {!previsioniReportFunnelRccHasMultipleAggregazioni && previsioniReportFunnelRccTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelRccTotaliPerAnno.map((row) => (
-                            <tr key={`previsioni-report-funnel-rcc-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <PrevisioniReportFunnelRccPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'previsioni-report-funnel-bu' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Previsioni - Report Funnel BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessPrevisioniFunnelBuPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa analisi.
-              </p>
-            )}
-
-            {canAccessPrevisioniFunnelBuPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-anno">
-                      <span>Anno</span>
-                      <select
-                        id="previsioni-report-funnel-bu-anno"
-                        value={previsioniReportFunnelBuAnnoSelezionato}
-                        onChange={(event) => setPrevisioniReportFunnelBuAnni([event.target.value])}
-                      >
-                        {previsioniReportFunnelBuAnnoOptions.map((year) => (
-                          <option key={`previsioni-report-funnel-bu-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {canSelectPrevisioniFunnelBu && (
-                      <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-bu">
-                        <span>BU</span>
-                        <select
-                          id="previsioni-report-funnel-bu-bu"
-                          value={previsioniReportFunnelBu}
-                          onChange={(event) => setPrevisioniReportFunnelBu(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {previsioniReportFunnelBuOptions.map((value) => (
-                            <option key={`previsioni-report-funnel-bu-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-rcc">
-                      <span>RCC</span>
-                      <select
-                        id="previsioni-report-funnel-bu-rcc"
-                        value={previsioniReportFunnelBuRcc}
-                        onChange={(event) => setPrevisioniReportFunnelBuRcc(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {previsioniReportFunnelBuRccOptions.map((value) => (
-                          <option key={`previsioni-report-funnel-bu-rcc-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {previsioniReportFunnelBuData
-                        ? `Anno ${previsioniReportFunnelBuAnnoSelezionato}. Visibilita: ${previsioniReportFunnelBuData.vediTutto ? 'tutte le BU' : `solo ${previsioniReportFunnelBuData.aggregazioneFiltro || 'BU corrente'}`}.`
-                        : statusMessageVisible}
-                    </p>
-                    <span className="status-badge neutral">
-                      {previsioniReportFunnelBuData ? `${previsioniReportFunnelBuPivotRows.length} righe` : '0 righe'}
-                    </span>
-                  </div>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Report Funnel BU</h3>
-                  </header>
-
-                  {previsioniReportFunnelBuPivotRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-
-                  {previsioniReportFunnelBuPivotRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>Etichette di riga</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelBuPivotRows.map((row) => (
-                            <tr key={row.key} className={`funnel-pivot-row level-${row.livello}`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
-                              </td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>{previsioniReportFunnelBuHasMultipleAggregazioni ? 'Totali per anno (ripartiti per tipo/% successo)' : 'Totali per anno'}</h3>
-                  </header>
-                  {previsioniReportFunnelBuTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliDettaglioRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>Etichette di riga</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelBuTotaliDettaglioRows.map((row) => (
-                            <tr key={`previsioni-report-funnel-bu-totale-dettaglio-${row.key}`} className={`funnel-pivot-row level-${row.livello} table-totals-row`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
-                              </td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {!previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Conteggio protocollo</th>
-                            <th className="num">Budget Ricavo</th>
-                            <th className="num">Budget Costi</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Futura Anno</th>
-                            <th className="num">Emessa Anno</th>
-                            <th className="num">Totale Anno</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniReportFunnelBuTotaliPerAnno.map((row) => (
-                            <tr key={`previsioni-report-funnel-bu-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                              <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                              <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                              <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                              <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                              <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                              <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <PrevisioniReportFunnelBuPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'previsioni-utile-mensile-rcc' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Commesse - Utile Mensile RCC</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessPrevisioniUtileMensileRccPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa pagina.
-              </p>
-            )}
-
-            {canAccessPrevisioniUtileMensileRccPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-anno">
-                      <span>Anno</span>
-                      <select
-                        id="previsioni-utile-rcc-anno"
-                        value={previsioniUtileMensileRccAnno}
-                        onChange={(event) => setPrevisioniUtileMensileRccAnno(event.target.value)}
-                      >
-                        {previsioniUtileMensileRccAnnoOptions.map((year) => (
-                          <option key={`previsioni-utile-rcc-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-mese-riferimento">
-                      <span>Mese riferimento</span>
-                      <select
-                        id="previsioni-utile-rcc-mese-riferimento"
-                        value={previsioniUtileMensileRccMeseRiferimento}
-                        onChange={(event) => setPrevisioniUtileMensileRccMeseRiferimento(event.target.value)}
-                      >
-                        {mesiItaliani.map((mese, index) => {
-                          const monthValue = (index + 1).toString()
-                          return (
-                            <option key={`previsioni-utile-rcc-mese-${monthValue}`} value={monthValue}>
-                              {`${monthValue.padStart(2, '0')} - ${mese}`}
-                            </option>
-                          )
-                        })}
-                      </select>
-                    </label>
-                    {canSelectPrevisioniUtileMensileRcc && (
-                      <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-rcc">
-                        <span>RCC</span>
-                        <select
-                          id="previsioni-utile-rcc-rcc"
-                          value={previsioniUtileMensileRcc}
-                          onChange={(event) => setPrevisioniUtileMensileRcc(event.target.value)}
-                        >
-                          <option value="">Tutti</option>
-                          {previsioniUtileMensileRccOptions.map((value) => (
-                            <option key={`previsioni-utile-rcc-rcc-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-rcc-produzione">
-                      <span>Produzione</span>
-                      <select
-                        id="previsioni-utile-rcc-produzione"
-                        value={previsioniUtileMensileRccProduzione}
-                        onChange={(event) => setPrevisioniUtileMensileRccProduzione(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        <option value="1">1</option>
-                        <option value="0">0</option>
-                      </select>
-                    </label>
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {previsioniUtileMensileRccData
-                        ? `Anno ${previsioniUtileMensileRccAnno}. Visibilita: ${previsioniUtileMensileRccData.vediTutto ? 'tutti gli RCC' : `solo ${previsioniUtileMensileRccData.aggregazioneFiltro || 'RCC corrente'}`}. Mese riferimento: ${formatReferenceMonthLabel(previsioniUtileMensileRccMeseRiferimentoValue)}.`
-                        : statusMessageVisible}
-                    </p>
-                    <div className="sintesi-toolbar-badges">
-                      <span className="status-badge neutral">
-                        Mese rif.: {formatReferenceMonthLabel(previsioniUtileMensileRccMeseRiferimentoValue)}
-                      </span>
-                      <span className="status-badge neutral">
-                        {previsioniUtileMensileRccData ? `${previsioniUtileMensileRccRows.length} righe` : '0 righe'}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Utile Mensile RCC</h3>
-                  </header>
-                  {previsioniUtileMensileRccRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniUtileMensileRccRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>RCC</th>
-                            <th className="num">Totale Ricavi</th>
-                            <th className="num">Totale Costi</th>
-                            <th className="num">Totale Costo Personale</th>
-                            <th className="num">Totale Utile Specifico</th>
-                            <th className="num">Totale Ore Lavorate</th>
-                            <th className="num">Totale Costo Generale Ribaltato</th>
-                            <th className="num">% Margine su Ricavi</th>
-                            <th className="num">% Markup su Costi</th>
-                            <th className="num">% Cost Income</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniUtileMensileRccRows.map((row) => (
-                            <tr key={`previsioni-utile-rcc-${row.anno}-${row.aggregazione}`}>
-                              <td>{row.anno}</td>
-                              <td>{row.aggregazione}</td>
-                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
-                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
-                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
-                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
-                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
-                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Totali per anno</h3>
-                  </header>
-                  {previsioniUtileMensileRccTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniUtileMensileRccTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Totale Ricavi</th>
-                            <th className="num">Totale Costi</th>
-                            <th className="num">Totale Costo Personale</th>
-                            <th className="num">Totale Utile Specifico</th>
-                            <th className="num">Totale Ore Lavorate</th>
-                            <th className="num">Totale Costo Generale Ribaltato</th>
-                            <th className="num">% Margine su Ricavi</th>
-                            <th className="num">% Markup su Costi</th>
-                            <th className="num">% Cost Income</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniUtileMensileRccTotaliPerAnno.map((row) => (
-                            <tr key={`previsioni-utile-rcc-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
-                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
-                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
-                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
-                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
-                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <PrevisioniUtileMensileRccPage {...analisiProiezioniPageProps} />
         )}
-
         {activePage === 'previsioni-utile-mensile-bu' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Commesse - Utile Mensile BU</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            {!canAccessPrevisioniUtileMensileBuPage && (
-              <p className="empty-state">
-                Il profilo corrente non e' abilitato a questa pagina.
-              </p>
-            )}
-
-            {canAccessPrevisioniUtileMensileBuPage && (
-              <>
-                <section className="panel sintesi-filter-panel">
-                  <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-anno">
-                      <span>Anno</span>
-                      <select
-                        id="previsioni-utile-bu-anno"
-                        value={previsioniUtileMensileBuAnno}
-                        onChange={(event) => setPrevisioniUtileMensileBuAnno(event.target.value)}
-                      >
-                        {previsioniUtileMensileBuAnnoOptions.map((year) => (
-                          <option key={`previsioni-utile-bu-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-mese-riferimento">
-                      <span>Mese riferimento</span>
-                      <select
-                        id="previsioni-utile-bu-mese-riferimento"
-                        value={previsioniUtileMensileBuMeseRiferimento}
-                        onChange={(event) => setPrevisioniUtileMensileBuMeseRiferimento(event.target.value)}
-                      >
-                        {mesiItaliani.map((mese, index) => {
-                          const monthValue = (index + 1).toString()
-                          return (
-                            <option key={`previsioni-utile-bu-mese-${monthValue}`} value={monthValue}>
-                              {`${monthValue.padStart(2, '0')} - ${mese}`}
-                            </option>
-                          )
-                        })}
-                      </select>
-                    </label>
-                    {canSelectPrevisioniUtileMensileBu && (
-                      <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-bu">
-                        <span>BU</span>
-                        <select
-                          id="previsioni-utile-bu-bu"
-                          value={previsioniUtileMensileBu}
-                          onChange={(event) => setPrevisioniUtileMensileBu(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {previsioniUtileMensileBuOptions.map((value) => (
-                            <option key={`previsioni-utile-bu-bu-${value}`} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className="analisi-rcc-year-field" htmlFor="previsioni-utile-bu-produzione">
-                      <span>Produzione</span>
-                      <select
-                        id="previsioni-utile-bu-produzione"
-                        value={previsioniUtileMensileBuProduzione}
-                        onChange={(event) => setPrevisioniUtileMensileBuProduzione(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        <option value="1">1</option>
-                        <option value="0">0</option>
-                      </select>
-                    </label>
-                    <div className="inline-actions analisi-inline-actions">
-                      <button type="submit" disabled={analisiRccLoading}>
-                        {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={resetAnalisiFilters}
-                        disabled={analisiRccLoading}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={exportAnalisiExcel}
-                        disabled={analisiRccLoading || !canExportAnalisiPage}
-                      >
-                        Export Excel
-                      </button>
-                      {isAnalisiSearchCollapsible && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={toggleAnalisiSearchCollapsed}
-                        >
-                          {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                        </button>
-                      )}
-                      <span className="status-badge neutral sintesi-inline-count-badge">
-                        {analisiPageCountLabel}
-                      </span>
-                    </div>
-                  </form>
-                  <div className="sintesi-toolbar-row">
-                    <p className="sintesi-toolbar-message">
-                      {previsioniUtileMensileBuData
-                        ? `Anno ${previsioniUtileMensileBuAnno}. Visibilita: ${previsioniUtileMensileBuData.vediTutto ? 'tutte le BU' : `solo ${previsioniUtileMensileBuData.aggregazioneFiltro || 'BU corrente'}`}. Mese riferimento: ${formatReferenceMonthLabel(previsioniUtileMensileBuMeseRiferimentoValue)}.`
-                        : statusMessageVisible}
-                    </p>
-                    <div className="sintesi-toolbar-badges">
-                      <span className="status-badge neutral">
-                        Mese rif.: {formatReferenceMonthLabel(previsioniUtileMensileBuMeseRiferimentoValue)}
-                      </span>
-                      <span className="status-badge neutral">
-                        {previsioniUtileMensileBuData ? `${previsioniUtileMensileBuRows.length} righe` : '0 righe'}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Utile Mensile BU</h3>
-                  </header>
-                  {previsioniUtileMensileBuRows.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniUtileMensileBuRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th>BU</th>
-                            <th className="num">Totale Ricavi</th>
-                            <th className="num">Totale Costi</th>
-                            <th className="num">Totale Costo Personale</th>
-                            <th className="num">Totale Utile Specifico</th>
-                            <th className="num">Totale Ore Lavorate</th>
-                            <th className="num">Totale Costo Generale Ribaltato</th>
-                            <th className="num">% Margine su Ricavi</th>
-                            <th className="num">% Markup su Costi</th>
-                            <th className="num">% Cost Income</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniUtileMensileBuRows.map((row) => (
-                            <tr key={`previsioni-utile-bu-${row.anno}-${row.aggregazione}`}>
-                              <td>{row.anno}</td>
-                              <td>{row.aggregazione}</td>
-                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
-                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
-                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
-                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
-                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
-                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel analisi-rcc-grid-card">
-                  <header className="panel-header">
-                    <h3>Totali per anno</h3>
-                  </header>
-                  {previsioniUtileMensileBuTotaliPerAnno.length === 0 && !analisiRccLoading && (
-                    <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
-                  )}
-                  {previsioniUtileMensileBuTotaliPerAnno.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno</th>
-                            <th className="num">Totale Ricavi</th>
-                            <th className="num">Totale Costi</th>
-                            <th className="num">Totale Costo Personale</th>
-                            <th className="num">Totale Utile Specifico</th>
-                            <th className="num">Totale Ore Lavorate</th>
-                            <th className="num">Totale Costo Generale Ribaltato</th>
-                            <th className="num">% Margine su Ricavi</th>
-                            <th className="num">% Markup su Costi</th>
-                            <th className="num">% Cost Income</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previsioniUtileMensileBuTotaliPerAnno.map((row) => (
-                            <tr key={`previsioni-utile-bu-totale-${row.anno}`} className="table-totals-row">
-                              <td>{row.anno}</td>
-                              <td className={`num ${row.totaleRicavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavi)}</td>
-                              <td className={`num ${row.totaleCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCosti)}</td>
-                              <td className={`num ${row.totaleCostoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoPersonale)}</td>
-                              <td className={`num ${row.totaleUtileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleUtileSpecifico)}</td>
-                              <td className="num">{formatNumber(row.totaleOreLavorate)}</td>
-                              <td className={`num ${row.totaleCostoGeneraleRibaltato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleCostoGeneraleRibaltato)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMargineSuRicavi)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeMarkupSuCosti)}</td>
-                              <td className="num">{formatAnalisiRccPercent(row.percentualeCostIncome)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </section>
+          <PrevisioniUtileMensileBuPage {...analisiProiezioniPageProps} />
         )}
 
         {activePage === 'commessa-dettaglio' && (

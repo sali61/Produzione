@@ -21,6 +21,7 @@ public sealed class AnalisiRccController(
     [
         ProfileCatalog.Supervisore,
         ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileProduzione,
         ProfileCatalog.ResponsabileCommercialeCommessa
     ];
 
@@ -89,7 +90,8 @@ public sealed class AnalisiRccController(
         ProfileCatalog.ResponsabileCommerciale,
         ProfileCatalog.ResponsabileProduzione,
         ProfileCatalog.ResponsabileCommercialeCommessa,
-        ProfileCatalog.ProjectManager
+        ProfileCatalog.ProjectManager,
+        ProfileCatalog.ResponsabileOu
     ];
 
     [HttpGet("risultato-mensile")]
@@ -125,7 +127,9 @@ public sealed class AnalisiRccController(
                 : DateTime.Now.Year;
 
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
-                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase);
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
                 : rcc.Trim();
@@ -240,7 +244,9 @@ public sealed class AnalisiRccController(
             }
 
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
-                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase);
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
@@ -276,7 +282,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFatturatoAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     rccFiltro,
                     cancellationToken);
@@ -290,7 +296,7 @@ public sealed class AnalisiRccController(
                 foreach (var currentYear in anniRiferimento)
                 {
                     var yearRows = await analisiRccRepository.GetPivotFatturatoAsync(
-                        contextData.EffectiveUser.IdRisorsa,
+                        analisiIdRisorsa,
                         currentYear,
                         null,
                         cancellationToken);
@@ -429,6 +435,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
                 ? null
@@ -568,6 +575,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
                 ? null
@@ -609,7 +617,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFatturatoBusinessUnitAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     requestedBusinessUnit,
                     allowedBusinessUnits,
@@ -624,7 +632,7 @@ public sealed class AnalisiRccController(
                 foreach (var currentYear in anniRiferimento)
                 {
                     var yearRows = await analisiRccRepository.GetPivotFatturatoBusinessUnitAsync(
-                        contextData.EffectiveUser.IdRisorsa,
+                        analisiIdRisorsa,
                         currentYear,
                         null,
                         null,
@@ -775,6 +783,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
             string? rccFiltro = requestedRcc;
@@ -840,7 +849,7 @@ public sealed class AnalisiRccController(
             if (rows.Any(item => item.Budget == 0m))
             {
                 var budgetRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     annoRiferimento,
                     requestedBusinessUnit,
                     rccFiltro,
@@ -1002,6 +1011,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
             string? rccFiltro = requestedRcc;
@@ -1053,7 +1063,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     requestedBusinessUnit,
                     rccFiltro,
@@ -1066,7 +1076,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFatturatoBurccAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     null,
                     rccFiltro,
@@ -1232,6 +1242,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
             string? rccFiltro;
@@ -1263,7 +1274,7 @@ public sealed class AnalisiRccController(
             }
 
             var rows = await analisiRccRepository.GetUtileMensileRccAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 meseRiferimentoValue,
                 rccFiltro,
@@ -1275,7 +1286,7 @@ public sealed class AnalisiRccController(
             if (vediTutto)
             {
                 var optionRows = await analisiRccRepository.GetUtileMensileRccAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     anniRiferimento,
                     meseRiferimentoValue,
                     null,
@@ -1414,6 +1425,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
             string? rccFiltro = null;
@@ -1452,7 +1464,7 @@ public sealed class AnalisiRccController(
             }
 
             var rows = await analisiRccRepository.GetUtileMensileBusinessUnitAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 meseRiferimentoValue,
                 requestedBusinessUnit,
@@ -1465,7 +1477,7 @@ public sealed class AnalisiRccController(
             if (vediTutto)
             {
                 var optionRows = await analisiRccRepository.GetUtileMensileBusinessUnitAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     anniRiferimento,
                     meseRiferimentoValue,
                     null,
@@ -1600,6 +1612,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
@@ -1638,7 +1651,7 @@ public sealed class AnalisiRccController(
             }
 
             var rows = await analisiRccRepository.GetFunnelAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
                 tipoFiltro,
@@ -1646,7 +1659,7 @@ public sealed class AnalisiRccController(
                 cancellationToken);
 
             var optionRows = await analisiRccRepository.GetFunnelAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
                 null,
@@ -1796,6 +1809,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
@@ -1817,7 +1831,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFunnelAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     rccFiltro,
                     cancellationToken);
@@ -1831,7 +1845,7 @@ public sealed class AnalisiRccController(
                 foreach (var currentYear in anniRiferimento)
                 {
                     var yearRows = await analisiRccRepository.GetPivotFunnelAsync(
-                        contextData.EffectiveUser.IdRisorsa,
+                        analisiIdRisorsa,
                         currentYear,
                         null,
                         cancellationToken);
@@ -1857,7 +1871,7 @@ public sealed class AnalisiRccController(
                 .ToArray();
 
             var dettaglioRows = await analisiRccRepository.GetFunnelAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
                 null,
@@ -2000,6 +2014,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
                 ? null
@@ -2044,7 +2059,7 @@ public sealed class AnalisiRccController(
             foreach (var currentYear in anniRiferimento)
             {
                 var yearRows = await analisiRccRepository.GetPivotFunnelBusinessUnitAsync(
-                    contextData.EffectiveUser.IdRisorsa,
+                    analisiIdRisorsa,
                     currentYear,
                     requestedBusinessUnit,
                     requestedRcc,
@@ -2060,7 +2075,7 @@ public sealed class AnalisiRccController(
                 foreach (var currentYear in anniRiferimento)
                 {
                     var yearRows = await analisiRccRepository.GetPivotFunnelBusinessUnitAsync(
-                        contextData.EffectiveUser.IdRisorsa,
+                        analisiIdRisorsa,
                         currentYear,
                         null,
                         requestedRcc,
@@ -2088,7 +2103,7 @@ public sealed class AnalisiRccController(
                 .ToArray();
 
             var dettaglioRows = await analisiRccRepository.GetFunnelAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 null,
                 null,
@@ -2267,6 +2282,7 @@ public sealed class AnalisiRccController(
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
@@ -2476,9 +2492,11 @@ public sealed class AnalisiRccController(
                 anniRiferimento = [DateTime.Now.Year];
             }
 
+            var profileIsRou = profileResult.Equals(ProfileCatalog.ResponsabileOu, StringComparison.OrdinalIgnoreCase);
             var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
                             profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             var commessaFiltro = string.IsNullOrWhiteSpace(commessa) ? null : commessa.Trim();
             var commessaSearchFiltro = string.IsNullOrWhiteSpace(commessaSearch) ? null : commessaSearch.Trim();
@@ -2486,10 +2504,54 @@ public sealed class AnalisiRccController(
             var controparteFiltro = string.IsNullOrWhiteSpace(controparte) ? null : controparte.Trim();
             var businessUnitFiltro = string.IsNullOrWhiteSpace(businessUnit) ? null : businessUnit.Trim();
             var requestedRccFiltro = string.IsNullOrWhiteSpace(rcc) ? null : rcc.Trim();
+            var allowedBusinessUnits = Array.Empty<string>();
+
+            if (!vediTutto && profileIsRou)
+            {
+                allowedBusinessUnits = NormalizeScopes(contextData.EffectiveOuScopes);
+                if (allowedBusinessUnits.Length == 0)
+                {
+                    return Ok(new AnalisiRccDettaglioFatturatoResponseDto
+                    {
+                        Profile = profileResult,
+                        Anni = anniRiferimento,
+                        VediTutto = false,
+                        BusinessUnitFiltro = businessUnitFiltro,
+                        RccFiltro = null,
+                        PmFiltro = null,
+                        BusinessUnitDisponibili = [],
+                        RccDisponibili = [],
+                        CommesseDisponibili = [],
+                        ProvenienzeDisponibili = [],
+                        ContropartiDisponibili = [],
+                        Items = []
+                    });
+                }
+
+                if (!string.IsNullOrWhiteSpace(businessUnitFiltro) &&
+                    !allowedBusinessUnits.Contains(businessUnitFiltro, StringComparer.OrdinalIgnoreCase))
+                {
+                    return Ok(new AnalisiRccDettaglioFatturatoResponseDto
+                    {
+                        Profile = profileResult,
+                        Anni = anniRiferimento,
+                        VediTutto = false,
+                        BusinessUnitFiltro = businessUnitFiltro,
+                        RccFiltro = null,
+                        PmFiltro = null,
+                        BusinessUnitDisponibili = allowedBusinessUnits,
+                        RccDisponibili = [],
+                        CommesseDisponibili = [],
+                        ProvenienzeDisponibili = [],
+                        ContropartiDisponibili = [],
+                        Items = []
+                    });
+                }
+            }
 
             string? rccFiltro = null;
             string? pmFiltro = null;
-            if (!vediTutto)
+            if (!vediTutto && !profileIsRou)
             {
                 var nomeRisorsa = await analisiRccRepository.GetNomeRisorsaAsync(
                     contextData.EffectiveUser.IdRisorsa,
@@ -2528,7 +2590,7 @@ public sealed class AnalisiRccController(
                 : requestedRccFiltro;
 
             var rows = await analisiRccRepository.GetDettaglioFatturatoAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 commessaFiltro,
                 commessaSearchFiltro,
@@ -2539,7 +2601,15 @@ public sealed class AnalisiRccController(
                 pmFiltro,
                 cancellationToken);
 
-            var commesseDisponibili = rows
+            var scopedRows = rows.AsEnumerable();
+            if (!vediTutto && profileIsRou && allowedBusinessUnits.Length > 0)
+            {
+                scopedRows = scopedRows.Where(item =>
+                    allowedBusinessUnits.Contains(item.BusinessUnit?.Trim() ?? string.Empty, StringComparer.OrdinalIgnoreCase));
+            }
+            var rowsFiltered = scopedRows.ToArray();
+
+            var commesseDisponibili = rowsFiltered
                 .Select(item =>
                 {
                     var codice = item.Commessa?.Trim() ?? string.Empty;
@@ -2558,31 +2628,38 @@ public sealed class AnalisiRccController(
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            var provenienzeDisponibili = rows
+            var provenienzeDisponibili = rowsFiltered
                 .Select(item => item.Provenienza?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            var contropartiDisponibili = rows
+            var contropartiDisponibili = rowsFiltered
                 .Select(item => item.Controparte?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            var businessUnitDisponibili = rows
+            var businessUnitDisponibili = rowsFiltered
                 .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            var rccDisponibili = rows
+            var rccDisponibili = rowsFiltered
                 .Select(item => item.Rcc?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+
+            if (!vediTutto && profileIsRou)
+            {
+                businessUnitDisponibili = businessUnitDisponibili.Length == 0
+                    ? allowedBusinessUnits
+                    : businessUnitDisponibili;
+            }
 
             var response = new AnalisiRccDettaglioFatturatoResponseDto
             {
@@ -2597,7 +2674,7 @@ public sealed class AnalisiRccController(
                 CommesseDisponibili = commesseDisponibili,
                 ProvenienzeDisponibili = provenienzeDisponibili,
                 ContropartiDisponibili = contropartiDisponibili,
-                Items = rows
+                Items = rowsFiltered
                     .Select(item => new AnalisiRccDettaglioFatturatoRowDto
                     {
                         Anno = item.Anno,

@@ -17,6 +17,17 @@ public sealed class ProdottiController(
     ICommesseFilterRepository commesseFilterRepository,
     ILogger<ProdottiController> logger) : ControllerBase
 {
+    private static readonly string[] AllowedProfiles =
+    [
+        ProfileCatalog.Supervisore,
+        ProfileCatalog.ResponsabileProduzione,
+        ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ProjectManager,
+        ProfileCatalog.ResponsabileCommercialeCommessa,
+        ProfileCatalog.GeneralProjectManager,
+        ProfileCatalog.ResponsabileOu
+    ];
+
     [HttpGet("options")]
     [ProducesResponseType(typeof(CommesseFilterResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -263,6 +274,14 @@ public sealed class ProdottiController(
             return (false, null, StatusCode(StatusCodes.Status403Forbidden, new
             {
                 message = $"Profilo '{normalizedProfile}' non autorizzato per l'utente '{resolution.Context.EffectiveUser.Username}'."
+            }), null);
+        }
+
+        if (!AllowedProfiles.Contains(normalizedProfile, StringComparer.OrdinalIgnoreCase))
+        {
+            return (false, null, StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = $"Profilo '{normalizedProfile}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfiles)}."
             }), null);
         }
 

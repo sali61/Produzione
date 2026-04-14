@@ -34,7 +34,6 @@ public sealed class CommesseController(
         ProfileCatalog.ResponsabileProduzione,
         ProfileCatalog.ResponsabileCommerciale,
         ProfileCatalog.ResponsabileCommercialeCommessa,
-        ProfileCatalog.GeneralProjectManager,
         ProfileCatalog.ResponsabileOu,
         ProfileCatalog.RisorseUmane
     ];

@@ -63,6 +63,7 @@ public sealed class ProcessoOffertaController(
             var anniRiferimento = NormalizeAnni(anni);
             var esitiRiferimento = NormalizeValues(esiti);
             var vediTutto = FullVisibilityProfiles.Contains(profileResult, StringComparer.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             string? rccFiltro = null;
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
@@ -108,7 +109,7 @@ public sealed class ProcessoOffertaController(
             }
 
             var rows = await analisiRccRepository.GetProcessoOffertaDettaglioAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
                 allowedBusinessUnits,
@@ -116,7 +117,7 @@ public sealed class ProcessoOffertaController(
                 cancellationToken);
 
             var optionRows = await analisiRccRepository.GetProcessoOffertaDettaglioAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
                 allowedBusinessUnits,
@@ -262,6 +263,7 @@ public sealed class ProcessoOffertaController(
             var anniRiferimento = NormalizeAnni(anni);
             var esitiRiferimento = NormalizeValues(esiti);
             var vediTutto = FullVisibilityProfiles.Contains(profileResult, StringComparer.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
 
             string? rccFiltro = null;
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
@@ -309,7 +311,7 @@ public sealed class ProcessoOffertaController(
             }
 
             var rows = await analisiRccRepository.GetProcessoOffertaSintesiAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 campoAggregazione,
                 rccFiltro,
@@ -318,7 +320,7 @@ public sealed class ProcessoOffertaController(
                 cancellationToken);
 
             var optionRows = await analisiRccRepository.GetProcessoOffertaSintesiAsync(
-                contextData.EffectiveUser.IdRisorsa,
+                analisiIdRisorsa,
                 anniRiferimento,
                 campoAggregazione,
                 rccFiltro,

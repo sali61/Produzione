@@ -1985,6 +1985,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             return [];
         }
 
+        var visibility = ResolveVisibility(profile);
         var normalizedTake = Math.Clamp(request.Take, 1, 5000);
         var selectedInvoiceYears = request.Anni
             .Where(value => value > 0)
@@ -1992,62 +1993,101 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .ToHashSet();
         var normalizedProvenienzaFilter = NormalizeVenditeProvenienzaFilter(request.Provenienza);
         var includeOnlyScadute = request.SoloScadute == true;
-
-        var lookupRequest = request with
-        {
-            Anni = Array.Empty<int>(),
-            Take = normalizedTake,
-            Aggrega = false,
-            SoloScadute = null,
-            Provenienza = null
-        };
-
-        var commesseRows = await SearchSintesiAsync(user, profile, lookupRequest, cancellationToken);
-        if (commesseRows.Count == 0)
-        {
-            return [];
-        }
-
-        var commesseLookup = commesseRows
-            .Where(item => !string.IsNullOrWhiteSpace(item.Commessa))
-            .GroupBy(item => NormalizeCommessaKey(item.Commessa), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group =>
-                {
-                    var first = group.First();
-                    return new VenditaCommessaLookupRow(
-                        first.Commessa,
-                        first.DescrizioneCommessa,
-                        first.TipologiaCommessa,
-                        first.Stato,
-                        first.MacroTipologia,
-                        first.Controparte,
-                        first.BusinessUnit,
-                        first.Rcc,
-                        first.Pm);
-                },
-                StringComparer.OrdinalIgnoreCase);
-
-        if (commesseLookup.Count == 0)
-        {
-            return [];
-        }
-
-        var commesseInClause = string.Join(", ", commesseLookup.Keys.Select(SqlQuote));
-        if (string.IsNullOrWhiteSpace(commesseInClause))
-        {
-            return [];
-        }
+        var selectedYearsOrdered = selectedInvoiceYears.OrderBy(value => value).ToArray();
+        var yearClause = selectedYearsOrdered.Length > 0
+            ? $"AND YEAR(CAST(a.[data] AS DATE)) IN ({string.Join(", ", selectedYearsOrdered)})"
+            : string.Empty;
 
         var venditaQuery = $"""
+            WITH CommesseRaw AS
+            (
+                SELECT
+                    CAST(c.idcommessa AS INT) AS IdCommessa,
+                    CAST(UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) AS NVARCHAR(128)) AS CommessaUpper,
+                    CAST(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) AS NVARCHAR(128)) AS Commessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.descrizione, N''))) AS NVARCHAR(512)) AS DescrizioneCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.Tipo_commessa, N''))) AS NVARCHAR(256)) AS TipologiaCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.stato, N''))) AS NVARCHAR(128)) AS StatoCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.macrotipologia, N''))) AS NVARCHAR(256)) AS MacroTipologia,
+                    CAST(LTRIM(RTRIM(ISNULL(c.controparte, N''))) AS NVARCHAR(256)) AS ControparteCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.idbusinessunit, N''))) AS NVARCHAR(128)) AS BusinessUnit,
+                    CAST(LTRIM(RTRIM(ISNULL(c.RCC, N''))) AS NVARCHAR(256)) AS Rcc,
+                    CAST(LTRIM(RTRIM(ISNULL(c.PM, N''))) AS NVARCHAR(256)) AS Pm,
+                    ROW_NUMBER() OVER
+                    (
+                        PARTITION BY UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))))
+                        ORDER BY c.data_commessa DESC, c.idcommessa DESC
+                    ) AS Rn
+                FROM cdg_qryComessaPmRcc c
+                WHERE LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) <> N''
+                  AND (@Commessa IS NULL OR LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) = @Commessa)
+                  AND (@TipologiaCommessa IS NULL OR LTRIM(RTRIM(ISNULL(c.Tipo_commessa, N''))) = @TipologiaCommessa)
+                  AND (@Stato IS NULL OR LTRIM(RTRIM(ISNULL(c.stato, N''))) = @Stato)
+                  AND (@MacroTipologia IS NULL OR LTRIM(RTRIM(ISNULL(c.macrotipologia, N''))) = @MacroTipologia)
+                  AND (@Controparte IS NULL OR LTRIM(RTRIM(ISNULL(c.controparte, N''))) = @Controparte)
+                  AND (@BusinessUnit IS NULL OR LTRIM(RTRIM(ISNULL(c.idbusinessunit, N''))) = @BusinessUnit)
+                  AND (@Rcc IS NULL OR LTRIM(RTRIM(ISNULL(c.RCC, N''))) = @Rcc)
+                  AND (@Pm IS NULL OR LTRIM(RTRIM(ISNULL(c.PM, N''))) = @Pm)
+                  AND (
+                        @IsGlobal = 1
+                        OR (@IsPm = 1 AND (c.idpm = @IdRisorsa OR UPPER(ISNULL(c.NetUserNamePM, N'')) = @UsernameUpper))
+                        OR (@IsRcc = 1 AND (c.idRCC = @IdRisorsa OR UPPER(ISNULL(c.NetUserNameRCC, N'')) = @UsernameUpper))
+                        OR (
+                            @IsResponsabileOu = 1
+                            AND EXISTS
+                            (
+                                SELECT 1
+                                FROM [orga].[vw_OU_OrganigrammaAncestor] ou
+                                WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
+                                  AND ou.sigla COLLATE DATABASE_DEFAULT = c.idBusinessUnit COLLATE DATABASE_DEFAULT
+                            )
+                        )
+                  )
+            ),
+            CommesseVisibili AS
+            (
+                SELECT
+                    IdCommessa,
+                    CommessaUpper,
+                    Commessa,
+                    DescrizioneCommessa,
+                    TipologiaCommessa,
+                    StatoCommessa,
+                    MacroTipologia,
+                    ControparteCommessa,
+                    BusinessUnit,
+                    Rcc,
+                    Pm
+                FROM CommesseRaw
+                WHERE Rn = 1
+            )
             SELECT
                 CAST(CASE WHEN a.[data] IS NULL THEN NULL ELSE YEAR(CAST(a.[data] AS DATE)) END AS INT) AS AnnoFattura,
                 CAST(a.[data] AS DATE) AS DataMovimento,
                 CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), 64) AS NVARCHAR(64)) AS NumeroDocumento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneMovimento,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
+                CAST(COALESCE(cvByCommessa.Commessa, cvByContCommessa.Commessa, N'') AS NVARCHAR(128)) AS Commessa,
+                CAST(COALESCE(cvByCommessa.DescrizioneCommessa, cvByContCommessa.DescrizioneCommessa, N'') AS NVARCHAR(512)) AS DescrizioneCommessa,
+                CAST(COALESCE(cvByCommessa.TipologiaCommessa, cvByContCommessa.TipologiaCommessa, N'') AS NVARCHAR(256)) AS TipologiaCommessa,
+                CAST(COALESCE(cvByCommessa.StatoCommessa, cvByContCommessa.StatoCommessa, N'') AS NVARCHAR(128)) AS StatoCommessa,
+                CAST(COALESCE(cvByCommessa.MacroTipologia, cvByContCommessa.MacroTipologia, N'') AS NVARCHAR(256)) AS MacroTipologia,
+                CAST(COALESCE(cvByCommessa.ControparteCommessa, cvByContCommessa.ControparteCommessa, N'') AS NVARCHAR(256)) AS ControparteCommessa,
+                CAST(COALESCE(cvByCommessa.BusinessUnit, cvByContCommessa.BusinessUnit, N'') AS NVARCHAR(128)) AS BusinessUnit,
+                CAST(COALESCE(cvByCommessa.Rcc, cvByContCommessa.Rcc, N'') AS NVARCHAR(256)) AS Rcc,
+                CAST(COALESCE(cvByCommessa.Pm, cvByContCommessa.Pm, N'') AS NVARCHAR(256)) AS Pm,
+                CAST(LEFT(LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(CAST(pc.DescrizioneMastro AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(a.CodiceMastro AS NVARCHAR(256)), N''),
+                        N''
+                    ))), 256) AS NVARCHAR(256)) AS Causale,
+                CAST(LEFT(LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(CAST(pc.DescrizioneSottoConto AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(a.cespite AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(a.IDSottoconto AS NVARCHAR(256)), N''),
+                        N''
+                    ))), 256) AS NVARCHAR(256)) AS Sottoconto,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(a.[codice_cliente] AS NVARCHAR(64)), N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(a.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
                 CAST(COALESCE(
@@ -2055,55 +2095,36 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     CONVERT(DECIMAL(18, 2), a.[impcomplessivodettaglio]),
                     CONVERT(DECIMAL(18, 2), a.[ImportoImponibileEuro]),
                     0
-                ) AS DECIMAL(18, 2)) AS Importo,
-                CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) AS NVARCHAR(128)) AS CommessaIntranetUpper,
-                CAST(UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) AS NVARCHAR(128)) AS ContCommessaUpper
+                ) AS DECIMAL(18, 2)) AS Importo
             FROM [CDG].[CdgFattureAttive] a
-            OUTER APPLY
-            (
-                SELECT TOP (1)
-                    x.[CB_CodiceCausale],
-                    x.[cb_CodiceSottoConto]
-                FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
-                WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) IN
-                (
-                    UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))),
-                    UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N''))))
+            LEFT JOIN CommesseVisibili cvByCommessa
+                ON cvByCommessa.CommessaUpper = UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N''))))
+            LEFT JOIN CommesseVisibili cvByContCommessa
+                ON cvByContCommessa.CommessaUpper = UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N''))))
+            LEFT JOIN [CF].[CF_PianoConti] pc
+                ON pc.idContabilita = 2
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceSocieta AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(a.codice AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceMastro AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(a.CodiceMastro AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceConto AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(a.IDConto AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceSottoConto AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(a.IDSottoconto AS NVARCHAR(50)), N'')))
+            WHERE
+                (cvByCommessa.IdCommessa IS NOT NULL OR cvByContCommessa.IdCommessa IS NOT NULL)
+                {yearClause}
+                AND (@SoloScadute = 0 OR (
+                    UPPER(LTRIM(RTRIM(ISNULL(a.[provenienza], N'')))) = N'INTRANET'
+                    AND CAST(a.[data] AS DATE) < @TodayDate
+                ))
+                AND (
+                    COALESCE(
+                        NULLIF(UPPER(LTRIM(RTRIM(CAST(pc.DescrizioneMastro AS NVARCHAR(256))))), N''),
+                        NULLIF(UPPER(LTRIM(RTRIM(CAST(a.CodiceMastro AS NVARCHAR(256))))), N''),
+                        N''
+                    ) <> N'BIC'
                 )
-                  AND
-                  (
-                      NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
-                      NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
-                      OR
-                      (
-                          a.[numeroregistrazione] IS NOT NULL
-                          AND CASE
-                                  WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
-                                      THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
-                                  ELSE NULL
-                              END = a.[numeroregistrazione]
-                      )
-                  )
-                ORDER BY
-                    CASE
-                        WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
-                             NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(a.[numero], N''), NULLIF(a.[numerooriginale], N''), CAST(a.[numeroregistrazione] AS NVARCHAR(32))))), N'')
-                            THEN 0
-                        ELSE 1
-                    END,
-                    CASE
-                        WHEN CAST(x.[CDG_Data] AS DATE) = CAST(a.[data] AS DATE) THEN 0
-                        ELSE 1
-                    END
-            ) inc
-            WHERE (
-                    UPPER(LTRIM(RTRIM(ISNULL(a.[commessaintranet], N'')))) IN ({commesseInClause})
-                    OR UPPER(LTRIM(RTRIM(ISNULL(a.[cont_commessa], N'')))) IN ({commesseInClause})
-                  )
-              AND (
-                    inc.[CB_CodiceCausale] IS NULL
-                    OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
-                  )
             ORDER BY
                 CAST(a.[data] AS DATE),
                 NumeroDocumento;
@@ -2116,6 +2137,17 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
             await using var command = new SqlCommand(venditaQuery, connection);
             command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Commessa", NormalizeForSql(request.Commessa));
+            command.Parameters.AddWithValue("@TipologiaCommessa", NormalizeForSql(request.TipologiaCommessa));
+            command.Parameters.AddWithValue("@Stato", NormalizeForSql(request.Stato));
+            command.Parameters.AddWithValue("@MacroTipologia", NormalizeForSql(request.MacroTipologia));
+            command.Parameters.AddWithValue("@Controparte", NormalizeForSql(request.Prodotto));
+            command.Parameters.AddWithValue("@BusinessUnit", NormalizeForSql(request.BusinessUnit));
+            command.Parameters.AddWithValue("@Rcc", NormalizeForSql(request.Rcc));
+            command.Parameters.AddWithValue("@Pm", NormalizeForSql(request.Pm));
+            command.Parameters.AddWithValue("@SoloScadute", includeOnlyScadute ? 1 : 0);
+            command.Parameters.AddWithValue("@TodayDate", DateTime.Today.Date);
+            ApplyVisibilityParameters(command, user, visibility);
 
             var today = DateTime.Today;
             var vendite = new List<ContabilitaVenditaRow>();
@@ -2123,20 +2155,6 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                var commessaIntranetUpper = ReadString(reader, "CommessaIntranetUpper");
-                var contCommessaUpper = ReadString(reader, "ContCommessaUpper");
-
-                var matchedKey =
-                    (!string.IsNullOrWhiteSpace(commessaIntranetUpper) && commesseLookup.ContainsKey(commessaIntranetUpper))
-                        ? commessaIntranetUpper
-                        : (!string.IsNullOrWhiteSpace(contCommessaUpper) && commesseLookup.ContainsKey(contCommessaUpper)
-                            ? contCommessaUpper
-                            : null);
-                if (string.IsNullOrWhiteSpace(matchedKey) || !commesseLookup.TryGetValue(matchedKey, out var commessaInfo))
-                {
-                    continue;
-                }
-
                 var dataMovimento = ReadNullableDate(reader, "DataMovimento");
                 var annoFattura = ReadNullableInt(reader, "AnnoFattura");
                 var provenienzaRaw = ReadString(reader, "Provenienza");
@@ -2177,15 +2195,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 vendite.Add(new ContabilitaVenditaRow(
                     annoFattura,
                     dataMovimento,
-                    commessaInfo.Commessa,
-                    commessaInfo.DescrizioneCommessa,
-                    commessaInfo.TipologiaCommessa,
-                    commessaInfo.StatoCommessa,
-                    commessaInfo.MacroTipologia,
-                    commessaInfo.ControparteCommessa,
-                    commessaInfo.BusinessUnit,
-                    commessaInfo.Rcc,
-                    commessaInfo.Pm,
+                    ReadString(reader, "Commessa"),
+                    ReadString(reader, "DescrizioneCommessa"),
+                    ReadString(reader, "TipologiaCommessa"),
+                    ReadString(reader, "StatoCommessa"),
+                    ReadString(reader, "MacroTipologia"),
+                    ReadString(reader, "ControparteCommessa"),
+                    ReadString(reader, "BusinessUnit"),
+                    ReadString(reader, "Rcc"),
+                    ReadString(reader, "Pm"),
                     ReadString(reader, "NumeroDocumento"),
                     ReadString(reader, "DescrizioneMovimento"),
                     ReadString(reader, "Causale"),
@@ -2225,6 +2243,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             return [];
         }
 
+        var visibility = ResolveVisibility(profile);
         var normalizedTake = Math.Clamp(request.Take, 1, 5000);
         var selectedInvoiceYears = request.Anni
             .Where(value => value > 0)
@@ -2232,110 +2251,135 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .ToHashSet();
         var normalizedProvenienzaFilter = NormalizeVenditeProvenienzaFilter(request.Provenienza);
         var includeOnlyScadute = request.SoloScadute == true;
-
-        var lookupRequest = request with
-        {
-            Anni = Array.Empty<int>(),
-            Take = normalizedTake,
-            Aggrega = false,
-            SoloScadute = null,
-            Provenienza = null
-        };
-
-        var commesseRows = await SearchSintesiAsync(user, profile, lookupRequest, cancellationToken);
-        if (commesseRows.Count == 0)
-        {
-            return [];
-        }
-
-        var commesseLookup = commesseRows
-            .Where(item => !string.IsNullOrWhiteSpace(item.Commessa))
-            .GroupBy(item => NormalizeCommessaKey(item.Commessa), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group =>
-                {
-                    var first = group.First();
-                    return new VenditaCommessaLookupRow(
-                        first.Commessa,
-                        first.DescrizioneCommessa,
-                        first.TipologiaCommessa,
-                        first.Stato,
-                        first.MacroTipologia,
-                        first.Controparte,
-                        first.BusinessUnit,
-                        first.Rcc,
-                        first.Pm);
-                },
-                StringComparer.OrdinalIgnoreCase);
-
-        if (commesseLookup.Count == 0)
-        {
-            return [];
-        }
-
-        var commesseInClause = string.Join(", ", commesseLookup.Keys.Select(SqlQuote));
-        if (string.IsNullOrWhiteSpace(commesseInClause))
-        {
-            return [];
-        }
+        var selectedYearsOrdered = selectedInvoiceYears.OrderBy(value => value).ToArray();
+        var yearClause = selectedYearsOrdered.Length > 0
+            ? $"AND YEAR(CAST(p.[Data Documento] AS DATE)) IN ({string.Join(", ", selectedYearsOrdered)})"
+            : string.Empty;
 
         var acquistiQuery = $"""
+            WITH CommesseRaw AS
+            (
+                SELECT
+                    CAST(c.idcommessa AS INT) AS IdCommessa,
+                    CAST(UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) AS NVARCHAR(128)) AS CommessaUpper,
+                    CAST(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) AS NVARCHAR(128)) AS Commessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.descrizione, N''))) AS NVARCHAR(512)) AS DescrizioneCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.Tipo_commessa, N''))) AS NVARCHAR(256)) AS TipologiaCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.stato, N''))) AS NVARCHAR(128)) AS StatoCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.macrotipologia, N''))) AS NVARCHAR(256)) AS MacroTipologia,
+                    CAST(LTRIM(RTRIM(ISNULL(c.controparte, N''))) AS NVARCHAR(256)) AS ControparteCommessa,
+                    CAST(LTRIM(RTRIM(ISNULL(c.idbusinessunit, N''))) AS NVARCHAR(128)) AS BusinessUnit,
+                    CAST(LTRIM(RTRIM(ISNULL(c.RCC, N''))) AS NVARCHAR(256)) AS Rcc,
+                    CAST(LTRIM(RTRIM(ISNULL(c.PM, N''))) AS NVARCHAR(256)) AS Pm,
+                    ROW_NUMBER() OVER
+                    (
+                        PARTITION BY UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))))
+                        ORDER BY c.data_commessa DESC, c.idcommessa DESC
+                    ) AS Rn
+                FROM cdg_qryComessaPmRcc c
+                WHERE LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) <> N''
+                  AND (@Commessa IS NULL OR LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) = @Commessa)
+                  AND (@TipologiaCommessa IS NULL OR LTRIM(RTRIM(ISNULL(c.Tipo_commessa, N''))) = @TipologiaCommessa)
+                  AND (@Stato IS NULL OR LTRIM(RTRIM(ISNULL(c.stato, N''))) = @Stato)
+                  AND (@MacroTipologia IS NULL OR LTRIM(RTRIM(ISNULL(c.macrotipologia, N''))) = @MacroTipologia)
+                  AND (@Controparte IS NULL OR LTRIM(RTRIM(ISNULL(c.controparte, N''))) = @Controparte)
+                  AND (@BusinessUnit IS NULL OR LTRIM(RTRIM(ISNULL(c.idbusinessunit, N''))) = @BusinessUnit)
+                  AND (@Rcc IS NULL OR LTRIM(RTRIM(ISNULL(c.RCC, N''))) = @Rcc)
+                  AND (@Pm IS NULL OR LTRIM(RTRIM(ISNULL(c.PM, N''))) = @Pm)
+                  AND (
+                        @IsGlobal = 1
+                        OR (@IsPm = 1 AND (c.idpm = @IdRisorsa OR UPPER(ISNULL(c.NetUserNamePM, N'')) = @UsernameUpper))
+                        OR (@IsRcc = 1 AND (c.idRCC = @IdRisorsa OR UPPER(ISNULL(c.NetUserNameRCC, N'')) = @UsernameUpper))
+                        OR (
+                            @IsResponsabileOu = 1
+                            AND EXISTS
+                            (
+                                SELECT 1
+                                FROM [orga].[vw_OU_OrganigrammaAncestor] ou
+                                WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
+                                  AND ou.sigla COLLATE DATABASE_DEFAULT = c.idBusinessUnit COLLATE DATABASE_DEFAULT
+                            )
+                        )
+                  )
+            ),
+            CommesseVisibili AS
+            (
+                SELECT
+                    IdCommessa,
+                    CommessaUpper,
+                    Commessa,
+                    DescrizioneCommessa,
+                    TipologiaCommessa,
+                    StatoCommessa,
+                    MacroTipologia,
+                    ControparteCommessa,
+                    BusinessUnit,
+                    Rcc,
+                    Pm
+                FROM CommesseRaw
+                WHERE Rn = 1
+            )
             SELECT
                 CAST(CASE WHEN p.[anno] IS NULL THEN NULL ELSE p.[anno] END AS INT) AS AnnoFattura,
                 CAST(p.[Data Documento] AS DATE) AS DataDocumento,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(p.[idsocieta] AS NVARCHAR(64)), N''))), 64) AS NVARCHAR(64)) AS CodiceSocieta,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[descrizionefattura], N''))), 512) AS NVARCHAR(512)) AS DescrizioneFattura,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Causale,
-                CAST(LEFT(LTRIM(RTRIM(ISNULL(CAST(inc.[cb_CodiceSottoConto] AS NVARCHAR(256)), N''))), 256) AS NVARCHAR(256)) AS Sottoconto,
-                CAST(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0) AS DECIMAL(18, 2)) AS ImportoComplessivo,
-                CAST(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
+                CAST(LEFT(LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(CAST(pc.DescrizioneMastro AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(p.[CodiceMastro] AS NVARCHAR(256)), N''),
+                        N''
+                    ))), 256) AS NVARCHAR(256)) AS Causale,
+                CAST(LEFT(LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(CAST(pc.DescrizioneSottoConto AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(p.[DescrizioneSottoconto] AS NVARCHAR(256)), N''),
+                        NULLIF(CAST(p.[Sottoconto] AS NVARCHAR(256)), N''),
+                        N''
+                    ))), 256) AS NVARCHAR(256)) AS Sottoconto,
+                CAST(-ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocomplessivo]), 0)) AS DECIMAL(18, 2)) AS ImportoComplessivo,
+                CAST(-ABS(COALESCE(CONVERT(DECIMAL(18, 2), p.[importocontabilitadettaglio]), 0)) AS DECIMAL(18, 2)) AS ImportoContabilitaDettaglio,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[provenienza], N''))), 128) AS NVARCHAR(128)) AS Provenienza,
                 CAST(LEFT(LTRIM(RTRIM(ISNULL(p.[controparte], N''))), 256) AS NVARCHAR(256)) AS ControparteMovimento,
-                CAST(LEFT(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N''))), 128) AS NVARCHAR(128)) AS Commessa,
-                CAST(UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) AS NVARCHAR(128)) AS CommessaUpper
+                CAST(COALESCE(cvById.Commessa, cvByCode.Commessa, N'') AS NVARCHAR(128)) AS Commessa,
+                CAST(COALESCE(cvById.DescrizioneCommessa, cvByCode.DescrizioneCommessa, N'') AS NVARCHAR(512)) AS DescrizioneCommessa,
+                CAST(COALESCE(cvById.TipologiaCommessa, cvByCode.TipologiaCommessa, N'') AS NVARCHAR(256)) AS TipologiaCommessa,
+                CAST(COALESCE(cvById.StatoCommessa, cvByCode.StatoCommessa, N'') AS NVARCHAR(128)) AS StatoCommessa,
+                CAST(COALESCE(cvById.MacroTipologia, cvByCode.MacroTipologia, N'') AS NVARCHAR(256)) AS MacroTipologia,
+                CAST(COALESCE(cvById.ControparteCommessa, cvByCode.ControparteCommessa, N'') AS NVARCHAR(256)) AS ControparteCommessa,
+                CAST(COALESCE(cvById.BusinessUnit, cvByCode.BusinessUnit, N'') AS NVARCHAR(128)) AS BusinessUnit,
+                CAST(COALESCE(cvById.Rcc, cvByCode.Rcc, N'') AS NVARCHAR(256)) AS Rcc,
+                CAST(COALESCE(cvById.Pm, cvByCode.Pm, N'') AS NVARCHAR(256)) AS Pm
             FROM [CDG].[CdgFatturePassive] p
-            LEFT JOIN [cdg_qryComessaPmRcc] q
-                ON q.[idcommessa] = p.[idcommessa]
-            OUTER APPLY
-            (
-                SELECT TOP (1)
-                    x.[CB_CodiceCausale],
-                    x.[cb_CodiceSottoConto]
-                FROM [CDG].[CDG_IncrocioContabilitaIntranet] x
-                WHERE UPPER(LTRIM(RTRIM(ISNULL(x.[CDG_Commessa], N'')))) =
-                      UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N''))))
-                  AND
-                  (
-                      NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
-                      NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
-                      OR
-                      (
-                          p.[numeroregistrazione] IS NOT NULL
-                          AND CASE
-                                  WHEN ISNUMERIC(NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N'')) = 1
-                                      THEN CONVERT(INT, NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumRegistrazione] AS NVARCHAR(32)))), N''))
-                                  ELSE NULL
-                              END = p.[numeroregistrazione]
-                      )
-                  )
-                ORDER BY
-                    CASE
-                        WHEN NULLIF(LTRIM(RTRIM(CAST(x.[CB_NumeroDocumento] AS NVARCHAR(64)))), N'') =
-                             NULLIF(LTRIM(RTRIM(COALESCE(NULLIF(p.[NumeroDocumento], N''), CAST(p.[numeroregistrazione] AS NVARCHAR(32))))), N'')
-                            THEN 0
-                        ELSE 1
-                    END,
-                    CASE
-                        WHEN CAST(x.[CDG_Data] AS DATE) = CAST(p.[Data Documento] AS DATE) THEN 0
-                        ELSE 1
-                    END
-            ) inc
-            WHERE UPPER(LTRIM(RTRIM(COALESCE(NULLIF(CAST(q.[COMMESSA] AS NVARCHAR(128)), N''), NULLIF(p.[commessa], N''), N'')))) IN ({commesseInClause})
-              AND (
-                    inc.[CB_CodiceCausale] IS NULL
-                    OR UPPER(LTRIM(RTRIM(CAST(inc.[CB_CodiceCausale] AS NVARCHAR(256))))) <> N'BIC'
-                  );
+            LEFT JOIN CommesseVisibili cvById
+                ON cvById.IdCommessa = p.idcommessa
+            LEFT JOIN CommesseVisibili cvByCode
+                ON cvByCode.CommessaUpper = UPPER(LTRIM(RTRIM(ISNULL(p.[commessa], N''))))
+            LEFT JOIN [CF].[CF_PianoConti] pc
+                ON pc.idContabilita = 2
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceSocieta AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(p.idsocieta AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceMastro AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(p.CodiceMastro AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceConto AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(p.Conto AS NVARCHAR(50)), N'')))
+               AND LTRIM(RTRIM(ISNULL(CAST(pc.CodiceSottoConto AS NVARCHAR(50)), N''))) =
+                   LTRIM(RTRIM(ISNULL(CAST(p.Sottoconto AS NVARCHAR(50)), N'')))
+            WHERE
+                (cvById.IdCommessa IS NOT NULL OR cvByCode.IdCommessa IS NOT NULL)
+                {yearClause}
+                AND (@SoloScadute = 0 OR (
+                    UPPER(LTRIM(RTRIM(ISNULL(p.[provenienza], N'')))) = N'INTRANET'
+                    AND CAST(p.[Data Documento] AS DATE) < @TodayDate
+                ))
+                AND COALESCE(
+                    NULLIF(UPPER(LTRIM(RTRIM(CAST(pc.DescrizioneMastro AS NVARCHAR(256))))), N''),
+                    NULLIF(UPPER(LTRIM(RTRIM(CAST(p.[CodiceMastro] AS NVARCHAR(256))))), N''),
+                    N''
+                ) <> N'BIC'
+            ORDER BY
+                CAST(p.[Data Documento] AS DATE),
+                CodiceSocieta;
             """;
 
         try
@@ -2345,6 +2389,17 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
             await using var command = new SqlCommand(acquistiQuery, connection);
             command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Commessa", NormalizeForSql(request.Commessa));
+            command.Parameters.AddWithValue("@TipologiaCommessa", NormalizeForSql(request.TipologiaCommessa));
+            command.Parameters.AddWithValue("@Stato", NormalizeForSql(request.Stato));
+            command.Parameters.AddWithValue("@MacroTipologia", NormalizeForSql(request.MacroTipologia));
+            command.Parameters.AddWithValue("@Controparte", NormalizeForSql(request.Prodotto));
+            command.Parameters.AddWithValue("@BusinessUnit", NormalizeForSql(request.BusinessUnit));
+            command.Parameters.AddWithValue("@Rcc", NormalizeForSql(request.Rcc));
+            command.Parameters.AddWithValue("@Pm", NormalizeForSql(request.Pm));
+            command.Parameters.AddWithValue("@SoloScadute", includeOnlyScadute ? 1 : 0);
+            command.Parameters.AddWithValue("@TodayDate", DateTime.Today.Date);
+            ApplyVisibilityParameters(command, user, visibility);
 
             var today = DateTime.Today;
             var acquisti = new List<ContabilitaAcquistoRow>();
@@ -2352,17 +2407,6 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                var commessaUpper = ReadString(reader, "CommessaUpper");
-                if (string.IsNullOrWhiteSpace(commessaUpper))
-                {
-                    commessaUpper = NormalizeCommessaKey(ReadString(reader, "Commessa"));
-                }
-
-                if (string.IsNullOrWhiteSpace(commessaUpper) || !commesseLookup.TryGetValue(commessaUpper, out var commessaInfo))
-                {
-                    continue;
-                }
-
                 var dataDocumento = ReadNullableDate(reader, "DataDocumento");
                 var annoFattura = ReadNullableInt(reader, "AnnoFattura");
                 var provenienzaRaw = ReadString(reader, "Provenienza");
@@ -2393,15 +2437,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 acquisti.Add(new ContabilitaAcquistoRow(
                     annoFattura,
                     dataDocumento,
-                    commessaInfo.Commessa,
-                    commessaInfo.DescrizioneCommessa,
-                    commessaInfo.TipologiaCommessa,
-                    commessaInfo.StatoCommessa,
-                    commessaInfo.MacroTipologia,
-                    commessaInfo.ControparteCommessa,
-                    commessaInfo.BusinessUnit,
-                    commessaInfo.Rcc,
-                    commessaInfo.Pm,
+                    ReadString(reader, "Commessa"),
+                    ReadString(reader, "DescrizioneCommessa"),
+                    ReadString(reader, "TipologiaCommessa"),
+                    ReadString(reader, "StatoCommessa"),
+                    ReadString(reader, "MacroTipologia"),
+                    ReadString(reader, "ControparteCommessa"),
+                    ReadString(reader, "BusinessUnit"),
+                    ReadString(reader, "Rcc"),
+                    ReadString(reader, "Pm"),
                     ReadString(reader, "CodiceSocieta"),
                     ReadString(reader, "DescrizioneFattura"),
                     ReadString(reader, "Causale"),
@@ -4538,15 +4582,5 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         bool IsRcc,
         bool IsResponsabileOu);
 
-    private sealed record VenditaCommessaLookupRow(
-        string Commessa,
-        string DescrizioneCommessa,
-        string TipologiaCommessa,
-        string StatoCommessa,
-        string MacroTipologia,
-        string ControparteCommessa,
-        string BusinessUnit,
-        string Rcc,
-        string Pm);
 }
 
