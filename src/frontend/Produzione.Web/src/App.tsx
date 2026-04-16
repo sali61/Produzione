@@ -1,1091 +1,153 @@
-﻿import { Fragment, type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
+﻿import { Fragment, type ChangeEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
-import { AnalisiBuPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiBuPivotFatturatoPage'
-import { AnalisiBurccPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiBurccPivotFatturatoPage'
-import { AnalisiBurccRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiBurccRisultatoMensilePage'
-import { AnalisiBuRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiBuRisultatoMensilePage'
-import { AnalisiDettaglioFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiDettaglioFatturatoPage'
-import { AnalisiPianoFatturazionePage } from './modules/pages/analisiProiezioni/AnalisiPianoFatturazionePage'
-import { AnalisiRccPivotFatturatoPage } from './modules/pages/analisiProiezioni/AnalisiRccPivotFatturatoPage'
-import { AnalisiRccRisultatoMensilePage } from './modules/pages/analisiProiezioni/AnalisiRccRisultatoMensilePage'
-import { PrevisioniFunnelPage } from './modules/pages/analisiProiezioni/PrevisioniFunnelPage'
-import { PrevisioniReportFunnelBuPage } from './modules/pages/analisiProiezioni/PrevisioniReportFunnelBuPage'
-import { PrevisioniReportFunnelRccPage } from './modules/pages/analisiProiezioni/PrevisioniReportFunnelRccPage'
-import { PrevisioniUtileMensileBuPage } from './modules/pages/analisiProiezioni/PrevisioniUtileMensileBuPage'
-import { PrevisioniUtileMensileRccPage } from './modules/pages/analisiProiezioni/PrevisioniUtileMensileRccPage'
-import { RisorsePage } from './modules/pages/analisiRisorse/RisorsePage'
-import { ProcessoOffertaPage } from './modules/pages/processoOfferta/ProcessoOffertaPage'
+import { AppMainContent } from './modules/components/layout/AppMainContent'
+import { AppTopBar } from './modules/components/layout/AppTopBar'
+import { AppInfoModal } from './modules/components/modals/AppInfoModal'
+import { ImpersonationModal } from './modules/components/modals/ImpersonationModal'
+import { UserInfoModal } from './modules/components/modals/UserInfoModal'
+import {
+  analisiBuAllowedProfiles,
+  analisiBuPivotBuSelectableProfiles,
+  analisiBurccAllowedProfiles,
+  analisiCommesseAllowedProfiles,
+  analisiDettaglioFatturatoAllowedProfiles,
+  analisiPianoFatturazioneAllowedProfiles,
+  analisiPianoFatturazioneSelectableProfiles,
+  analisiRccAllowedProfiles,
+  analisiRccPivotRccSelectableProfiles,
+  analisiSearchCollapsiblePages,
+  appInfoVoicesDefault,
+  datiAnnualiPivotFieldOptions,
+  datiContabiliAllowedProfiles,
+  impersonationHeaderName,
+  impersonationStorageKey,
+  previsioniFunnelBuAllowedProfiles,
+  previsioniFunnelBurccAllowedProfiles,
+  previsioniFunnelBurccSelectableProfiles,
+  previsioniFunnelBuSelectableProfiles,
+  previsioniFunnelRccAllowedProfiles,
+  previsioniFunnelRccSelectableProfiles,
+  previsioniUtileMensileBuAllowedProfiles,
+  previsioniUtileMensileBuSelectableProfiles,
+  previsioniUtileMensileRccAllowedProfiles,
+  previsioniUtileMensileRccSelectableProfiles,
+  processoOffertaAllowedProfiles,
+  risultatiRisorseAllowedProfiles,
+  risorsePivotFieldOptions,
+  redirectGuardKey,
+  sintesiStateStorageKey,
+  tokenStorageKey,
+} from './modules/config/appConfig'
+import type {
+  AnalisiRccDettaglioFatturatoResponse,
+  AnalisiRccFunnelResponse,
+  AnalisiRccPianoFatturazioneProgressRow,
+  AnalisiRccPianoFatturazioneResponse,
+  AnalisiRccPianoFatturazioneRow,
+  AnalisiRccPivotBurccResponse,
+  AnalisiRccPivotFatturatoResponse,
+  AnalisiRccPivotFunnelResponse,
+  AnalisiRccRisultatoMensileBurccResponse,
+  AnalisiRccRisultatoMensileGrid,
+  AnalisiRccRisultatoMensileResponse,
+  AnalisiRccRisultatoMensileRow,
+  AnalisiRccUtileMensileResponse,
+  AppHealthResponse,
+  AppInfoResponse,
+  AppInfoSaveRequest,
+  AppInfoVoice,
+  AppPage,
+  AvailableProfilesResponse,
+  CommessaAvanzamentoRow,
+  CommessaFatturaMovimentoRow,
+  CommessaRisorseValutazioneRow,
+  CommessaSintesiRow,
+  CommesseAndamentoMensileResponse,
+  CommesseAnomaleResponse,
+  CommesseDatiAnnualiPivotData,
+  CommesseDatiAnnualiPivotRow,
+  CommesseDettaglioResponse,
+  CommesseOptionsResponse,
+  CommesseRisorseFilterOption,
+  CommesseRisorseFiltersResponse,
+  CommesseRisorsePivotRow,
+  CommesseRisorseValutazioneResponse,
+  CommesseSintesiFiltersResponse,
+  CommesseSintesiResponse,
+  DatiAnnualiPivotFieldKey,
+  DatiContabiliAcquistoResponse,
+  DatiContabiliAcquistoRow,
+  DatiContabiliVenditaResponse,
+  DatiContabiliVenditaRow,
+  DetailTabKey,
+  FilterOption,
+  MenuKey,
+  ProcessoOffertaOfferteResponse,
+  ProcessoOffertaSintesiResponse,
+  ProdottoGroup,
+  RisorseFiltersForm,
+  RisorsePivotFieldKey,
+  SessionProbeResult,
+  SintesiFiltersForm,
+  SintesiMode,
+  SintesiPersistedState,
+  SintesiScope,
+  SintesiTableRow,
+  SortColumn,
+  SortDirection,
+  CurrentUser,
+} from './modules/types/appTypes'
+import {
+  asDatiAnnualiPivotFieldKeys,
+  asRisorsePivotFieldKeys,
+  buildDatiAnnualiPivotMetrics,
+  buildPersonSelectItems,
+  buildRisorsePivotMetrics,
+  calculateUtileFineProgetto,
+  distinctFilterOptionsForUi,
+  distinctPersonFilterOptionsForUi,
+  extractCommessaCodeFromOption,
+  extractDatiAnnualiPivotFieldValue,
+  extractRisorsePivotFieldValue,
+  formatReferenceMonthLabel,
+  getDefaultReferenceMonth,
+  isValidProductValue,
+  mesiItaliani,
+  mergeFilterOptionValues,
+  normalizeDateKey,
+  normalizeFilterText,
+  normalizePercentTo100,
+  normalizePivotFunnelResponse,
+  normalizePivotGroupValue,
+  normalizeProfileLabel,
+  normalizeRisorsaLabel,
+  pageToScope,
+  parseReferenceMonth,
+  parseReferenceMonthStrict,
+  resolveOuValue,
+  shouldShowUtileFineProgettoForRow,
+} from './modules/utils/appSharedUtils'
+import {
+  buildAnalisiAlberoProiezioniRows,
+  buildPrevisioniReportFunnelPivotRows,
+  buildPrevisioniReportFunnelTotaliDettaglioRows,
+  buildProcessoOffertaSuccessoRows,
+  buildProcessoOffertaSuccessoSintesiRows,
+  buildProcessoOffertaSuccessoSintesiTotale,
+  buildProcessoOffertaSuccessoTotaleComplessivo,
+  buildProcessoOffertaSuccessoTotaliPerAnno,
+  countPrevisioniReportFunnelAggregazioni,
+} from './modules/utils/proiezioniProcessoOffertaUtils'
+import {
+  bootstrapSessionFromStorage,
+  installMenuDismissHandlers,
+  processDetailRouteRequest,
+  restoreSintesiStateForProfile,
+} from './modules/utils/appInitializationUtils'
+import { buildAppNavigationActions } from './modules/utils/appNavigationActions'
 
-type CurrentUser = {
-  idRisorsa: number
-  username: string
-  fullName: string
-  ou: string
-  ouScopes: string[]
-  roles: string[]
-  profiles?: string[]
-  canImpersonate?: boolean
-  isImpersonating?: boolean
-  impersonatedUsername?: string | null
-  impersonatorUsername?: string | null
-  authenticatedIdRisorsa?: number
-  authenticatedUsername?: string
-  authenticatedRoles?: string[]
-  authenticatedOuScopes?: string[]
-}
-
-type AvailableProfilesResponse = {
-  profiles: string[]
-  ouScopes: string[]
-  canImpersonate?: boolean
-  isImpersonating?: boolean
-  authenticatedUsername?: string
-  effectiveUsername?: string
-}
-
-type SessionProbeResult =
-  | { state: 'ok'; user: CurrentUser }
-  | { state: 'unauthorized' }
-  | { state: 'forbidden'; message: string }
-  | { state: 'error'; message: string }
-
-type AppHealthResponse = {
-  service?: string
-  status?: string
-  utcNow?: string
-  environment?: string
-  applicationVersion?: string
-}
-
-type MenuKey = 'sintesi' | 'risorse' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
-type DetailTabKey = 'storico' | 'dati-contabili' | 'commerciale' | 'personale'
-type AppPage =
-  | 'none'
-  | 'commesse-sintesi'
-  | 'commesse-andamento-mensile'
-  | 'commesse-anomale'
-  | 'commesse-dati-annuali-aggregati'
-  | 'risorse-risultati'
-  | 'risorse-risultati-pivot'
-  | 'risorse-risultati-mensile'
-  | 'risorse-risultati-mensile-pivot'
-  | 'risorse-ou-risorse'
-  | 'risorse-ou-risorse-pivot'
-  | 'risorse-ou-risorse-mensile'
-  | 'risorse-ou-risorse-mensile-pivot'
-  | 'prodotti-sintesi'
-  | 'analisi-rcc-risultato-mensile'
-  | 'analisi-rcc-pivot-fatturato'
-  | 'analisi-bu-risultato-mensile'
-  | 'analisi-bu-pivot-fatturato'
-  | 'analisi-burcc-risultato-mensile'
-  | 'analisi-burcc-pivot-fatturato'
-  | 'analisi-piano-fatturazione'
-  | 'analisi-dettaglio-fatturato'
-  | 'previsioni-funnel'
-  | 'previsioni-report-funnel-rcc'
-  | 'previsioni-report-funnel-bu'
-  | 'previsioni-utile-mensile-rcc'
-  | 'previsioni-utile-mensile-bu'
-  | 'processo-offerta-offerte'
-  | 'processo-offerta-sintesi-rcc'
-  | 'processo-offerta-sintesi-bu'
-  | 'processo-offerta-percentuale-successo-rcc'
-  | 'processo-offerta-percentuale-successo-bu'
-  | 'processo-offerta-incidenza-rcc'
-  | 'processo-offerta-incidenza-bu'
-  | 'dati-contabili-vendita'
-  | 'dati-contabili-acquisti'
-  | 'commessa-dettaglio'
-type SintesiScope = 'commesse' | 'prodotti'
-
-type AppInfoVoice = {
-  menu: string
-  voce: string
-  sintesi: string
-}
-
-type AppInfoResponse = {
-  profile: string
-  applicazione: string
-  items: AppInfoVoice[]
-}
-
-type AppInfoSaveRequest = {
-  menu: string
-  voce: string
-  sintesi: string
-}
-
-type FilterOption = {
-  value: string
-  label: string
-}
-
-type CommesseSintesiFiltersResponse = {
-  profile: string
-  anno?: number | null
-  anni: FilterOption[]
-  commesse: FilterOption[]
-  tipologieCommessa: FilterOption[]
-  stati: FilterOption[]
-  macroTipologie: FilterOption[]
-  prodotti: FilterOption[]
-  businessUnits: FilterOption[]
-  rcc: FilterOption[]
-  pm: FilterOption[]
-}
-
-type CommesseOptionsResponse = {
-  profile: string
-  count: number
-  items: Array<{
-    commessa: string
-    descrizioneCommessa?: string | null
-    label?: string | null
-  }>
-}
-
-type AnalisiRccMensileValue = {
-  mese: number
-  valore: number
-}
-
-type AnalisiRccRisultatoMensileRow = {
-  aggregazione: string
-  businessUnit?: string | null
-  rcc?: string | null
-  budget?: number | null
-  valoriMensili: AnalisiRccMensileValue[]
-}
-
-type AnalisiRccRisultatoMensileGrid = {
-  titolo: string
-  mesi: number[]
-  valoriPercentuali: boolean
-  righe: AnalisiRccRisultatoMensileRow[]
-}
-
-type AnalisiRccRisultatoMensileResponse = {
-  profile: string
-  anno: number
-  vediTutto: boolean
-  rccFiltro?: string | null
-  risultatoPesato: AnalisiRccRisultatoMensileGrid
-  percentualePesata: AnalisiRccRisultatoMensileGrid
-}
-
-type AnalisiRccRisultatoMensileBurccResponse = {
-  profile: string
-  anno: number
-  vediTutto: boolean
-  businessUnitFiltro?: string | null
-  rccFiltro?: string | null
-  businessUnitDisponibili: string[]
-  rccDisponibili: string[]
-  risultatoPesato: AnalisiRccRisultatoMensileGrid
-  percentualePesata: AnalisiRccRisultatoMensileGrid
-}
-
-type AnalisiRccPivotFatturatoRow = {
-  anno: number
-  rcc: string
-  fatturatoAnno: number
-  fatturatoFuturoAnno: number
-  totaleFatturatoCerto: number
-  budgetPrevisto: number
-  margineColBudget: number
-  percentualeCertaRaggiunta: number
-  percentualeRaggiungimentoTemporale?: number | null
-  totaleRicavoIpotetico: number
-  totaleRicavoIpoteticoPesato: number
-  totaleIpotetico: number
-  percentualeCompresoRicavoIpotetico: number
-}
-
-type AnalisiRccPivotFatturatoTotaleAnno = {
-  anno: number
-  fatturatoAnno: number
-  fatturatoFuturoAnno: number
-  totaleFatturatoCerto: number
-  budgetPrevisto: number
-  margineColBudget: number
-  percentualeCertaRaggiunta: number
-  percentualeRaggiungimentoTemporale?: number | null
-  totaleRicavoIpotetico: number
-  totaleRicavoIpoteticoPesato: number
-  totaleIpotetico: number
-  percentualeCompresoRicavoIpotetico: number
-}
-
-type AnalisiRccPivotFatturatoResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  rccFiltro?: string | null
-  rccDisponibili: string[]
-  righe: AnalisiRccPivotFatturatoRow[]
-  totaliPerAnno: AnalisiRccPivotFatturatoTotaleAnno[]
-}
-
-type AnalisiRccPivotBurccRow = {
-  anno: number
-  businessUnit: string
-  rcc: string
-  fatturatoAnno: number
-  fatturatoFuturoAnno: number
-  totaleFatturatoCerto: number
-  budgetPrevisto: number
-  margineColBudget: number
-  percentualeCertaRaggiunta: number
-  percentualeRaggiungimentoTemporale?: number | null
-  totaleRicavoIpotetico: number
-  totaleRicavoIpoteticoPesato: number
-  totaleIpotetico: number
-  percentualeCompresoRicavoIpotetico: number
-}
-
-type AnalisiRccPivotBurccResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  businessUnitFiltro?: string | null
-  rccFiltro?: string | null
-  businessUnitDisponibili: string[]
-  rccDisponibili: string[]
-  righe: AnalisiRccPivotBurccRow[]
-  totaliPerAnno: AnalisiRccPivotFatturatoTotaleAnno[]
-}
-
-type AnalisiRccUtileMensileRow = {
-  anno: number
-  aggregazione: string
-  totaleRicavi: number
-  totaleCosti: number
-  totaleCostoPersonale: number
-  totaleUtileSpecifico: number
-  totaleOreLavorate: number
-  totaleCostoGeneraleRibaltato: number
-  percentualeMargineSuRicavi: number
-  percentualeMarkupSuCosti: number
-  percentualeCostIncome: number
-}
-
-type AnalisiRccUtileMensileTotaleAnno = {
-  anno: number
-  totaleRicavi: number
-  totaleCosti: number
-  totaleCostoPersonale: number
-  totaleUtileSpecifico: number
-  totaleOreLavorate: number
-  totaleCostoGeneraleRibaltato: number
-  percentualeMargineSuRicavi: number
-  percentualeMarkupSuCosti: number
-  percentualeCostIncome: number
-}
-
-type AnalisiRccUtileMensileResponse = {
-  profile: string
-  anni: number[]
-  meseRiferimento: number
-  vediTutto: boolean
-  aggregazioneFiltro?: string | null
-  aggregazioniDisponibili: string[]
-  produzione?: number | null
-  righe: AnalisiRccUtileMensileRow[]
-  totaliPerAnno: AnalisiRccUtileMensileTotaleAnno[]
-}
-
-type AnalisiRccPianoFatturazioneRow = {
-  rcc: string
-  isTotale: boolean
-  budget: number
-  valoriMensili: AnalisiRccMensileValue[]
-  totaleTrim1: number
-  percentualeTrim1Cumulata: number
-  totaleTrim2: number
-  percentualeTrim2Cumulata: number
-  totaleTrim3: number
-  percentualeTrim3Cumulata: number
-  totaleTrim4: number
-  percentualeTrim4Cumulata: number
-  totaleComplessivo: number
-  percentualeTotaleBudget: number
-}
-
-type AnalisiRccPianoFatturazioneProgressValue = {
-  mese: number
-  importoProgressivo: number
-  percentualeBudgetProgressiva: number
-}
-
-type AnalisiRccPianoFatturazioneProgressRow = {
-  rcc: string
-  isTotale: boolean
-  budget: number
-  valoriMensili: AnalisiRccPianoFatturazioneProgressValue[]
-  importoTotaleProgressivo: number
-  percentualeTotaleBudget: number
-}
-
-type AnalisiRccPianoFatturazioneResponse = {
-  profile: string
-  anno: number
-  mesiSnapshot: number[]
-  mesiRiferimento: number[]
-  tipoCalcolo: string
-  vediTutto: boolean
-  businessUnitFiltro?: string | null
-  businessUnitDisponibili: string[]
-  rccFiltro?: string | null
-  rccDisponibili: string[]
-  righe: AnalisiRccPianoFatturazioneRow[]
-}
-
-type AnalisiRccDettaglioFatturatoRow = {
-  anno: number
-  data?: string | null
-  commessa: string
-  businessUnit: string
-  controparte: string
-  provenienza: string
-  fatturato: number
-  fatturatoFuturo: number
-  ricavoIpotetico: number
-  rcc: string
-  pm: string
-  descrizioneMastro: string
-  descrizioneConto: string
-  descrizioneSottoconto: string
-}
-
-type AnalisiRccDettaglioFatturatoResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  businessUnitFiltro?: string | null
-  rccFiltro?: string | null
-  pmFiltro?: string | null
-  businessUnitDisponibili: string[]
-  rccDisponibili: string[]
-  commesseDisponibili: string[]
-  provenienzeDisponibili: string[]
-  contropartiDisponibili: string[]
-  items: AnalisiRccDettaglioFatturatoRow[]
-}
-
-type ProcessoOffertaDettaglioRow = {
-  id: number
-  businessUnit: string
-  nomeProdotto: string
-  codiceSocieta: string
-  rcc: string
-  idRcc?: number | null
-  anno: number
-  annoLavoro?: number | null
-  commessa: string
-  esito: string
-  protocollo: string
-  data?: string | null
-  tipo: string
-  oggetto: string
-  statoDocumento: string
-  percentualeSuccesso: number
-  soluzione: string
-  macroTipologia: string
-  tipoCommessa: string
-  controparte: string
-  esitoPositivo?: boolean | null
-  esitoPositivoTesto: string
-  importoPrevedibile: number
-  costoPrevedibile: number
-  costoPrevisto: boolean
-}
-
-type ProcessoOffertaOfferteResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  ambitoFiltro?: string | null
-  esitiDisponibili: string[]
-  items: ProcessoOffertaDettaglioRow[]
-}
-
-type ProcessoOffertaSintesiRow = {
-  anno: number
-  aggregazione: string
-  tipo: string
-  esitoPositivoTesto: string
-  numero: number
-  importoPrevedibile: number
-  costoPrevedibile: number
-  percentualeRicarico: number
-}
-
-type ProcessoOffertaSintesiResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  ambitoFiltro?: string | null
-  esitiDisponibili: string[]
-  aggregazioniDisponibili: string[]
-  righe: ProcessoOffertaSintesiRow[]
-}
-
-type ProcessoOffertaSuccessoCategoria = {
-  ricavo: number
-  costo: number
-  margine: number
-  ricarico: number
-}
-
-type ProcessoOffertaSuccessoSintesiCategoria = {
-  numero: number
-  importo: number
-  percentualeNumero: number
-  percentualeImporto: number
-}
-
-type ProcessoOffertaSuccessoSintesiRow = {
-  anno: number
-  aggregazione: string
-  negativo: ProcessoOffertaSuccessoSintesiCategoria
-  nonDefinito: ProcessoOffertaSuccessoSintesiCategoria
-  positivo: ProcessoOffertaSuccessoSintesiCategoria
-  totaleNumero: number
-  totaleImporto: number
-}
-
-type ProcessoOffertaSuccessoReportRow = {
-  anno: number
-  aggregazione: string
-  negativo: ProcessoOffertaSuccessoCategoria
-  nonDefinito: ProcessoOffertaSuccessoCategoria
-  positivo: ProcessoOffertaSuccessoCategoria
-  totale: ProcessoOffertaSuccessoCategoria
-}
-
-type ProcessoOffertaSuccessoReportTotaleAnno = {
-  anno: number
-  negativo: ProcessoOffertaSuccessoCategoria
-  nonDefinito: ProcessoOffertaSuccessoCategoria
-  positivo: ProcessoOffertaSuccessoCategoria
-  totale: ProcessoOffertaSuccessoCategoria
-}
-
-type AnalisiRccFunnelRow = {
-  businessUnit: string
-  nomeProdotto: string
-  codiceSocieta: string
-  rcc: string
-  idRcc?: number | null
-  anno: number
-  commessa: string
-  esito: string
-  protocollo: string
-  data?: string | null
-  tipo: string
-  oggetto: string
-  statoDocumento: string
-  esitoProtocollo: string
-  percentualeSuccesso: number
-  budgetRicavo: number
-  budgetPersonale: number
-  budgetCosti: number
-  ricavoAtteso: number
-  fatturatoEmesso: number
-  fatturatoFuturo: number
-  futuraAnno: number
-  emessaAnno: number
-  totaleAnno: number
-  infragruppo: boolean
-  soluzione: string
-  macroTipologia: string
-  controparte: string
-}
-
-type AnalisiRccFunnelResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  rccFiltro?: string | null
-  rccDisponibili: string[]
-  tipiDisponibili: string[]
-  statiDocumentoDisponibili: string[]
-  items: AnalisiRccFunnelRow[]
-}
-
-type AnalisiRccPivotFunnelRow = {
-  anno: number
-  aggregazione: string
-  tipo: string
-  percentualeSuccesso: number
-  numeroProtocolli: number
-  totaleBudgetRicavo: number
-  totaleBudgetCosti: number
-  totaleFatturatoFuturo: number
-  totaleEmessaAnno: number
-  totaleFuturaAnno: number
-  totaleRicaviComplessivi: number
-}
-
-type AnalisiRccPivotFunnelTotaleAnno = {
-  anno: number
-  numeroProtocolli: number
-  percentualeSuccesso: number
-  totaleBudgetRicavo: number
-  totaleBudgetCosti: number
-  totaleFatturatoFuturo: number
-  totaleEmessaAnno: number
-  totaleFuturaAnno: number
-  totaleRicaviComplessivi: number
-}
-
-type AnalisiRccPivotFunnelResponse = {
-  profile: string
-  anni: number[]
-  vediTutto: boolean
-  aggregazioneFiltro?: string | null
-  rccFiltro?: string | null
-  aggregazioniDisponibili: string[]
-  rccDisponibili: string[]
-  righe: AnalisiRccPivotFunnelRow[]
-  totaliPerAnno: AnalisiRccPivotFunnelTotaleAnno[]
-}
-
-type DatiContabiliVenditaRow = {
-  annoFattura?: number | null
-  dataMovimento?: string | null
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  statoCommessa: string
-  macroTipologia: string
-  controparteCommessa: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  numeroDocumento: string
-  descrizioneMovimento: string
-  causale: string
-  sottoconto: string
-  controparteMovimento: string
-  provenienza: string
-  importo: number
-  fatturato: number
-  fatturatoFuturo: number
-  ricavoIpotetico: number
-  isFuture: boolean
-  isScaduta: boolean
-  statoTemporale: string
-}
-
-type DatiContabiliVenditaResponse = {
-  profile: string
-  count: number
-  items: DatiContabiliVenditaRow[]
-}
-
-type DatiContabiliAcquistoRow = {
-  annoFattura?: number | null
-  dataDocumento?: string | null
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  statoCommessa: string
-  macroTipologia: string
-  controparteCommessa: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  codiceSocieta: string
-  descrizioneFattura: string
-  causale: string
-  sottoconto: string
-  controparteMovimento: string
-  provenienza: string
-  importoComplessivo: number
-  importoContabilitaDettaglio: number
-  isFuture: boolean
-  isScaduta: boolean
-  statoTemporale: string
-}
-
-type DatiContabiliAcquistoResponse = {
-  profile: string
-  count: number
-  items: DatiContabiliAcquistoRow[]
-}
-
-type CommesseRisorseFilterOption = {
-  idRisorsa: number
-  value: string
-  label: string
-  inForza: boolean
-}
-
-type CommesseRisorseFiltersResponse = {
-  profile: string
-  mensile: boolean
-  anni: FilterOption[]
-  mesi: FilterOption[]
-  commesse: FilterOption[]
-  tipologieCommessa: FilterOption[]
-  stati: FilterOption[]
-  macroTipologie: FilterOption[]
-  controparti: FilterOption[]
-  businessUnits: FilterOption[]
-  ous: FilterOption[]
-  rcc: FilterOption[]
-  pm: FilterOption[]
-  risorse: CommesseRisorseFilterOption[]
-}
-
-type CommessaRisorseValutazioneRow = {
-  annoCompetenza: number
-  meseCompetenza?: number | null
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  prodotto: string
-  controparte: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  idRisorsa: number
-  nomeRisorsa: string
-  risorsaInForza: boolean
-  oreTotali: number
-  fatturatoInBaseAdOre: number
-  fatturatoInBaseACosto: number
-  utileInBaseAdOre: number
-  utileInBaseACosto: number
-  costoSpecificoRisorsa: number
-  idOu?: string
-  nomeRuolo?: string
-  percentualeUtilizzo?: number
-  area?: string
-  ouProduzione?: boolean
-  codiceSocieta?: string
-}
-
-type CommesseRisorseValutazioneResponse = {
-  profile: string
-  mensile: boolean
-  count: number
-  anni: number[]
-  items: CommessaRisorseValutazioneRow[]
-}
-
-type RisorseFiltersForm = {
-  anni: string[]
-  mesi: string[]
-  commessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  controparte: string
-  businessUnit: string
-  ou: string
-  rcc: string
-  pm: string
-  idRisorsa: string
-  vistaCosto: boolean
-}
-
-type RisorsePivotFieldKey =
-  | 'anno'
-  | 'mese'
-  | 'commessa'
-  | 'descrizioneCommessa'
-  | 'tipologiaCommessa'
-  | 'stato'
-  | 'macroTipologia'
-  | 'prodotto'
-  | 'controparte'
-  | 'businessUnit'
-  | 'ou'
-  | 'rcc'
-  | 'pm'
-  | 'risorsa'
-
-type CommesseRisorsePivotMetrics = {
-  numeroCommesse: number
-  oreTotali: number
-  costoSpecificoRisorsa: number
-  fatturato: number
-  utile: number
-}
-
-type CommesseRisorsePivotRow = CommesseRisorsePivotMetrics & {
-  key: string
-  level: number
-  label: string
-  kind: 'gruppo' | 'totale'
-}
-
-type SintesiMode = 'dettaglio' | 'aggregato'
-type SortDirection = 'asc' | 'desc'
-type SortColumn =
-  | 'anno'
-  | 'commessa'
-  | 'descrizioneCommessa'
-  | 'tipologiaCommessa'
-  | 'stato'
-  | 'macroTipologia'
-  | 'controparte'
-  | 'prodotto'
-  | 'businessUnit'
-  | 'rcc'
-  | 'pm'
-  | 'oreLavorate'
-  | 'costoPersonale'
-  | 'ricavi'
-  | 'costi'
-  | 'ricaviMaturati'
-  | 'utileSpecifico'
-  | 'ricaviFuturi'
-  | 'costiFuturi'
-  | 'oreFuture'
-  | 'costoPersonaleFuturo'
-  | 'utileFineProgetto'
-
-type SintesiFiltersForm = {
-  anni: string[]
-  attiveDalAnno: string
-  commessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  prodotto: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  provenienza: string
-  soloScadute: boolean
-  escludiProdotti: boolean
-}
-
-type CommessaSintesiRow = {
-  anno?: number | null
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  prodotto: string
-  controparte: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  ricaviMaturati: number
-  utileSpecifico: number
-  ricaviFuturi: number
-  costiFuturi: number
-  oreFuture: number
-  costoPersonaleFuturo: number
-}
-
-type CommesseSintesiResponse = {
-  profile: string
-  count: number
-  items: CommessaSintesiRow[]
-}
-
-type CommessaAndamentoMensileRow = {
-  annoCompetenza: number
-  meseCompetenza: number
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  prodotto: string
-  controparte: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  produzione: boolean
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  ricaviMaturati: number
-  oreFuture: number
-  costoPersonaleFuturo: number
-  costoGeneraleRibaltato: number
-  utileSpecifico: number
-}
-
-type CommesseAndamentoMensileResponse = {
-  profile: string
-  count: number
-  items: CommessaAndamentoMensileRow[]
-}
-
-type CommessaAnomalaRow = {
-  tipoAnomalia: string
-  dettaglioAnomalia: string
-  idCommessa: number
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  controparte: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  ricaviFuturi: number
-  costiFuturi: number
-}
-
-type CommesseAnomaleResponse = {
-  profile: string
-  count: number
-  items: CommessaAnomalaRow[]
-}
-
-type DatiAnnualiPivotFieldKey =
-  | 'anno'
-  | 'commessa'
-  | 'controparte'
-  | 'tipologiaCommessa'
-  | 'rcc'
-  | 'businessUnit'
-  | 'pm'
-  | 'macroTipologia'
-  | 'prodotto'
-
-type CommesseDatiAnnualiPivotMetrics = {
-  numeroCommesse: number
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  utileSpecifico: number
-  ricaviFuturi: number
-  costiFuturi: number
-}
-
-type CommesseDatiAnnualiPivotRow = CommesseDatiAnnualiPivotMetrics & {
-  key: string
-  level: number
-  anno?: number | null
-  label: string
-  kind: 'anno' | 'gruppo' | 'totale'
-  groupValues: Partial<Record<DatiAnnualiPivotFieldKey, string>>
-}
-
-type CommesseDatiAnnualiPivotData = {
-  profile: string
-  anni: number[]
-  items: CommessaSintesiRow[]
-}
-
-type CommessaDettaglioAnagrafica = {
-  commessa: string
-  descrizioneCommessa: string
-  tipologiaCommessa: string
-  stato: string
-  macroTipologia: string
-  prodotto: string
-  controparte: string
-  businessUnit: string
-  rcc: string
-  pm: string
-  dataApertura?: string | null
-  dataChiusura?: string | null
-}
-
-type CommessaDettaglioAnnoRow = {
-  anno: number
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  utileSpecifico: number
-  ricaviFuturi: number
-  costiFuturi: number
-}
-
-type CommessaDettaglioMeseRow = {
-  anno: number
-  mese: number
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  utileSpecifico: number
-  ricaviFuturi: number
-  costiFuturi: number
-}
-
-type CommessaRequisitoOreSummaryRow = {
-  idRequisito: number
-  requisito: string
-  durataRequisito: number
-  orePreviste: number
-  oreSpese: number
-  oreRestanti: number
-  percentualeAvanzamento: number
-}
-
-type CommessaRequisitoOreRisorsaRow = {
-  idRequisito: number
-  requisito: string
-  idRisorsa: number
-  nomeRisorsa: string
-  durataRequisito: number
-  orePreviste: number
-  oreSpese: number
-  oreRestanti: number
-  percentualeAvanzamento: number
-}
-
-type CommessaOreSpeseRisorsaRow = {
-  idRisorsa: number
-  nomeRisorsa: string
-  oreSpeseTotali: number
-}
-
-type CommessaOrdineRow = {
-  protocollo: string
-  documentoStato: string
-  posizione: string
-  idDettaglioOrdine: number
-  descrizione: string
-  quantita: number
-  prezzoUnitario: number
-  importoOrdine: number
-  quantitaOriginaleOrdinata: number
-  quantitaFatture: number
-}
-
-type CommessaOffertaRow = {
-  protocollo: string
-  anno?: number | null
-  data?: string | null
-  oggetto: string
-  documentoStato: string
-  ricavoPrevisto: number
-  costoPrevisto: number
-  costoPrevistoPersonale: number
-  orePrevisteOfferta: number
-  percentualeSuccesso: number
-  ordiniCollegati: string
-}
-
-type CommessaAvanzamentoRow = {
-  id: number
-  idCommessa: number
-  percentualeRaggiunto: number
-  importoRiferimento: number
-  oreFuture: number
-  oreRestanti: number
-  costoPersonaleFuturo: number
-  dataRiferimento?: string | null
-  dataSalvataggio?: string | null
-  idAutore: number
-}
-
-type CommesseDettaglioResponse = {
-  profile: string
-  commessa: string
-  currentYear: number
-  currentMonth: number
-  anagrafica?: CommessaDettaglioAnagrafica | null
-  anniStorici: CommessaDettaglioAnnoRow[]
-  annoCorrenteProgressivo?: CommessaDettaglioAnnoRow | null
-  mesiAnnoCorrente?: CommessaDettaglioMeseRow[]
-  vendite: CommessaFatturaMovimentoRow[]
-  acquisti: CommessaFatturaMovimentoRow[]
-  fatturatoPivot: CommessaFatturatoPivotRow[]
-  ordini?: CommessaOrdineRow[]
-  offerte?: CommessaOffertaRow[]
-  ricaviAnniSuccessivi?: number
-  avanzamentoSalvato?: CommessaAvanzamentoRow | null
-  avanzamentoStorico?: CommessaAvanzamentoRow[]
-  dataConsuntivoAttivita?: string | null
-  percentualeRaggiuntoProposta?: number
-  requisitiOre?: CommessaRequisitoOreSummaryRow[]
-  requisitiOreRisorse?: CommessaRequisitoOreRisorsaRow[]
-  oreSpeseRisorse?: CommessaOreSpeseRisorsaRow[]
-}
-
-type CommessaFatturaMovimentoRow = {
-  dataMovimento?: string | null
-  numeroDocumento: string
-  descrizione: string
-  causale: string
-  sottoconto: string
-  controparte: string
-  provenienza: string
-  importo: number
-  isFuture: boolean
-  statoTemporale: string
-}
-
-type CommessaFatturatoPivotRow = {
-  anno?: number | null
-  rcc: string
-  totaleFatturato: string
-  totaleFatturatoFuturo: string
-  totaleRicavoIpotetico: string
-  totaleRicavoIpoteticoPesato: string
-  totaleComplessivo: string
-  budget: string
-  percentualeRaggiungimento: string
-}
-
-type ProdottiGroupSummaryRow = {
-  prodotto: string
-  oreLavorate: number
-  costoPersonale: number
-  ricavi: number
-  costi: number
-  ricaviMaturati: number
-  utileSpecifico: number
-  ricaviFuturi: number
-  costiFuturi: number
-  oreFuture: number
-  costoPersonaleFuturo: number
-}
-
-type ProdottoGroup = {
-  productKey: string
-  summary: ProdottiGroupSummaryRow
-  rows: CommessaSintesiRow[]
-}
-
-type SintesiTableRow =
-  | { kind: 'commessa'; row: CommessaSintesiRow; key: string }
-  | {
-    kind: 'prodotto-summary'
-    row: ProdottiGroupSummaryRow
-    key: string
-    productKey: string
-    isCollapsed: boolean
-    commesseCount: number
-  }
-
-const tokenStorageKey = 'produzione.jwt'
 const sharedSsoCookieKey = 'xenia.sso.jwt'
-const redirectGuardKey = 'produzione.sso.redirecting'
-const impersonationStorageKey = 'produzione.sso.actas'
-const impersonationHeaderName = 'X-Act-As-Username'
-const sintesiStateStorageKey = 'produzione.sintesi.state'
 
 const writeSharedSsoCookie = (token: string) => {
   const value = token.trim()
@@ -1110,102 +172,6 @@ const readSharedSsoCookie = () => {
     return rawValue.trim()
   }
 }
-const analisiCommesseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
-const datiContabiliAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Project Manager', 'Responsabile Commerciale Commessa', 'General Project Manager', 'Responsabile OU']
-const risultatiRisorseAllowedProfiles = ['Supervisore', 'Responsabile Produzione', 'Responsabile Commerciale', 'Responsabile Commerciale Commessa', 'Responsabile OU', 'Risorse Umane']
-const analisiRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
-const analisiRccPivotRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const analisiBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
-const analisiBuPivotBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const analisiBurccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
-const previsioniFunnelRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
-const previsioniFunnelRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const previsioniFunnelBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
-const previsioniFunnelBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const previsioniUtileMensileRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
-const previsioniUtileMensileRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const previsioniUtileMensileBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
-const previsioniUtileMensileBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
-const analisiPianoFatturazioneAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
-const analisiPianoFatturazioneSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
-const analisiDettaglioFatturatoAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Project Manager', 'Responsabile OU']
-const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
-const analisiSearchCollapsiblePages = new Set<AppPage>([
-  'commesse-andamento-mensile',
-  'risorse-risultati',
-  'risorse-risultati-pivot',
-  'risorse-risultati-mensile',
-  'risorse-risultati-mensile-pivot',
-  'risorse-ou-risorse',
-  'risorse-ou-risorse-pivot',
-  'risorse-ou-risorse-mensile',
-  'risorse-ou-risorse-mensile-pivot',
-  'processo-offerta-offerte',
-  'processo-offerta-sintesi-rcc',
-  'processo-offerta-sintesi-bu',
-  'processo-offerta-percentuale-successo-rcc',
-  'processo-offerta-percentuale-successo-bu',
-  'processo-offerta-incidenza-rcc',
-  'processo-offerta-incidenza-bu',
-  'analisi-rcc-pivot-fatturato',
-  'analisi-bu-pivot-fatturato',
-  'analisi-burcc-risultato-mensile',
-  'analisi-burcc-pivot-fatturato',
-  'analisi-piano-fatturazione',
-  'analisi-dettaglio-fatturato',
-  'previsioni-funnel',
-  'previsioni-report-funnel-rcc',
-  'previsioni-report-funnel-bu',
-  'previsioni-utile-mensile-rcc',
-  'previsioni-utile-mensile-bu',
-])
-const datiAnnualiPivotFieldOptions: Array<{ key: DatiAnnualiPivotFieldKey; label: string }> = [
-  { key: 'anno', label: 'Anno' },
-  { key: 'commessa', label: 'Commessa' },
-  { key: 'businessUnit', label: 'BU' },
-  { key: 'rcc', label: 'RCC' },
-  { key: 'pm', label: 'PM' },
-  { key: 'macroTipologia', label: 'Macrotipologia' },
-  { key: 'controparte', label: 'Controparte' },
-  { key: 'tipologiaCommessa', label: 'Tipo Commessa' },
-  { key: 'prodotto', label: 'Prodotto' },
-]
-const datiAnnualiPivotFieldSet = new Set<DatiAnnualiPivotFieldKey>(
-  datiAnnualiPivotFieldOptions.map((option) => option.key),
-)
-const risorsePivotFieldOptions: Array<{ key: RisorsePivotFieldKey; label: string }> = [
-  { key: 'anno', label: 'Anno' },
-  { key: 'mese', label: 'Mese' },
-  { key: 'risorsa', label: 'Risorsa' },
-  { key: 'businessUnit', label: 'BU' },
-  { key: 'ou', label: 'OU' },
-  { key: 'rcc', label: 'RCC' },
-  { key: 'pm', label: 'PM' },
-  { key: 'macroTipologia', label: 'Macrotipologia' },
-  { key: 'controparte', label: 'Controparte' },
-  { key: 'tipologiaCommessa', label: 'Tipologia Commessa' },
-  { key: 'prodotto', label: 'Prodotto' },
-  { key: 'commessa', label: 'Commessa' },
-  { key: 'descrizioneCommessa', label: 'Descrizione Commessa' },
-  { key: 'stato', label: 'Stato' },
-]
-const risorsePivotFieldSet = new Set<RisorsePivotFieldKey>(
-  risorsePivotFieldOptions.map((option) => option.key),
-)
-
-type SintesiPersistedState = {
-  profile: string
-  impersonation: string
-  activePage: AppPage
-  mode: SintesiMode
-  commessaSearch: string
-  sortColumn: SortColumn
-  sortDirection: SortDirection
-  filters: SintesiFiltersForm
-  rows: CommessaSintesiRow[]
-  searched: boolean
-}
-
 const emptySintesiFiltersForm: SintesiFiltersForm = {
   anni: [],
   attiveDalAnno: '',
@@ -1268,724 +234,6 @@ const emptyRisorseFiltersCatalog: CommesseRisorseFiltersResponse = {
   pm: [],
   risorse: [],
 }
-
-const normalizeDateKey = (value?: string | Date | null) => {
-  if (!value) {
-    return ''
-  }
-
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      return ''
-    }
-
-    const year = value.getFullYear()
-    const month = (value.getMonth() + 1).toString().padStart(2, '0')
-    const day = value.getDate().toString().padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  const literalPrefix = value.slice(0, 10)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(literalPrefix)) {
-    return literalPrefix
-  }
-
-  const italianMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\b|$)/)
-  if (italianMatch) {
-    const day = italianMatch[1].padStart(2, '0')
-    const month = italianMatch[2].padStart(2, '0')
-    const year = italianMatch[3]
-    return `${year}-${month}-${day}`
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return ''
-  }
-
-  const year = parsed.getFullYear()
-  const month = (parsed.getMonth() + 1).toString().padStart(2, '0')
-  const day = parsed.getDate().toString().padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const normalizePercentTo100 = (value: number) => {
-  const safeValue = Number.isFinite(value) ? value : 0
-  const scaledValue = Math.abs(safeValue) <= 1 ? safeValue * 100 : safeValue
-  return Math.min(100, Math.max(0, scaledValue))
-}
-
-const mesiItaliani = [
-  'Gennaio',
-  'Febbraio',
-  'Marzo',
-  'Aprile',
-  'Maggio',
-  'Giugno',
-  'Luglio',
-  'Agosto',
-  'Settembre',
-  'Ottobre',
-  'Novembre',
-  'Dicembre',
-] as const
-
-const getDefaultReferenceMonth = () => {
-  const currentMonth = new Date().getMonth() + 1
-  return currentMonth <= 1 ? 12 : currentMonth - 1
-}
-
-const parseReferenceMonthStrict = (value?: string | number | null) => {
-  const numericValue = typeof value === 'number'
-    ? value
-    : Number.parseInt((value ?? '').toString().trim(), 10)
-  return numericValue >= 1 && numericValue <= 12
-    ? numericValue
-    : null
-}
-
-const parseReferenceMonth = (value?: string | number | null) => {
-  return parseReferenceMonthStrict(value) ?? getDefaultReferenceMonth()
-}
-
-const formatReferenceMonthLabel = (month: number) => {
-  const normalizedMonth = parseReferenceMonth(month)
-  return `${normalizedMonth.toString().padStart(2, '0')} - ${mesiItaliani[normalizedMonth - 1]}`
-}
-
-const normalizeTextForMatch = (value: string) => (
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
-)
-
-const normalizeProfileLabel = (value: string) => (
-  value
-    .replace(/\s+/g, ' ')
-    .trim()
-)
-
-const isProcessoOffertaEsitoPositivo = (value: string) => {
-  const normalized = normalizeTextForMatch(value)
-  if (!normalized) {
-    return false
-  }
-
-  return (
-    normalized === 'si' ||
-    normalized === 'true' ||
-    normalized === 'vero' ||
-    normalized === '1' ||
-    normalized === 'ok' ||
-    normalized.startsWith('positiv') ||
-    normalized.includes('success') ||
-    normalized.includes('vint')
-  )
-}
-
-type ProcessoOffertaEsitoBucket = 'negativo' | 'non-definito' | 'positivo'
-
-const getProcessoOffertaEsitoBucket = (value: string): ProcessoOffertaEsitoBucket => {
-  if (isProcessoOffertaEsitoPositivo(value)) {
-    return 'positivo'
-  }
-
-  const normalized = normalizeTextForMatch(value)
-  if (!normalized) {
-    return 'non-definito'
-  }
-
-  if (
-    normalized === 'no' ||
-    normalized === 'false' ||
-    normalized === 'falso' ||
-    normalized === '0' ||
-    normalized.startsWith('negativ') ||
-    normalized.includes('pers')
-  ) {
-    return 'negativo'
-  }
-
-  return 'non-definito'
-}
-
-const isValidProductValue = (value: string) => {
-  const normalized = value.trim()
-  if (!normalized) {
-    return false
-  }
-
-  const upper = normalized.toUpperCase()
-  return upper !== 'NON DEFINITO' && upper !== 'NON DEFINTO'
-}
-
-const toSafeNumber = (value: unknown) => {
-  const numericValue = typeof value === 'number'
-    ? value
-    : Number.parseFloat((value ?? '').toString())
-  return Number.isFinite(numericValue) ? numericValue : 0
-}
-
-const normalizeFilterText = (value: string) => (
-  value
-    .replace(/\u00A0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-)
-
-const normalizePersonFilterLabel = (value: string) => {
-  const normalized = normalizeFilterText(value)
-  if (!normalized) {
-    return ''
-  }
-
-  const tokens = normalized.split(' ')
-  if (tokens.length >= 4 && tokens.length % 2 === 0) {
-    const half = tokens.length / 2
-    const left = tokens.slice(0, half).join(' ')
-    const right = tokens.slice(half).join(' ')
-    if (left.localeCompare(right, 'it', { sensitivity: 'base' }) === 0) {
-      return left
-    }
-  }
-
-  return normalized
-}
-
-const distinctFilterOptionsForUi = (options: FilterOption[]) => {
-  const map = new Map<string, FilterOption>()
-  options.forEach((option) => {
-    const normalizedValue = normalizeFilterText(option.value ?? '')
-    const normalizedLabel = normalizeFilterText(option.label ?? option.value ?? '')
-    const safeValue = normalizedValue || normalizedLabel
-    const safeLabel = normalizedLabel || safeValue
-    if (!safeValue) {
-      return
-    }
-
-    const key = `${safeLabel.toLocaleLowerCase('it-IT')}|${safeValue.toLocaleLowerCase('it-IT')}`
-    if (!map.has(key)) {
-      map.set(key, {
-        value: safeValue,
-        label: safeLabel,
-      })
-    }
-  })
-
-  return [...map.values()].sort((left, right) => (
-    left.label.localeCompare(right.label, 'it', { sensitivity: 'base' })
-  ))
-}
-
-const distinctPersonFilterOptionsForUi = (options: FilterOption[]) => {
-  const map = new Map<string, FilterOption>()
-  options.forEach((option) => {
-    const normalizedValue = normalizeFilterText(option.value ?? '')
-    const normalizedLabel = normalizePersonFilterLabel(option.label ?? option.value ?? '')
-    const safeValue = normalizedValue || normalizedLabel
-    const safeLabel = normalizedLabel || safeValue
-    if (!safeValue || !safeLabel) {
-      return
-    }
-
-    const key = safeLabel.toLocaleLowerCase('it-IT')
-    if (!map.has(key)) {
-      map.set(key, {
-        value: safeValue,
-        label: safeLabel,
-      })
-    }
-  })
-
-  return [...map.values()].sort((left, right) => (
-    left.label.localeCompare(right.label, 'it', { sensitivity: 'base' })
-  ))
-}
-
-const mergeFilterOptionValues = (
-  options: FilterOption[],
-  selectedValue: string,
-  rowValues: string[] = [],
-) => {
-  const values = new Set<string>()
-  options.forEach((option) => {
-    const normalized = normalizeFilterText(option.value)
-    if (normalized) {
-      values.add(normalized)
-    }
-  })
-  rowValues.forEach((value) => {
-    const normalized = normalizeFilterText(value)
-    if (normalized) {
-      values.add(normalized)
-    }
-  })
-  const selected = normalizeFilterText(selectedValue)
-  if (selected) {
-    values.add(selected)
-  }
-  return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
-}
-
-const isClosedCommessaStatus = (stato?: string | null) => {
-  const normalized = normalizeFilterText(stato ?? '').toUpperCase()
-  return normalized === 'NF' || normalized === 'T'
-}
-
-const calculateUtileFineProgetto = (
-  metrics: Pick<CommessaSintesiRow, 'ricavi' | 'costi' | 'costoPersonale' | 'utileSpecifico' | 'ricaviFuturi' | 'costiFuturi' | 'costoPersonaleFuturo'> & { stato?: string | null },
-) => {
-  if (isClosedCommessaStatus(metrics.stato)) {
-    return metrics.ricavi - metrics.costi - metrics.costoPersonale
-  }
-
-  return (
-    metrics.utileSpecifico
-    + metrics.ricaviFuturi
-    - metrics.costiFuturi
-    - metrics.costoPersonaleFuturo
-  )
-}
-
-const hasFuturePersonnelCost = (value: number) => Math.abs(value) > 0.000001
-const shouldShowUtileFineProgettoForRow = (row: { costoPersonaleFuturo: number; stato?: string | null }) => {
-  return isClosedCommessaStatus(row.stato) || hasFuturePersonnelCost(row.costoPersonaleFuturo)
-}
-
-const buildPersonSelectItems = (values: string[]) => {
-  const map = new Map<string, { value: string; label: string }>()
-  values.forEach((rawValue) => {
-    const normalizedValue = normalizeFilterText(rawValue)
-    const normalizedLabel = normalizePersonFilterLabel(rawValue)
-    const safeValue = normalizedValue || normalizedLabel
-    const safeLabel = normalizedLabel || safeValue
-    if (!safeValue || !safeLabel) {
-      return
-    }
-
-    const key = safeLabel.toLocaleLowerCase('it-IT')
-    if (!map.has(key)) {
-      map.set(key, { value: safeValue, label: safeLabel })
-    }
-  })
-
-  return [...map.values()].sort((left, right) => (
-    left.label.localeCompare(right.label, 'it', { sensitivity: 'base' })
-  ))
-}
-
-const extractCommessaCodeFromOption = (value: string) => {
-  const normalized = value.trim()
-  if (!normalized) {
-    return ''
-  }
-
-  const separatorIndex = normalized.indexOf(' - ')
-  return separatorIndex > 0
-    ? normalized.slice(0, separatorIndex).trim()
-    : normalized
-}
-
-const normalizePivotGroupValue = (value: string) => {
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : '(vuoto)'
-}
-
-const asDatiAnnualiPivotFieldKeys = (values: string[]) => (
-  values.filter((value): value is DatiAnnualiPivotFieldKey => (
-    datiAnnualiPivotFieldSet.has(value as DatiAnnualiPivotFieldKey)
-  ))
-)
-
-const extractDatiAnnualiPivotFieldValue = (row: CommessaSintesiRow, fieldKey: DatiAnnualiPivotFieldKey) => {
-  switch (fieldKey) {
-    case 'anno':
-      return Number.isFinite(row.anno ?? NaN) && (row.anno ?? 0) > 0
-        ? (row.anno ?? 0).toString()
-        : ''
-    case 'controparte':
-      return row.controparte
-    case 'commessa':
-      return row.commessa
-    case 'tipologiaCommessa':
-      return row.tipologiaCommessa
-    case 'rcc':
-      return row.rcc
-    case 'businessUnit':
-      return row.businessUnit
-    case 'pm':
-      return row.pm
-    case 'macroTipologia':
-      return row.macroTipologia
-    case 'prodotto':
-      return row.prodotto
-    default:
-      return ''
-  }
-}
-
-const buildDatiAnnualiPivotMetrics = (rows: CommessaSintesiRow[]): CommesseDatiAnnualiPivotMetrics => {
-  const commesse = new Set<string>()
-  let oreLavorate = 0
-  let costoPersonale = 0
-  let ricavi = 0
-  let costi = 0
-  let utileSpecifico = 0
-  let ricaviFuturi = 0
-  let costiFuturi = 0
-
-  rows.forEach((row) => {
-    const commessa = row.commessa.trim()
-    if (commessa) {
-      commesse.add(commessa.toUpperCase())
-    }
-    oreLavorate += row.oreLavorate
-    costoPersonale += row.costoPersonale
-    ricavi += row.ricavi
-    costi += row.costi
-    utileSpecifico += row.utileSpecifico
-    ricaviFuturi += row.ricaviFuturi
-    costiFuturi += row.costiFuturi
-  })
-
-  return {
-    numeroCommesse: commesse.size,
-    oreLavorate,
-    costoPersonale,
-    ricavi,
-    costi,
-    utileSpecifico,
-    ricaviFuturi,
-    costiFuturi,
-  }
-}
-
-const asRisorsePivotFieldKeys = (values: string[]) => (
-  values.filter((value): value is RisorsePivotFieldKey => (
-    risorsePivotFieldSet.has(value as RisorsePivotFieldKey)
-  ))
-)
-
-const normalizeRisorsaLabel = (row: CommessaRisorseValutazioneRow) => {
-  const nome = (row.nomeRisorsa ?? '').trim()
-  if (!nome) {
-    return row.idRisorsa > 0 ? `ID ${row.idRisorsa}` : ''
-  }
-  return row.risorsaInForza ? nome : `^ ${nome}`
-}
-
-const resolveOuValue = (row: CommessaRisorseValutazioneRow) => {
-  const idOu = (row.idOu ?? '').trim()
-  if (idOu) {
-    return idOu
-  }
-  return (row.businessUnit ?? '').trim()
-}
-
-const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, fieldKey: RisorsePivotFieldKey) => {
-  switch (fieldKey) {
-    case 'anno':
-      return Number.isFinite(row.annoCompetenza) && row.annoCompetenza > 0
-        ? row.annoCompetenza.toString()
-        : ''
-    case 'mese':
-      return Number.isFinite(row.meseCompetenza ?? NaN) && (row.meseCompetenza ?? 0) > 0
-        ? (row.meseCompetenza ?? 0).toString().padStart(2, '0')
-        : ''
-    case 'commessa':
-      return row.commessa
-    case 'descrizioneCommessa':
-      return row.descrizioneCommessa
-    case 'tipologiaCommessa':
-      return row.tipologiaCommessa
-    case 'stato':
-      return row.stato
-    case 'macroTipologia':
-      return row.macroTipologia
-    case 'prodotto':
-      return row.prodotto
-    case 'controparte':
-      return row.controparte
-    case 'businessUnit':
-      return row.businessUnit
-    case 'ou':
-      return resolveOuValue(row)
-    case 'rcc':
-      return row.rcc
-    case 'pm':
-      return row.pm
-    case 'risorsa':
-      return normalizeRisorsaLabel(row)
-    default:
-      return ''
-  }
-}
-
-const buildRisorsePivotMetrics = (
-  rows: CommessaRisorseValutazioneRow[],
-  vistaCosto: boolean,
-): CommesseRisorsePivotMetrics => {
-  const commesse = new Set<string>()
-  let oreTotali = 0
-  let costoSpecificoRisorsa = 0
-  let fatturato = 0
-  let utile = 0
-
-  rows.forEach((row) => {
-    const commessa = row.commessa.trim()
-    if (commessa) {
-      commesse.add(commessa.toUpperCase())
-    }
-    oreTotali += row.oreTotali
-    costoSpecificoRisorsa += row.costoSpecificoRisorsa
-    fatturato += vistaCosto ? row.fatturatoInBaseACosto : row.fatturatoInBaseAdOre
-    utile += vistaCosto ? row.utileInBaseACosto : row.utileInBaseAdOre
-  })
-
-  return {
-    numeroCommesse: commesse.size,
-    oreTotali,
-    costoSpecificoRisorsa,
-    fatturato,
-    utile,
-  }
-}
-
-const normalizePivotFunnelResponse = (raw: unknown): AnalisiRccPivotFunnelResponse => {
-  const source = (raw ?? {}) as Partial<AnalisiRccPivotFunnelResponse> & { [key: string]: unknown }
-  const righeRaw = Array.isArray(source.righe) ? source.righe : []
-  const totaliRaw = Array.isArray(source.totaliPerAnno) ? source.totaliPerAnno : []
-
-  return {
-    profile: (source.profile ?? '').toString(),
-    anni: (Array.isArray(source.anni) ? source.anni : [])
-      .map((value) => Number.parseInt((value ?? '').toString(), 10))
-      .filter((value) => Number.isFinite(value) && value > 0),
-    vediTutto: Boolean(source.vediTutto),
-    aggregazioneFiltro: source.aggregazioneFiltro == null ? null : source.aggregazioneFiltro.toString(),
-    rccFiltro: source.rccFiltro == null ? null : source.rccFiltro.toString(),
-    aggregazioniDisponibili: (Array.isArray(source.aggregazioniDisponibili) ? source.aggregazioniDisponibili : [])
-      .map((value) => (value ?? '').toString())
-      .filter((value) => value.trim().length > 0),
-    rccDisponibili: (Array.isArray(source.rccDisponibili) ? source.rccDisponibili : [])
-      .map((value) => (value ?? '').toString())
-      .filter((value) => value.trim().length > 0),
-    righe: righeRaw.map((row): AnalisiRccPivotFunnelRow => {
-      const item = (row ?? {}) as Partial<AnalisiRccPivotFunnelRow> & { [key: string]: unknown }
-      return {
-        anno: Number.parseInt((item.anno ?? '').toString(), 10) || 0,
-        aggregazione: (item.aggregazione ?? '').toString(),
-        tipo: (item.tipo ?? '').toString(),
-        percentualeSuccesso: toSafeNumber(item.percentualeSuccesso),
-        numeroProtocolli: Math.trunc(toSafeNumber(item.numeroProtocolli)),
-        totaleBudgetRicavo: toSafeNumber(item.totaleBudgetRicavo),
-        totaleBudgetCosti: toSafeNumber(item.totaleBudgetCosti),
-        totaleFatturatoFuturo: toSafeNumber(item.totaleFatturatoFuturo),
-        totaleEmessaAnno: toSafeNumber(item.totaleEmessaAnno),
-        totaleFuturaAnno: toSafeNumber(item.totaleFuturaAnno),
-        totaleRicaviComplessivi: toSafeNumber(item.totaleRicaviComplessivi),
-      }
-    }),
-    totaliPerAnno: totaliRaw.map((row): AnalisiRccPivotFunnelTotaleAnno => {
-      const item = (row ?? {}) as Partial<AnalisiRccPivotFunnelTotaleAnno> & { [key: string]: unknown }
-      return {
-        anno: Number.parseInt((item.anno ?? '').toString(), 10) || 0,
-        numeroProtocolli: Math.trunc(toSafeNumber(item.numeroProtocolli)),
-        percentualeSuccesso: toSafeNumber(item.percentualeSuccesso),
-        totaleBudgetRicavo: toSafeNumber(item.totaleBudgetRicavo),
-        totaleBudgetCosti: toSafeNumber(item.totaleBudgetCosti),
-        totaleFatturatoFuturo: toSafeNumber(item.totaleFatturatoFuturo),
-        totaleEmessaAnno: toSafeNumber(item.totaleEmessaAnno),
-        totaleFuturaAnno: toSafeNumber(item.totaleFuturaAnno),
-        totaleRicaviComplessivi: toSafeNumber(item.totaleRicaviComplessivi),
-      }
-    }),
-  }
-}
-
-const pageToScope = (page: AppPage): SintesiScope => (
-  page === 'prodotti-sintesi' ? 'prodotti' : 'commesse'
-)
-
-const appInfoVoicesDefault: AppInfoVoice[] = [
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Commesse',
-    sintesi: 'Vista principale delle commesse con filtri per anno, tipologia, stato e struttura organizzativa. Permette ricerca, export Excel e accesso al dettaglio.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Prodotti',
-    sintesi: 'Analisi commesse raggruppata per prodotto con espandi/riduci dei gruppi. Evidenzia i totali per prodotto e mantiene i filtri di contesto.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Andamento Mensile',
-    sintesi: 'Mostra andamento mensile di ricavi, costi, utile e ore sulla base delle commesse visibili al profilo. Supporta confronto per anno.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Dati Annuali Aggregati',
-    sintesi: 'Aggrega i dati annuali con logica tipo pivot per dimensioni di business. Utile per analisi ad alto livello su clienti, tipologie e responsabilita.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Commesse Anomale',
-    sintesi: 'Evidenzia commesse con anomalie operative o contabili e mostra contesto anagrafico ed economico per agevolare controlli e correzioni.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Utile Mensile RCC',
-    sintesi: 'Riepiloga per RCC i valori economici consuntivi fino al mese di riferimento. Include totali annuali e filtri per anno, RCC e produzione.',
-  },
-  {
-    menu: 'Analisi Commesse',
-    voce: 'Utile Mensile BU',
-    sintesi: 'Riepiloga per Business Unit i valori economici consuntivi fino al mese di riferimento. Include totali annuali e filtri per anno, BU e produzione.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Valutazione Annuale',
-    sintesi: 'Vista analitica annuale per risorsa su commesse visibili al profilo, con filtri estesi e confronto economico per ore o per costo.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Pivot Annuale',
-    sintesi: 'Pivot dinamica annuale con livelli selezionabili (inclusa Risorsa) e totali per gruppo, utile per analisi aggregate delle performance.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Valutazione Mensile',
-    sintesi: 'Vista analitica mensile per risorsa con default su anno corrente e precedente, per monitorare progressivo economico e operativo.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Pivot Mensile',
-    sintesi: 'Pivot dinamica mensile con gli stessi filtri della vista analitica e aggregazioni multilivello fino al totale complessivo.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Analisi OU Risorse',
-    sintesi: 'Analisi economica risorse su perimetro OU con filtri annuali e regole di visibilita per profilo, inclusa limitazione ROU sulla propria OU.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Analisi OU Risorse Pivot',
-    sintesi: 'Vista pivot dei risultati OU Risorse con aggregazioni multilivello e totali per gruppo, utile per confronto sintetico tra aree e responsabili.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Analisi Mensile OU Risorse',
-    sintesi: 'Vista OU Risorse su base mensile con selezione multipla dei mesi di competenza e dettaglio completo per commessa, OU e risorsa.',
-  },
-  {
-    menu: 'Analisi Risorse',
-    voce: 'Analisi Mensile OU Risorse Pivot',
-    sintesi: 'Pivot mensile OU Risorse con campi aggregabili (incluso mese competenza) e totale complessivo, utile per confronto rapido OU-BU.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Proiezione Mensile RCC',
-    sintesi: 'Confronta il risultato mensile per RCC su budget, risultato pesato e percentuale pesata. Pensata per monitoraggio progressivo nel corso dell anno.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Report Annuale RCC',
-    sintesi: 'Report annuale per RCC con fatturato certo, budget e ricavo ipotetico. Evidenzia margini e percentuali di raggiungimento.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Proiezione Mensile BU',
-    sintesi: 'Confronta il risultato mensile per Business Unit con stessa logica della vista RCC. Utile per controllo di area operativa.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Report Annuale BU',
-    sintesi: 'Report annuale per Business Unit con metriche di fatturato certo e ipotetico. Include indicatori di margine e copertura budget.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Proiezione Mensile RCC-BU',
-    sintesi: 'Proiezione mensile integrata con ripartizione congiunta Business Unit e RCC. Permette di leggere nel dettaglio chi genera il risultato dentro ogni BU.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Report Annuale RCC-BU',
-    sintesi: 'Report annuale integrato RCC-BU con fatturato certo, budget e ricavi ipotetici sulla stessa riga. Utile per confronto incrociato tra area e responsabile.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Piano Fatturazione',
-    sintesi: 'Mostra il piano mensile per RCC in due viste: valori mensili/trimestrali e progressivo di raggiungimento budget per mese. Supporta filtri per anno, mesi snapshot e tipo calcolo.',
-  },
-  {
-    menu: 'Analisi Proiezioni',
-    voce: 'Dettaglio Fatturato',
-    sintesi: 'Mostra il dettaglio analitico dei movimenti fatturato/futuro/ipotetico con filtri per anno, commessa, provenienza e controparte, nel rispetto dei diritti per ruolo.',
-  },
-  {
-    menu: 'Previsioni',
-    voce: 'Funnel',
-    sintesi: 'Elenco opportunita e ordini con filtri su anno, tipo e stato documento. Permette visione operativa del portafoglio atteso.',
-  },
-  {
-    menu: 'Previsioni',
-    voce: 'Report Funnel RCC',
-    sintesi: 'Vista pivot del funnel aggregata per RCC, tipo e percentuale successo. Include totali e confronto su una selezione annuale.',
-  },
-  {
-    menu: 'Previsioni',
-    voce: 'Report Funnel BU',
-    sintesi: 'Vista pivot del funnel aggregata per Business Unit, con dettaglio per tipo e percentuale successo. Include totali e confronto annuale.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Offerte',
-    sintesi: 'Elenco offerte con dati economici, stato documento ed esito. Supporta filtri multipli su anno e stato per analisi commerciale.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Sintesi RCC',
-    sintesi: 'Sintesi del processo offerta aggregata per RCC. Evidenzia volumi, valori previsti e distribuzione esiti.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Sintesi BU',
-    sintesi: 'Sintesi del processo offerta aggregata per Business Unit. Evidenzia volumi, valori previsti e distribuzione esiti.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Percentuale Successo RCC',
-    sintesi: 'Misura percentuale di successo delle offerte per RCC su anni selezionati. Utile per confronto tra responsabili.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Percentuale Successo BU',
-    sintesi: 'Misura percentuale di successo delle offerte per Business Unit su anni selezionati. Utile per confronto tra aree.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Incidenza RCC',
-    sintesi: 'Calcola peso percentuale del risultato RCC sul totale annuo, con filtri su esito e anno. Supporta analisi di contributo relativo.',
-  },
-  {
-    menu: 'Processo Offerta',
-    voce: 'Incidenza BU',
-    sintesi: 'Calcola peso percentuale del risultato BU sul totale annuo, con filtri su esito e anno. Supporta analisi di contributo relativo.',
-  },
-  {
-    menu: 'Dati Contabili',
-    voce: 'Vendite',
-    sintesi: 'Elenco fatture e ricavi con filtri autorizzativi equivalenti alla sintesi commesse. Include provenienza, stato temporale e scaduto.',
-  },
-  {
-    menu: 'Dati Contabili',
-    voce: 'Acquisti',
-    sintesi: 'Elenco fatture passive con filtri su anno, provenienza e contesto commessa. Include importi complessivi e contabilita di dettaglio.',
-  },
-]
 
 function App() {
   const [token, setToken] = useState('')
@@ -2073,6 +321,10 @@ function App() {
   const [analisiDettaglioFatturatoRcc, setAnalisiDettaglioFatturatoRcc] = useState('')
   const [analisiDettaglioFatturatoSoloScadute, setAnalisiDettaglioFatturatoSoloScadute] = useState(false)
   const [analisiDettaglioFatturatoData, setAnalisiDettaglioFatturatoData] = useState<AnalisiRccDettaglioFatturatoResponse | null>(null)
+  const [analisiAlberoProiezioniAnno, setAnalisiAlberoProiezioniAnno] = useState(new Date().getFullYear().toString())
+  const [analisiAlberoProiezioniRcc, setAnalisiAlberoProiezioniRcc] = useState('')
+  const [analisiAlberoProiezioniBusinessUnit, setAnalisiAlberoProiezioniBusinessUnit] = useState('')
+  const [analisiAlberoProiezioniData, setAnalisiAlberoProiezioniData] = useState<AnalisiRccDettaglioFatturatoResponse | null>(null)
   const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseAndamentoMensileAggrega, setCommesseAndamentoMensileAggrega] = useState(true)
   const [commesseAndamentoMensileMese, setCommesseAndamentoMensileMese] = useState(getDefaultReferenceMonth().toString())
@@ -2128,11 +380,23 @@ function App() {
   const [previsioniFunnelData, setPrevisioniFunnelData] = useState<AnalisiRccFunnelResponse | null>(null)
   const [previsioniReportFunnelRccAnni, setPrevisioniReportFunnelRccAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [previsioniReportFunnelRcc, setPrevisioniReportFunnelRcc] = useState('')
+  const [previsioniReportFunnelRccTipo, setPrevisioniReportFunnelRccTipo] = useState('')
+  const [previsioniReportFunnelRccTipoDocumento, setPrevisioniReportFunnelRccTipoDocumento] = useState('')
+  const [previsioniReportFunnelRccPercentuale, setPrevisioniReportFunnelRccPercentuale] = useState('')
   const [previsioniReportFunnelRccData, setPrevisioniReportFunnelRccData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
   const [previsioniReportFunnelBuAnni, setPrevisioniReportFunnelBuAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [previsioniReportFunnelBu, setPrevisioniReportFunnelBu] = useState('')
   const [previsioniReportFunnelBuRcc, setPrevisioniReportFunnelBuRcc] = useState('')
+  const [previsioniReportFunnelBuTipo, setPrevisioniReportFunnelBuTipo] = useState('')
+  const [previsioniReportFunnelBuPercentuale, setPrevisioniReportFunnelBuPercentuale] = useState('')
   const [previsioniReportFunnelBuData, setPrevisioniReportFunnelBuData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
+  const [previsioniReportFunnelBurccAnni, setPrevisioniReportFunnelBurccAnni] = useState<string[]>([new Date().getFullYear().toString()])
+  const [previsioniReportFunnelBurccBusinessUnit, setPrevisioniReportFunnelBurccBusinessUnit] = useState('')
+  const [previsioniReportFunnelBurccRcc, setPrevisioniReportFunnelBurccRcc] = useState('')
+  const [previsioniReportFunnelBurccTipo, setPrevisioniReportFunnelBurccTipo] = useState('')
+  const [previsioniReportFunnelBurccPercentuale, setPrevisioniReportFunnelBurccPercentuale] = useState('')
+  const [, setPrevisioniReportFunnelBurccOrder] = useState<'rcc-bu' | 'bu-rcc'>('rcc-bu')
+  const [, setPrevisioniReportFunnelBurccData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
   const [processoOffertaAnni, setProcessoOffertaAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [processoOffertaEsiti, setProcessoOffertaEsiti] = useState<string[]>([])
   const [processoOffertaPercentualeRcc, setProcessoOffertaPercentualeRcc] = useState('')
@@ -2284,6 +548,7 @@ function App() {
   const canAccessAnalisiDettaglioFatturatoPage = analisiDettaglioFatturatoAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
+  const canAccessAnalisiAlberoProiezioniPage = canAccessAnalisiDettaglioFatturatoPage
   const canAccessPrevisioniFunnelRccPage = previsioniFunnelRccAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
@@ -2294,6 +559,12 @@ function App() {
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
   const canSelectPrevisioniFunnelBu = previsioniFunnelBuSelectableProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canAccessPrevisioniFunnelBurccPage = previsioniFunnelBurccAllowedProfiles.some((profile) => (
+    profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
+  ))
+  const canSelectPrevisioniFunnelBurcc = previsioniFunnelBurccSelectableProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
   const canAccessPrevisioniUtileMensileRccPage = previsioniUtileMensileRccAllowedProfiles.some((profile) => (
@@ -2308,9 +579,15 @@ function App() {
   const canSelectPrevisioniUtileMensileBu = previsioniUtileMensileBuSelectableProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
-  const canAccessAnalisiProiezioniMenu = canAccessAnalisiRccPage || canAccessAnalisiBuPage || canAccessAnalisiBurccPage || canAccessAnalisiPianoFatturazionePage || canAccessAnalisiDettaglioFatturatoPage
+  const canAccessAnalisiProiezioniMenu = canAccessAnalisiRccPage
+    || canAccessAnalisiBuPage
+    || canAccessAnalisiBurccPage
+    || canAccessAnalisiPianoFatturazionePage
+    || canAccessAnalisiAlberoProiezioniPage
+    || canAccessAnalisiDettaglioFatturatoPage
   const canAccessPrevisioniMenu = canAccessPrevisioniFunnelRccPage ||
-    canAccessPrevisioniFunnelBuPage
+    canAccessPrevisioniFunnelBuPage ||
+    canAccessPrevisioniFunnelBurccPage
   const canAccessProcessoOffertaPage = processoOffertaAllowedProfiles.some((profile) => (
     profile.localeCompare(currentProfile, 'it', { sensitivity: 'base' }) === 0
   ))
@@ -2403,6 +680,10 @@ function App() {
     setAnalisiDettaglioFatturatoBusinessUnit('')
     setAnalisiDettaglioFatturatoRcc('')
     setAnalisiDettaglioFatturatoData(null)
+    setAnalisiAlberoProiezioniAnno(new Date().getFullYear().toString())
+    setAnalisiAlberoProiezioniBusinessUnit('')
+    setAnalisiAlberoProiezioniRcc('')
+    setAnalisiAlberoProiezioniData(null)
     setCommesseAndamentoMensileAnni([new Date().getFullYear().toString()])
     setCommesseAndamentoMensileAggrega(true)
     setCommesseAndamentoMensileMese(getDefaultReferenceMonth().toString())
@@ -2456,11 +737,23 @@ function App() {
     setPrevisioniFunnelData(null)
     setPrevisioniReportFunnelRccAnni([new Date().getFullYear().toString()])
     setPrevisioniReportFunnelRcc('')
+    setPrevisioniReportFunnelRccTipo('')
+    setPrevisioniReportFunnelRccTipoDocumento('')
+    setPrevisioniReportFunnelRccPercentuale('')
     setPrevisioniReportFunnelRccData(null)
     setPrevisioniReportFunnelBuAnni([new Date().getFullYear().toString()])
     setPrevisioniReportFunnelBu('')
     setPrevisioniReportFunnelBuRcc('')
+    setPrevisioniReportFunnelBuTipo('')
+    setPrevisioniReportFunnelBuPercentuale('')
     setPrevisioniReportFunnelBuData(null)
+    setPrevisioniReportFunnelBurccAnni([new Date().getFullYear().toString()])
+    setPrevisioniReportFunnelBurccBusinessUnit('')
+    setPrevisioniReportFunnelBurccRcc('')
+    setPrevisioniReportFunnelBurccTipo('')
+    setPrevisioniReportFunnelBurccPercentuale('')
+    setPrevisioniReportFunnelBurccOrder('rcc-bu')
+    setPrevisioniReportFunnelBurccData(null)
     setProcessoOffertaAnni([new Date().getFullYear().toString()])
     setProcessoOffertaEsiti([])
     setProcessoOffertaPercentualeRcc('')
@@ -4151,6 +2444,85 @@ function App() {
     }
   }
 
+  const loadAnalisiAlberoProiezioni = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessAnalisiAlberoProiezioniPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato ad Albero Proiezioni.`)
+      setAnalisiAlberoProiezioniData(null)
+      return
+    }
+
+    const yearFromState = Number.parseInt(analisiAlberoProiezioniAnno.trim(), 10)
+    const selectedYear = Number.isFinite(yearFromState) && yearFromState > 0
+      ? yearFromState
+      : new Date().getFullYear()
+    const selectedRcc = analisiAlberoProiezioniRcc.trim()
+    const selectedBusinessUnit = analisiAlberoProiezioniBusinessUnit.trim()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.append('anni', selectedYear.toString())
+      if (selectedRcc) {
+        params.set('rcc', selectedRcc)
+      }
+      if (selectedBusinessUnit) {
+        params.set('businessUnit', selectedBusinessUnit)
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/dettaglio-fatturato?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setAnalisiAlberoProiezioniData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Albero Proiezioni.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setAnalisiAlberoProiezioniData(null)
+        setStatusMessage(message || `Errore caricamento Albero Proiezioni (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as AnalisiRccDettaglioFatturatoResponse
+      const payloadYears = (payload.anni ?? [])
+        .filter((value) => Number.isFinite(value) && value > 0)
+      const matchingYear = payloadYears.find((value) => value === selectedYear)
+      setAnalisiAlberoProiezioniAnno((matchingYear ?? selectedYear).toString())
+
+      if (selectedRcc && !(payload.rccDisponibili ?? []).some((value) => (
+        value.localeCompare(selectedRcc, 'it', { sensitivity: 'base' }) === 0
+      ))) {
+        setAnalisiAlberoProiezioniRcc('')
+      }
+      if (selectedBusinessUnit && !(payload.businessUnitDisponibili ?? []).some((value) => (
+        value.localeCompare(selectedBusinessUnit, 'it', { sensitivity: 'base' }) === 0
+      ))) {
+        setAnalisiAlberoProiezioniBusinessUnit('')
+      }
+
+      setAnalisiAlberoProiezioniData(payload)
+      setStatusMessage(`Albero Proiezioni caricato: ${payload.items.length} righe sorgente.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
   const loadCommesseAndamentoMensile = async () => {
     if (!token.trim() || !currentProfile.trim()) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -4915,6 +3287,12 @@ function App() {
       if (canSelectPrevisioniFunnelRcc && previsioniReportFunnelRcc.trim()) {
         params.set('rcc', previsioniReportFunnelRcc.trim())
       }
+      if (previsioniReportFunnelRccTipo.trim()) {
+        params.set('tipo', previsioniReportFunnelRccTipo.trim())
+      }
+      if (previsioniReportFunnelRccPercentuale.trim()) {
+        params.set('percentualeSuccesso', previsioniReportFunnelRccPercentuale.trim().replace(',', '.'))
+      }
 
       const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel?${params.toString()}`), {
         headers: authHeaders(token, activeImpersonation),
@@ -4955,6 +3333,34 @@ function App() {
         }
       }
 
+      const tipoFiltroPayload = (payload.tipoFiltro ?? '').trim()
+      if (tipoFiltroPayload.length > 0) {
+        setPrevisioniReportFunnelRccTipo(tipoFiltroPayload)
+      } else {
+        const selectedTipo = previsioniReportFunnelRccTipo.trim()
+        if (selectedTipo.length > 0) {
+          const keepTipo = (payload.tipiDisponibili ?? []).some((value) => value.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0)
+          if (!keepTipo) {
+            setPrevisioniReportFunnelRccTipo('')
+          }
+        }
+      }
+
+      setPrevisioniReportFunnelRccTipoDocumento('')
+
+      if (payload.percentualeSuccessoFiltro !== null && payload.percentualeSuccessoFiltro !== undefined) {
+        setPrevisioniReportFunnelRccPercentuale(payload.percentualeSuccessoFiltro.toString())
+      } else {
+        const selectedPercentuale = previsioniReportFunnelRccPercentuale.trim()
+        if (selectedPercentuale.length > 0) {
+          const selectedPercentualeValue = Number.parseFloat(selectedPercentuale.replace(',', '.'))
+          const keepPercentuale = Number.isFinite(selectedPercentualeValue) && (payload.percentualiSuccessoDisponibili ?? []).some((value) => Math.abs(value - selectedPercentualeValue) < 0.0001)
+          if (!keepPercentuale) {
+            setPrevisioniReportFunnelRccPercentuale('')
+          }
+        }
+      }
+
       setPrevisioniReportFunnelRccData(payload)
       setStatusMessage(`Report Funnel RCC caricato (anno: ${payloadYear}): ${payload.righe.length} righe.`)
     } finally {
@@ -4989,6 +3395,12 @@ function App() {
       }
       if (previsioniReportFunnelBuRcc.trim()) {
         params.set('rcc', previsioniReportFunnelBuRcc.trim())
+      }
+      if (previsioniReportFunnelBuTipo.trim()) {
+        params.set('tipo', previsioniReportFunnelBuTipo.trim())
+      }
+      if (previsioniReportFunnelBuPercentuale.trim()) {
+        params.set('percentualeSuccesso', previsioniReportFunnelBuPercentuale.trim().replace(',', '.'))
       }
 
       const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel-bu?${params.toString()}`), {
@@ -5045,8 +3457,157 @@ function App() {
         }
       }
 
+      const tipoFiltroPayload = (payload.tipoFiltro ?? '').trim()
+      if (tipoFiltroPayload.length > 0) {
+        setPrevisioniReportFunnelBuTipo(tipoFiltroPayload)
+      } else {
+        const selectedTipo = previsioniReportFunnelBuTipo.trim()
+        if (selectedTipo.length > 0) {
+          const keepTipo = (payload.tipiDisponibili ?? []).some((value) => value.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0)
+          if (!keepTipo) {
+            setPrevisioniReportFunnelBuTipo('')
+          }
+        }
+      }
+
+      if (payload.percentualeSuccessoFiltro !== null && payload.percentualeSuccessoFiltro !== undefined) {
+        setPrevisioniReportFunnelBuPercentuale(payload.percentualeSuccessoFiltro.toString())
+      } else {
+        const selectedPercentuale = previsioniReportFunnelBuPercentuale.trim()
+        if (selectedPercentuale.length > 0) {
+          const selectedPercentualeValue = Number.parseFloat(selectedPercentuale.replace(',', '.'))
+          const keepPercentuale = Number.isFinite(selectedPercentualeValue) && (payload.percentualiSuccessoDisponibili ?? []).some((value) => Math.abs(value - selectedPercentualeValue) < 0.0001)
+          if (!keepPercentuale) {
+            setPrevisioniReportFunnelBuPercentuale('')
+          }
+        }
+      }
+
       setPrevisioniReportFunnelBuData(payload)
       setStatusMessage(`Report Funnel BU caricato (anno: ${payloadYear}): ${payload.righe.length} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
+  const loadPrevisioniReportFunnelBurcc = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    if (!canAccessPrevisioniFunnelBurccPage) {
+      setStatusMessage(`Profilo "${currentProfile}" non abilitato a Report Funnel BU RCC.`)
+      setPrevisioniReportFunnelBurccData(null)
+      return
+    }
+
+    const selectedYear = Number.parseInt((previsioniReportFunnelBurccAnni[0] ?? '').trim(), 10)
+    const yearToQuery = Number.isFinite(selectedYear) && selectedYear > 0
+      ? selectedYear
+      : new Date().getFullYear()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('anno', yearToQuery.toString())
+      if (canSelectPrevisioniFunnelBurcc && previsioniReportFunnelBurccBusinessUnit.trim()) {
+        params.set('businessUnit', previsioniReportFunnelBurccBusinessUnit.trim())
+      }
+      if (previsioniReportFunnelBurccRcc.trim()) {
+        params.set('rcc', previsioniReportFunnelBurccRcc.trim())
+      }
+      if (previsioniReportFunnelBurccTipo.trim()) {
+        params.set('tipo', previsioniReportFunnelBurccTipo.trim())
+      }
+      if (previsioniReportFunnelBurccPercentuale.trim()) {
+        params.set('percentualeSuccesso', previsioniReportFunnelBurccPercentuale.trim().replace(',', '.'))
+      }
+
+      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel-burcc?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelBurccData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Report Funnel BU RCC.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setPrevisioniReportFunnelBurccData(null)
+        setStatusMessage(message || `Errore caricamento Report Funnel BU RCC (${response.status}).`)
+        return
+      }
+
+      const payload = normalizePivotFunnelResponse(await response.json())
+      const payloadYear = (payload.anni ?? [])
+        .find((value) => Number.isFinite(value) && value > 0) ?? yearToQuery
+      setPrevisioniReportFunnelBurccAnni([payloadYear.toString()])
+
+      if (canSelectPrevisioniFunnelBurcc) {
+        const normalizedBuFilter = (payload.aggregazioneFiltro ?? '').trim()
+        if (normalizedBuFilter.length > 0) {
+          setPrevisioniReportFunnelBurccBusinessUnit(normalizedBuFilter)
+        } else if (!payload.vediTutto) {
+          setPrevisioniReportFunnelBurccBusinessUnit((payload.aggregazioniDisponibili?.[0] ?? '').trim())
+        } else if (!previsioniReportFunnelBurccBusinessUnit.trim()) {
+          setPrevisioniReportFunnelBurccBusinessUnit('')
+        }
+      }
+
+      const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
+      if (normalizedRccFiltro.length > 0) {
+        setPrevisioniReportFunnelBurccRcc(normalizedRccFiltro)
+      } else {
+        const currentRccFilter = previsioniReportFunnelBurccRcc.trim()
+        if (currentRccFilter.length > 0) {
+          const hasCurrent = (payload.rccDisponibili ?? []).some((value) => (
+            value.localeCompare(currentRccFilter, 'it', { sensitivity: 'base' }) === 0
+          ))
+          if (!hasCurrent) {
+            setPrevisioniReportFunnelBurccRcc('')
+          }
+        }
+      }
+
+      const tipoFiltroPayload = (payload.tipoFiltro ?? '').trim()
+      if (tipoFiltroPayload.length > 0) {
+        setPrevisioniReportFunnelBurccTipo(tipoFiltroPayload)
+      } else {
+        const selectedTipo = previsioniReportFunnelBurccTipo.trim()
+        if (selectedTipo.length > 0) {
+          const keepTipo = (payload.tipiDisponibili ?? []).some((value) => value.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0)
+          if (!keepTipo) {
+            setPrevisioniReportFunnelBurccTipo('')
+          }
+        }
+      }
+
+      if (payload.percentualeSuccessoFiltro !== null && payload.percentualeSuccessoFiltro !== undefined) {
+        setPrevisioniReportFunnelBurccPercentuale(payload.percentualeSuccessoFiltro.toString())
+      } else {
+        const selectedPercentuale = previsioniReportFunnelBurccPercentuale.trim()
+        if (selectedPercentuale.length > 0) {
+          const selectedPercentualeValue = Number.parseFloat(selectedPercentuale.replace(',', '.'))
+          const keepPercentuale = Number.isFinite(selectedPercentualeValue) && (payload.percentualiSuccessoDisponibili ?? []).some((value) => Math.abs(value - selectedPercentualeValue) < 0.0001)
+          if (!keepPercentuale) {
+            setPrevisioniReportFunnelBurccPercentuale('')
+          }
+        }
+      }
+
+      setPrevisioniReportFunnelBurccData(payload)
+      setStatusMessage(`Report Funnel BU RCC caricato (anno: ${payloadYear}): ${payload.righe.length} righe.`)
     } finally {
       setAnalisiRccLoading(false)
     }
@@ -5591,6 +4152,12 @@ function App() {
         setAnalisiPianoFatturazioneRcc('')
         setAnalisiPianoFatturazioneData(null)
         break
+      case 'analisi-albero-proiezioni':
+        setAnalisiAlberoProiezioniAnno(currentYear)
+        setAnalisiAlberoProiezioniBusinessUnit('')
+        setAnalisiAlberoProiezioniRcc('')
+        setAnalisiAlberoProiezioniData(null)
+        break
       case 'analisi-dettaglio-fatturato':
         setAnalisiDettaglioFatturatoAnni([currentYear])
         setAnalisiDettaglioFatturatoCommessaSearch('')
@@ -5612,13 +4179,27 @@ function App() {
       case 'previsioni-report-funnel-rcc':
         setPrevisioniReportFunnelRccAnni([currentYear])
         setPrevisioniReportFunnelRcc('')
+        setPrevisioniReportFunnelRccTipo('')
+        setPrevisioniReportFunnelRccTipoDocumento('')
+        setPrevisioniReportFunnelRccPercentuale('')
         setPrevisioniReportFunnelRccData(null)
         break
       case 'previsioni-report-funnel-bu':
         setPrevisioniReportFunnelBuAnni([currentYear])
         setPrevisioniReportFunnelBu('')
         setPrevisioniReportFunnelBuRcc('')
+        setPrevisioniReportFunnelBuTipo('')
+        setPrevisioniReportFunnelBuPercentuale('')
         setPrevisioniReportFunnelBuData(null)
+        break
+      case 'previsioni-report-funnel-burcc':
+        setPrevisioniReportFunnelBurccAnni([currentYear])
+        setPrevisioniReportFunnelBurccBusinessUnit('')
+        setPrevisioniReportFunnelBurccRcc('')
+        setPrevisioniReportFunnelBurccTipo('')
+        setPrevisioniReportFunnelBurccPercentuale('')
+        setPrevisioniReportFunnelBurccOrder('rcc-bu')
+        setPrevisioniReportFunnelBurccData(null)
         break
       case 'previsioni-utile-mensile-rcc':
         setPrevisioniUtileMensileRccAnno(currentYear)
@@ -5656,793 +4237,175 @@ function App() {
     setStatusMessage('Filtri reimpostati. Premi Cerca per ricaricare i dati.')
   }
 
-  const activateSintesiPage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('commesse-sintesi')
-    setSortColumn('commessa')
-    setSortDirection('asc')
-    setCollapsedProductKeys([])
-    setActivePage('commesse-sintesi')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
-  }
-
-  const activateCommesseAndamentoMensilePage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('commesse-andamento-mensile')
-    setActivePage('commesse-andamento-mensile')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, commesseAndamentoMensileAnni, 'commesse')
-    void loadCommesseAndamentoMensile()
-  }
-
-  const activateCommesseAnomalePage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('commesse-anomale')
-    setActivePage('commesse-anomale')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadCommesseAnomale()
-  }
-
-  const activateCommesseDatiAnnualiAggregatiPage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('commesse-dati-annuali-aggregati')
-    setActivePage('commesse-dati-annuali-aggregati')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, [], 'commesse')
-    void loadCommesseDatiAnnualiAggregati()
-  }
-
-  const addCommesseDatiAnnualiSelectedFields = () => {
-    if (commesseDatiAnnualiAvailableSelection.length === 0) {
-      return
-    }
-
-    setCommesseDatiAnnualiSelectedFields((current) => {
-      const next = [...current]
-      commesseDatiAnnualiAvailableSelection.forEach((field) => {
-        if (!next.includes(field)) {
-          next.push(field)
-        }
-      })
-      return next
-    })
-    setCommesseDatiAnnualiSelectedSelection(commesseDatiAnnualiAvailableSelection)
-    setCommesseDatiAnnualiAvailableSelection([])
-  }
-
-  const removeCommesseDatiAnnualiSelectedFields = () => {
-    if (commesseDatiAnnualiSelectedSelection.length === 0) {
-      return
-    }
-
-    setCommesseDatiAnnualiSelectedFields((current) => (
-      current.filter((field) => !commesseDatiAnnualiSelectedSelection.includes(field))
-    ))
-    setCommesseDatiAnnualiAvailableSelection(commesseDatiAnnualiSelectedSelection)
-    setCommesseDatiAnnualiSelectedSelection([])
-  }
-
-  const moveCommesseDatiAnnualiField = (direction: 'up' | 'down') => {
-    if (commesseDatiAnnualiSelectedSelection.length !== 1) {
-      return
-    }
-
-    const movingField = commesseDatiAnnualiSelectedSelection[0]
-    setCommesseDatiAnnualiSelectedFields((current) => {
-      const index = current.indexOf(movingField)
-      if (index < 0) {
-        return current
-      }
-
-      const targetIndex = direction === 'up' ? index - 1 : index + 1
-      if (targetIndex < 0 || targetIndex >= current.length) {
-        return current
-      }
-
-      const next = [...current]
-      const [item] = next.splice(index, 1)
-      next.splice(targetIndex, 0, item)
-      return next
-    })
-  }
-
-  const addRisorsePivotSelectedFields = () => {
-    if (risorsePivotAvailableSelection.length === 0) {
-      return
-    }
-
-    setRisorsePivotSelectedFields((current) => {
-      const next = [...current]
-      risorsePivotAvailableSelection.forEach((field) => {
-        if (!next.includes(field)) {
-          next.push(field)
-        }
-      })
-      return next
-    })
-    setRisorsePivotSelectedSelection(risorsePivotAvailableSelection)
-    setRisorsePivotAvailableSelection([])
-  }
-
-  const removeRisorsePivotSelectedFields = () => {
-    if (risorsePivotSelectedSelection.length === 0) {
-      return
-    }
-
-    setRisorsePivotSelectedFields((current) => (
-      current.filter((field) => !risorsePivotSelectedSelection.includes(field))
-    ))
-    setRisorsePivotAvailableSelection(risorsePivotSelectedSelection)
-    setRisorsePivotSelectedSelection([])
-  }
-
-  const moveRisorsePivotField = (direction: 'up' | 'down') => {
-    if (risorsePivotSelectedSelection.length !== 1) {
-      return
-    }
-
-    const movingField = risorsePivotSelectedSelection[0]
-    setRisorsePivotSelectedFields((current) => {
-      const index = current.indexOf(movingField)
-      if (index < 0) {
-        return current
-      }
-
-      const targetIndex = direction === 'up' ? index - 1 : index + 1
-      if (targetIndex < 0 || targetIndex >= current.length) {
-        return current
-      }
-
-      const next = [...current]
-      const [item] = next.splice(index, 1)
-      next.splice(targetIndex, 0, item)
-      return next
-    })
-  }
-
-  const activateRisorsePage = (page: AppPage, mensile: boolean, analisiOu = false, analisiOuPivot = false) => {
-    setOpenMenu(null)
-    setActivePage(page)
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    const yearsToRequest = mensile
-      ? (
-        risorseFiltersForm.anni.length > 0
-          ? risorseFiltersForm.anni
-          : [new Date().getFullYear().toString(), (new Date().getFullYear() - 1).toString()]
-      )
-      : []
-
-    void loadRisorseFilters(mensile, yearsToRequest, analisiOu, analisiOuPivot).then((ok) => {
-      if (ok) {
-        void loadRisorseValutazione(mensile, analisiOu, analisiOuPivot)
-      }
-    })
-  }
-
-  const activateProdottiPage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('prodotti-sintesi')
-    setSortColumn('prodotto')
-    setSortDirection('asc')
-    setCollapsedProductKeys([])
-    setActivePage('prodotti-sintesi')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'prodotti')
-  }
-
-  const activateRisorseRisultatiPage = () => {
-    activateRisorsePage('risorse-risultati', false)
-  }
-
-  const activateRisorseRisultatiPivotPage = () => {
-    activateRisorsePage('risorse-risultati-pivot', false)
-  }
-
-  const activateRisorseRisultatiMensilePage = () => {
-    activateRisorsePage('risorse-risultati-mensile', true)
-  }
-
-  const activateRisorseRisultatiMensilePivotPage = () => {
-    activateRisorsePage('risorse-risultati-mensile-pivot', true)
-  }
-
-  const activateRisorseOuRisorsePage = () => {
-    activateRisorsePage('risorse-ou-risorse', false, true, false)
-  }
-
-  const activateRisorseOuRisorsePivotPage = () => {
-    activateRisorsePage('risorse-ou-risorse-pivot', false, true, false)
-  }
-
-  const activateRisorseOuRisorseMensilePage = () => {
-    activateRisorsePage('risorse-ou-risorse-mensile', true, true, false)
-  }
-
-  const activateRisorseOuRisorseMensilePivotPage = () => {
-    activateRisorsePage('risorse-ou-risorse-mensile-pivot', true, true, false)
-  }
-
-  const activateAnalisiRccRisultatoMensilePage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-rcc-risultato-mensile')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiRccRisultatoMensile()
-  }
-
-  const activateAnalisiRccPivotFatturatoPage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-rcc-pivot-fatturato')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiRccPivotFatturato()
-  }
-
-  const activateAnalisiBuRisultatoMensilePage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-bu-risultato-mensile')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiBuRisultatoMensile()
-  }
-
-  const activateAnalisiBuPivotFatturatoPage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-bu-pivot-fatturato')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiBuPivotFatturato()
-  }
-
-  const activateAnalisiBurccRisultatoMensilePage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-burcc-risultato-mensile')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiBurccRisultatoMensile()
-  }
-
-  const activateAnalisiBurccPivotFatturatoPage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-burcc-pivot-fatturato')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiBurccPivotFatturato()
-  }
-
-  const activateAnalisiPianoFatturazionePage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-piano-fatturazione')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiPianoFatturazione()
-  }
-
-  const activateAnalisiDettaglioFatturatoPage = () => {
-    setOpenMenu(null)
-    setActivePage('analisi-dettaglio-fatturato')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadAnalisiDettaglioFatturato()
-  }
-
-  const activatePrevisioniFunnelPage = () => {
-    setOpenMenu(null)
-    setActivePage('previsioni-funnel')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadPrevisioniFunnel()
-  }
-
-  const activatePrevisioniReportFunnelRccPage = () => {
-    setOpenMenu(null)
-    setActivePage('previsioni-report-funnel-rcc')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadPrevisioniReportFunnelRcc()
-  }
-
-  const activatePrevisioniReportFunnelBuPage = () => {
-    setOpenMenu(null)
-    setActivePage('previsioni-report-funnel-bu')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadPrevisioniReportFunnelBu()
-  }
-
-  const activatePrevisioniUtileMensileRccPage = () => {
-    setOpenMenu(null)
-    setActivePage('previsioni-utile-mensile-rcc')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadPrevisioniUtileMensileRcc()
-  }
-
-  const activatePrevisioniUtileMensileBuPage = () => {
-    setOpenMenu(null)
-    setActivePage('previsioni-utile-mensile-bu')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadPrevisioniUtileMensileBu()
-  }
-
-  const activateProcessoOffertaOffertePage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-offerte')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaOfferte()
-  }
-
-  const activateProcessoOffertaSintesiRccPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-sintesi-rcc')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiRcc()
-  }
-
-  const activateProcessoOffertaSintesiBuPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-sintesi-bu')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiBu()
-  }
-
-  const activateProcessoOffertaPercentualeSuccessoRccPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-percentuale-successo-rcc')
-    setProcessoOffertaEsiti([])
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiRcc()
-  }
-
-  const activateProcessoOffertaPercentualeSuccessoBuPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-percentuale-successo-bu')
-    setProcessoOffertaEsiti([])
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiBu()
-  }
-
-  const activateProcessoOffertaIncidenzaRccPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-incidenza-rcc')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiRcc()
-  }
-
-  const activateProcessoOffertaIncidenzaBuPage = () => {
-    setOpenMenu(null)
-    setActivePage('processo-offerta-incidenza-bu')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadProcessoOffertaSintesiBu()
-  }
-
-  const activateDatiContabiliVenditaPage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('dati-contabili-vendita')
-    setActivePage('dati-contabili-vendita')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
-  }
-
-  const activateDatiContabiliAcquistiPage = () => {
-    setOpenMenu(null)
-    setLastSintesiPage('dati-contabili-acquisti')
-    setActivePage('dati-contabili-acquisti')
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, sintesiFiltersForm.anni, 'commesse')
-  }
-
-  const handleSintesiSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (activePage === 'dati-contabili-vendita') {
-      void executeDatiContabiliVenditaSearch()
-      return
-    }
-    if (activePage === 'dati-contabili-acquisti') {
-      void executeDatiContabiliAcquistiSearch()
-      return
-    }
-
-    void executeSintesiSearch()
-  }
-
-  const handleAnalisiSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (isRisorsePage) {
-      void loadRisorseValutazione(isRisorseMensilePage)
-      return
-    }
-
-    if (activePage === 'commesse-andamento-mensile') {
-      void loadCommesseAndamentoMensile()
-      return
-    }
-
-    if (activePage === 'commesse-anomale') {
-      void loadCommesseAnomale()
-      return
-    }
-
-    if (activePage === 'commesse-dati-annuali-aggregati') {
-      void loadCommesseDatiAnnualiAggregati()
-      return
-    }
-
-    if (activePage === 'processo-offerta-offerte') {
-      void loadProcessoOffertaOfferte()
-      return
-    }
-
-    if (
-      activePage === 'processo-offerta-sintesi-rcc' ||
-      activePage === 'processo-offerta-percentuale-successo-rcc' ||
-      activePage === 'processo-offerta-incidenza-rcc'
-    ) {
-      void loadProcessoOffertaSintesiRcc()
-      return
-    }
-
-    if (
-      activePage === 'processo-offerta-sintesi-bu' ||
-      activePage === 'processo-offerta-percentuale-successo-bu' ||
-      activePage === 'processo-offerta-incidenza-bu'
-    ) {
-      void loadProcessoOffertaSintesiBu()
-      return
-    }
-
-    if (activePage === 'previsioni-report-funnel-rcc') {
-      void loadPrevisioniReportFunnelRcc()
-      return
-    }
-
-    if (activePage === 'previsioni-report-funnel-bu') {
-      void loadPrevisioniReportFunnelBu()
-      return
-    }
-
-    if (activePage === 'previsioni-utile-mensile-rcc') {
-      void loadPrevisioniUtileMensileRcc()
-      return
-    }
-
-    if (activePage === 'previsioni-utile-mensile-bu') {
-      void loadPrevisioniUtileMensileBu()
-      return
-    }
-
-    if (activePage === 'previsioni-funnel') {
-      void loadPrevisioniFunnel()
-      return
-    }
-
-    if (activePage === 'analisi-rcc-pivot-fatturato') {
-      void loadAnalisiRccPivotFatturato()
-      return
-    }
-
-    if (activePage === 'analisi-bu-pivot-fatturato') {
-      void loadAnalisiBuPivotFatturato()
-      return
-    }
-
-    if (activePage === 'analisi-burcc-pivot-fatturato') {
-      void loadAnalisiBurccPivotFatturato()
-      return
-    }
-
-    if (activePage === 'analisi-bu-risultato-mensile') {
-      void loadAnalisiBuRisultatoMensile()
-      return
-    }
-
-    if (activePage === 'analisi-burcc-risultato-mensile') {
-      void loadAnalisiBurccRisultatoMensile()
-      return
-    }
-
-    if (activePage === 'analisi-piano-fatturazione') {
-      void loadAnalisiPianoFatturazione()
-      return
-    }
-
-    if (activePage === 'analisi-dettaglio-fatturato') {
-      void loadAnalisiDettaglioFatturato()
-      return
-    }
-
-    void loadAnalisiRccRisultatoMensile()
-  }
-
-  const applyImpersonation = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    const requested = impersonationInput.trim()
-    if (!requested) {
-      setStatusMessage('Inserisci lo username da impersonificare.')
-      return
-    }
-
-    if (!token.trim()) {
-      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
-      return
-    }
-
-    setStatusMessage(`Verifica impersonificazione utente "${requested}"...`)
-    const ok = await ensureSession(token, 'stale_token', requested)
-    if (!ok) {
-      return
-    }
-
-    setImpersonationModalOpen(false)
-    setOpenMenu(null)
-  }
-
-  const stopImpersonation = async () => {
-    if (!token.trim()) {
-      return
-    }
-
-    setStatusMessage('Rimozione impersonificazione in corso...')
-    const ok = await ensureSession(token, 'stale_token', '')
-    if (!ok) {
-      return
-    }
-
-    setImpersonationInput('')
-    setImpersonationModalOpen(false)
-    setOpenMenu(null)
-    setStatusMessage('Impersonificazione terminata. Contesto personale ripristinato.')
-  }
-
-  const handleOpenInfo = () => {
-    setOpenMenu(null)
-    setAppInfoModalOpen(false)
-    setInfoModalOpen(true)
-  }
-
-  const handleOpenAppInfo = () => {
-    setOpenMenu(null)
-    setInfoModalOpen(false)
-    setAppInfoModalOpen(true)
-    void loadAppInfoDescriptions()
-  }
-
-  const handleOpenImpersonation = () => {
-    if (!canImpersonate) {
-      return
-    }
-
-    setImpersonationInput(activeImpersonation || '')
-    setOpenMenu(null)
-    setImpersonationModalOpen(true)
-  }
-
-  const handleLogout = () => {
-    setOpenMenu(null)
-    setInfoModalOpen(false)
-    setAppInfoModalOpen(false)
-    setImpersonationModalOpen(false)
-    clearSession()
-    sessionStorage.removeItem(redirectGuardKey)
-    setStatusMessage('Logout locale eseguito.')
-    redirectToCentralAuth('logout')
-  }
-
-  const toggleMenu = (menu: MenuKey) => {
-    setOpenMenu((current) => (current === menu ? null : menu))
-  }
+  const {
+    activateSintesiPage,
+    activateCommesseAndamentoMensilePage,
+    activateCommesseAnomalePage,
+    activateCommesseDatiAnnualiAggregatiPage,
+    addCommesseDatiAnnualiSelectedFields,
+    removeCommesseDatiAnnualiSelectedFields,
+    moveCommesseDatiAnnualiField,
+    addRisorsePivotSelectedFields,
+    removeRisorsePivotSelectedFields,
+    moveRisorsePivotField,
+    activateProdottiPage,
+    activateRisorseRisultatiPage,
+    activateRisorseRisultatiPivotPage,
+    activateRisorseRisultatiMensilePage,
+    activateRisorseRisultatiMensilePivotPage,
+    activateRisorseOuRisorsePage,
+    activateRisorseOuRisorsePivotPage,
+    activateRisorseOuRisorseMensilePage,
+    activateRisorseOuRisorseMensilePivotPage,
+    activateAnalisiRccRisultatoMensilePage,
+    activateAnalisiRccPivotFatturatoPage,
+    activateAnalisiBuRisultatoMensilePage,
+    activateAnalisiBuPivotFatturatoPage,
+    activateAnalisiBurccRisultatoMensilePage,
+    activateAnalisiBurccPivotFatturatoPage,
+    activateAnalisiPianoFatturazionePage,
+    activateAnalisiAlberoProiezioniPage,
+    activateAnalisiDettaglioFatturatoPage,
+    activatePrevisioniFunnelPage,
+    activatePrevisioniReportFunnelRccPage,
+    activatePrevisioniReportFunnelBuPage,
+    activatePrevisioniReportFunnelBurccPage,
+    activatePrevisioniUtileMensileRccPage,
+    activatePrevisioniUtileMensileBuPage,
+    activateProcessoOffertaOffertePage,
+    activateProcessoOffertaSintesiRccPage,
+    activateProcessoOffertaSintesiBuPage,
+    activateProcessoOffertaPercentualeSuccessoRccPage,
+    activateProcessoOffertaPercentualeSuccessoBuPage,
+    activateProcessoOffertaIncidenzaRccPage,
+    activateProcessoOffertaIncidenzaBuPage,
+    activateDatiContabiliVenditaPage,
+    activateDatiContabiliAcquistiPage,
+    handleSintesiSubmit,
+    handleAnalisiSubmit,
+    applyImpersonation,
+    stopImpersonation,
+    handleOpenInfo,
+    handleOpenAppInfo,
+    handleOpenImpersonation,
+    handleLogout,
+    toggleMenu,
+  } = buildAppNavigationActions({
+    activeImpersonation,
+    activePage,
+    canImpersonate,
+    clearSession,
+    commesseAndamentoMensileAnni,
+    commesseDatiAnnualiAvailableSelection,
+    commesseDatiAnnualiSelectedSelection,
+    currentProfile,
+    ensureSession,
+    getDefaultReferenceMonth,
+    impersonationInput,
+    isRisorseMensilePage,
+    isRisorsePage,
+    loadAnalisiBuPivotFatturato,
+    loadAnalisiBuRisultatoMensile,
+    loadAnalisiAlberoProiezioni,
+    loadAnalisiBurccPivotFatturato,
+    loadAnalisiBurccRisultatoMensile,
+    loadAnalisiDettaglioFatturato,
+    loadAnalisiPianoFatturazione,
+    loadAnalisiRccPivotFatturato,
+    loadAnalisiRccRisultatoMensile,
+    loadCommesseAndamentoMensile,
+    loadCommesseAnomale,
+    loadCommesseDatiAnnualiAggregati,
+    loadPrevisioniFunnel,
+    loadPrevisioniReportFunnelBu,
+    loadPrevisioniReportFunnelBurcc,
+    loadPrevisioniReportFunnelRcc,
+    loadPrevisioniUtileMensileBu,
+    loadPrevisioniUtileMensileRcc,
+    loadProcessoOffertaOfferte,
+    loadProcessoOffertaSintesiBu,
+    loadProcessoOffertaSintesiRcc,
+    loadRisorseFilters,
+    loadRisorseValutazione,
+    loadSintesiFilters,
+    redirectGuardKey,
+    redirectToCentralAuth,
+    risorseFiltersForm,
+    risorsePivotAvailableSelection,
+    risorsePivotSelectedSelection,
+    setActivePage,
+    setCollapsedProductKeys,
+    setCommesseDatiAnnualiAvailableSelection,
+    setCommesseDatiAnnualiSelectedFields,
+    setCommesseDatiAnnualiSelectedSelection,
+    setCommessaSearch,
+    setImpersonationInput,
+    setImpersonationModalOpen,
+    setInfoModalOpen,
+    setLastSintesiPage,
+    setOpenMenu,
+    setPrevisioniUtileMensileBu,
+    setPrevisioniUtileMensileBuAnno,
+    setPrevisioniUtileMensileBuMeseRiferimento,
+    setPrevisioniUtileMensileBuProduzione,
+    setPrevisioniUtileMensileRcc,
+    setPrevisioniUtileMensileRccAnno,
+    setPrevisioniUtileMensileRccMeseRiferimento,
+    setPrevisioniUtileMensileRccProduzione,
+    setProcessoOffertaEsiti,
+    setRisorsePivotAvailableSelection,
+    setRisorsePivotSelectedFields,
+    setRisorsePivotSelectedSelection,
+    setSortColumn,
+    setSortDirection,
+    setStatusMessage,
+    setAppInfoModalOpen,
+    sintesiFiltersForm,
+    token,
+    executeDatiContabiliVenditaSearch,
+    executeDatiContabiliAcquistiSearch,
+    executeSintesiSearch,
+    loadAppInfoDescriptions,
+  })
+  useEffect(() => installMenuDismissHandlers(setOpenMenu), [])
 
   useEffect(() => {
-    function handleGlobalClick(event: MouseEvent) {
-      if (!(event.target instanceof Element)) {
-        setOpenMenu(null)
-        return
-      }
-
-      if (!event.target.closest('.menu-dropdown')) {
-        setOpenMenu(null)
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpenMenu(null)
-      }
-    }
-
-    document.addEventListener('click', handleGlobalClick)
-    document.addEventListener('keydown', handleEscape)
-
-    return () => {
-      document.removeEventListener('click', handleGlobalClick)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadHealth()
-
-    const savedImpersonation = (sessionStorage.getItem(impersonationStorageKey) ?? '').trim()
-    const initialImpersonation = savedImpersonation || routeRequest.actAs
-    if (initialImpersonation) {
-      setImpersonationInput(initialImpersonation)
-    }
-
-    const params = new URLSearchParams(window.location.search)
-    const tokenFromAuth = params.get('token')?.trim() ?? ''
-
-    if (tokenFromAuth) {
-      sessionStorage.removeItem(redirectGuardKey)
-      saveToken(tokenFromAuth)
-      writeSharedSsoCookie(tokenFromAuth)
-      params.delete('token')
-      params.delete('expiresAtUtc')
-      const queryString = params.toString()
-      const cleanUrl = queryString
-        ? `${window.location.pathname}?${queryString}`
-        : window.location.pathname
-      window.history.replaceState({}, document.title, cleanUrl)
-      setStatusMessage('Token ricevuto da Auth. Verifica sessione...')
-      void ensureSession(tokenFromAuth, 'invalid_token', initialImpersonation)
-      return
-    }
-
-    const savedToken = (localStorage.getItem(tokenStorageKey) ?? '').trim()
-    if (savedToken) {
-      sessionStorage.removeItem(redirectGuardKey)
-      saveToken(savedToken)
-      writeSharedSsoCookie(savedToken)
-      setStatusMessage('Sessione locale trovata. Verifica in corso...')
-      void ensureSession(savedToken, 'stale_token', initialImpersonation)
-      return
-    }
-
-    const sharedSsoToken = readSharedSsoCookie()
-    if (sharedSsoToken) {
-      sessionStorage.removeItem(redirectGuardKey)
-      saveToken(sharedSsoToken)
-      setStatusMessage('Sessione SSO condivisa trovata. Verifica in corso...')
-      void ensureSession(sharedSsoToken, 'stale_token', initialImpersonation)
-      return
-    }
-
-    sessionStorage.removeItem(redirectGuardKey)
-    redirectToCentralAuth('missing_token')
+    bootstrapSessionFromStorage({
+      ensureSession,
+      impersonationStorageKey,
+      loadHealth,
+      readSharedSsoCookie,
+      redirectGuardKey,
+      redirectToCentralAuth,
+      routeActAs: routeRequest.actAs,
+      saveToken,
+      setImpersonationInput,
+      setStatusMessage,
+      tokenStorageKey,
+      writeSharedSsoCookie,
+    })
   }, [routeRequest.actAs])
 
   useEffect(() => {
-    if (!token.trim() || !currentProfile) {
-      return
-    }
-
-    if (!canAccessAnalisiCommesseMenu) {
-      setSintesiRows([])
-      setSintesiSearched(false)
-      setCommessaSearch('')
-      setSortColumn('commessa')
-      setSortDirection('asc')
-      setSintesiFiltersForm(emptySintesiFiltersForm)
-      return
-    }
-
-    const persisted = tryReadPersistedSintesiState()
-    if (
-      persisted &&
-      persisted.profile === currentProfile &&
-      persisted.impersonation === activeImpersonation
-    ) {
-      const restoredFilters: SintesiFiltersForm = {
-        anni: Array.isArray(persisted.filters.anni) ? persisted.filters.anni : [],
-        attiveDalAnno: persisted.filters.attiveDalAnno ?? '',
-        commessa: persisted.filters.commessa ?? '',
-        tipologiaCommessa: persisted.filters.tipologiaCommessa ?? '',
-        stato: persisted.filters.stato ?? '',
-        macroTipologia: persisted.filters.macroTipologia ?? '',
-        prodotto: persisted.filters.prodotto ?? '',
-        businessUnit: persisted.filters.businessUnit ?? '',
-        rcc: persisted.filters.rcc ?? '',
-        pm: persisted.filters.pm ?? '',
-        provenienza: persisted.filters.provenienza ?? '',
-        soloScadute: Boolean(persisted.filters.soloScadute),
-        escludiProdotti: Boolean(persisted.filters.escludiProdotti),
-      }
-
-      // Dopo login/session restore l'app deve rimanere sulla home neutra:
-      // la pagina Sintesi si apre solo da menu esplicito utente.
-      setActivePage('none')
-      setSintesiMode(persisted.mode === 'aggregato' ? 'aggregato' : 'dettaglio')
-      setCommessaSearch(persisted.commessaSearch ?? '')
-      setSortColumn((persisted.sortColumn as SortColumn) ?? 'commessa')
-      setSortDirection(persisted.sortDirection === 'desc' ? 'desc' : 'asc')
-      setSintesiFiltersForm(restoredFilters)
-      setSintesiRows(Array.isArray(persisted.rows) ? persisted.rows : [])
-      setSintesiSearched(Boolean(persisted.searched))
-      void loadSintesiFilters(token, activeImpersonation, currentProfile, restoredFilters.anni, 'commesse')
-      setStatusMessage('Lista commesse ripristinata dalla sessione.')
-      return
-    }
-
-    setSintesiRows([])
-    setSintesiSearched(false)
-    setCommessaSearch('')
-    setSortColumn('commessa')
-    setSortDirection('asc')
-    setSintesiFiltersForm(emptySintesiFiltersForm)
-    void loadSintesiFilters(token, activeImpersonation, currentProfile, [], 'commesse')
+    restoreSintesiStateForProfile({
+      activeImpersonation,
+      canAccessAnalisiCommesseMenu,
+      currentProfile,
+      emptySintesiFiltersForm,
+      loadSintesiFilters,
+      setActivePage,
+      setCommessaSearch,
+      setSintesiFiltersForm,
+      setSintesiMode,
+      setSintesiRows,
+      setSintesiSearched,
+      setSortColumn,
+      setSortDirection,
+      setStatusMessage,
+      sintesiMode,
+      token,
+      tryReadPersistedSintesiState,
+    })
   }, [token, activeImpersonation, currentProfile, canAccessAnalisiCommesseMenu])
 
   useEffect(() => {
@@ -6472,29 +4435,16 @@ function App() {
   ])
 
   useEffect(() => {
-    if (!token.trim() || !currentProfile || detailRouteProcessed) {
-      return
-    }
-
-    if (routeRequest.profile) {
-      const matchedProfile = profiles.find((profile) => (
-        profile.localeCompare(routeRequest.profile, 'it', { sensitivity: 'base' }) === 0
-      ))
-
-      if (matchedProfile && matchedProfile !== currentProfile) {
-        setSelectedProfile(matchedProfile)
-        return
-      }
-    }
-
-    if (routeRequest.page || routeRequest.commessa) {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('page')
-      url.searchParams.delete('commessa')
-      window.history.replaceState({}, document.title, url.toString())
-    }
-
-    setDetailRouteProcessed(true)
+    processDetailRouteRequest({
+      activeImpersonation,
+      currentProfile,
+      detailRouteProcessed,
+      profiles,
+      routeRequest,
+      setDetailRouteProcessed,
+      setSelectedProfile,
+      token,
+    })
   }, [
     token,
     currentProfile,
@@ -7099,10 +5049,12 @@ function App() {
         years.add(value.toString())
       }
     })
-    if (years.size === 0) {
-      const currentYear = new Date().getFullYear()
-      years.add(currentYear.toString())
-      years.add((currentYear - 1).toString())
+
+    const currentYear = new Date().getFullYear()
+    if (years.size < 2) {
+      for (let offset = 0; offset <= 5; offset += 1) {
+        years.add((currentYear - offset).toString())
+      }
     }
 
     return [...years].sort((left, right) => Number(right) - Number(left))
@@ -7161,10 +5113,12 @@ function App() {
         years.add(value.toString())
       }
     })
-    if (years.size === 0) {
-      const currentYear = new Date().getFullYear()
-      years.add(currentYear.toString())
-      years.add((currentYear - 1).toString())
+
+    const currentYear = new Date().getFullYear()
+    if (years.size < 2) {
+      for (let offset = 0; offset <= 5; offset += 1) {
+        years.add((currentYear - offset).toString())
+      }
     }
 
     return [...years].sort((left, right) => Number(right) - Number(left))
@@ -7251,10 +5205,12 @@ function App() {
         years.add(value.toString())
       }
     })
-    if (years.size === 0) {
-      const currentYear = new Date().getFullYear()
-      years.add(currentYear.toString())
-      years.add((currentYear - 1).toString())
+
+    const currentYear = new Date().getFullYear()
+    if (years.size < 2) {
+      for (let offset = 0; offset <= 5; offset += 1) {
+        years.add((currentYear - offset).toString())
+      }
     }
 
     return [...years].sort((left, right) => Number(right) - Number(left))
@@ -7584,6 +5540,76 @@ function App() {
     }
     return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [analisiDettaglioFatturatoData?.rccDisponibili, analisiDettaglioFatturatoData?.rccFiltro, analisiDettaglioFatturatoRcc, sintesiFiltersCatalog.rcc])
+  const analisiAlberoProiezioniRowsRaw = analisiAlberoProiezioniData?.items ?? []
+  const analisiAlberoProiezioniRows = useMemo(() => (
+    buildAnalisiAlberoProiezioniRows(analisiAlberoProiezioniRowsRaw)
+  ), [analisiAlberoProiezioniRowsRaw])
+  const analisiAlberoProiezioniAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const normalized = option.value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(analisiAlberoProiezioniData?.anni ?? []).forEach((year) => {
+      if (Number.isFinite(year) && year > 0) {
+        years.add(year.toString())
+      }
+    })
+    const selected = analisiAlberoProiezioniAnno.trim()
+    if (selected) {
+      years.add(selected)
+    }
+    if (years.size === 0) {
+      years.add(new Date().getFullYear().toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [analisiAlberoProiezioniAnno, analisiAlberoProiezioniData?.anni, sintesiFiltersCatalog.anni])
+  const analisiAlberoProiezioniRccOptions = useMemo(() => {
+    const values = new Set<string>()
+    sintesiFiltersCatalog.rcc.forEach((option) => {
+      const normalized = normalizeFilterText(option.value)
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    ;(analisiAlberoProiezioniData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    const selected = analisiAlberoProiezioniRcc.trim()
+    if (selected) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [analisiAlberoProiezioniData?.rccDisponibili, analisiAlberoProiezioniRcc, sintesiFiltersCatalog.rcc])
+  const analisiAlberoProiezioniBusinessUnitOptions = useMemo(() => {
+    const values = new Set<string>()
+    sintesiFiltersCatalog.businessUnits.forEach((option) => {
+      const normalized = normalizeFilterText(option.value)
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    ;(analisiAlberoProiezioniData?.businessUnitDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    const selected = analisiAlberoProiezioniBusinessUnit.trim()
+    if (selected) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [
+    analisiAlberoProiezioniBusinessUnit,
+    analisiAlberoProiezioniData?.businessUnitDisponibili,
+    sintesiFiltersCatalog.businessUnits,
+  ])
   const commesseAnomaleRowsRaw = commesseAnomaleData?.items ?? []
   const commesseAnomaleAnomaliaOptions = useMemo(() => {
     const values = new Set<string>()
@@ -7629,6 +5655,8 @@ function App() {
       return matchesAnomalia && matchesRcc
     })
   }, [commesseAnomaleFiltroAnomalia, commesseAnomaleFiltroRcc, commesseAnomaleRowsRaw])
+  const commesseAnomaleDataLoaded = commesseAnomaleData !== null
+  const commesseAnomaleRowsRawCount = commesseAnomaleRowsRaw.length
   const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
   const commesseAndamentoMensileTotals = useMemo(() => (
     commesseAndamentoMensileRows.reduce((acc, row) => ({
@@ -8583,7 +6611,6 @@ function App() {
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [previsioniFunnelData?.statiDocumentoDisponibili, previsioniFunnelStatoDocumento])
   const previsioniReportFunnelRccRows = previsioniReportFunnelRccData?.righe ?? []
-  const previsioniReportFunnelRccTotaliPerAnno = previsioniReportFunnelRccData?.totaliPerAnno ?? []
   const previsioniReportFunnelRccAnnoOptions = useMemo(() => {
     const years = new Set<string>()
     sintesiFiltersCatalog.anni.forEach((option) => {
@@ -8628,6 +6655,70 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [previsioniReportFunnelRccData?.aggregazioniDisponibili, previsioniReportFunnelRccData?.aggregazioneFiltro, previsioniReportFunnelRcc])
+  const previsioniReportFunnelRccTipoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelRccData?.tipiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    if (options.size === 0) {
+      previsioniReportFunnelRccRows.forEach((row) => {
+        const normalized = row.tipo.trim()
+        if (normalized) {
+          options.add(normalized)
+        }
+      })
+    }
+    const selected = previsioniReportFunnelRccTipo.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelRccData?.tipiDisponibili, previsioniReportFunnelRccRows, previsioniReportFunnelRccTipo])
+  const previsioniReportFunnelRccTipoDocumentoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelRccData?.tipiDocumentoDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    if (options.size === 0) {
+      previsioniReportFunnelRccRows.forEach((row) => {
+        const normalized = row.tipoDocumento.trim()
+        if (normalized) {
+          options.add(normalized)
+        }
+      })
+    }
+    const selected = previsioniReportFunnelRccTipoDocumento.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelRccData?.tipiDocumentoDisponibili, previsioniReportFunnelRccRows, previsioniReportFunnelRccTipoDocumento])
+  const previsioniReportFunnelRccPercentualeOptions = useMemo(() => {
+    const values = new Set<number>()
+    ;(previsioniReportFunnelRccData?.percentualiSuccessoDisponibili ?? []).forEach((value) => {
+      if (Number.isFinite(value)) {
+        values.add(value)
+      }
+    })
+    if (values.size === 0) {
+      previsioniReportFunnelRccRows.forEach((row) => {
+        if (Number.isFinite(row.percentualeSuccesso)) {
+          values.add(row.percentualeSuccesso)
+        }
+      })
+    }
+    const selected = Number.parseFloat(previsioniReportFunnelRccPercentuale.trim().replace(',', '.'))
+    if (Number.isFinite(selected)) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left - right)
+  }, [previsioniReportFunnelRccData?.percentualiSuccessoDisponibili, previsioniReportFunnelRccRows, previsioniReportFunnelRccPercentuale])
   const previsioniReportFunnelRccAnnoSelezionato = previsioniReportFunnelRccAnni[0]?.trim()
     || new Date().getFullYear().toString()
   const previsioniReportFunnelBuRows = previsioniReportFunnelBuData?.righe ?? []
@@ -8696,249 +6787,89 @@ function App() {
   }, [previsioniReportFunnelBuData?.rccDisponibili, previsioniReportFunnelBuData?.rccFiltro, previsioniReportFunnelBuRcc])
   const previsioniReportFunnelBuAnnoSelezionato = previsioniReportFunnelBuAnni[0]?.trim()
     || new Date().getFullYear().toString()
-
-  const buildPrevisioniReportFunnelPivotRows = (rows: AnalisiRccPivotFunnelRow[]) => {
-    type PercentBucket = {
-      percentualeSuccesso: number
-      numeroProtocolli: number
-      totaleBudgetRicavo: number
-      totaleBudgetCosti: number
-      totaleFatturatoFuturo: number
-      totaleEmessaAnno: number
-      totaleFuturaAnno: number
-      totaleRicaviComplessivi: number
-    }
-    type TipoBucket = {
-      tipo: string
-      numeroProtocolli: number
-      totaleBudgetRicavo: number
-      totaleBudgetCosti: number
-      totaleFatturatoFuturo: number
-      totaleEmessaAnno: number
-      totaleFuturaAnno: number
-      totaleRicaviComplessivi: number
-      percentuali: Map<string, PercentBucket>
-    }
-    type AggregazioneBucket = {
-      anno: number
-      aggregazione: string
-      numeroProtocolli: number
-      totaleBudgetRicavo: number
-      totaleBudgetCosti: number
-      totaleFatturatoFuturo: number
-      totaleEmessaAnno: number
-      totaleFuturaAnno: number
-      totaleRicaviComplessivi: number
-      tipi: Map<string, TipoBucket>
-    }
-
-    const keyOf = (value: string) => value.trim().toUpperCase()
-    const percentKeyOf = (value: number) => (
-      Number.isFinite(value) ? value.toFixed(6) : '0.000000'
-    )
-
-    const grouped = new Map<string, AggregazioneBucket>()
-    rows.forEach((row) => {
-      const anno = Number.isFinite(row.anno) ? row.anno : 0
-      const aggregazione = row.aggregazione.trim() || '-'
-      const tipo = row.tipo.trim() || '-'
-      const percentualeSuccesso = Number.isFinite(row.percentualeSuccesso) ? row.percentualeSuccesso : 0
-      const numeroProtocolli = Number.isFinite(row.numeroProtocolli) ? row.numeroProtocolli : 0
-
-      const aggregazioneMapKey = `${anno}|${keyOf(aggregazione)}`
-      let aggregazioneBucket = grouped.get(aggregazioneMapKey)
-      if (!aggregazioneBucket) {
-        aggregazioneBucket = {
-          anno,
-          aggregazione,
-          numeroProtocolli: 0,
-          totaleBudgetRicavo: 0,
-          totaleBudgetCosti: 0,
-          totaleFatturatoFuturo: 0,
-          totaleEmessaAnno: 0,
-          totaleFuturaAnno: 0,
-          totaleRicaviComplessivi: 0,
-          tipi: new Map<string, TipoBucket>(),
-        }
-        grouped.set(aggregazioneMapKey, aggregazioneBucket)
-      }
-
-      aggregazioneBucket.numeroProtocolli += numeroProtocolli
-      aggregazioneBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
-      aggregazioneBucket.totaleBudgetCosti += row.totaleBudgetCosti
-      aggregazioneBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
-      aggregazioneBucket.totaleEmessaAnno += row.totaleEmessaAnno
-      aggregazioneBucket.totaleFuturaAnno += row.totaleFuturaAnno
-      aggregazioneBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
-
-      const tipoMapKey = keyOf(tipo)
-      let tipoBucket = aggregazioneBucket.tipi.get(tipoMapKey)
-      if (!tipoBucket) {
-        tipoBucket = {
-          tipo,
-          numeroProtocolli: 0,
-          totaleBudgetRicavo: 0,
-          totaleBudgetCosti: 0,
-          totaleFatturatoFuturo: 0,
-          totaleEmessaAnno: 0,
-          totaleFuturaAnno: 0,
-          totaleRicaviComplessivi: 0,
-          percentuali: new Map<string, PercentBucket>(),
-        }
-        aggregazioneBucket.tipi.set(tipoMapKey, tipoBucket)
-      }
-
-      tipoBucket.numeroProtocolli += numeroProtocolli
-      tipoBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
-      tipoBucket.totaleBudgetCosti += row.totaleBudgetCosti
-      tipoBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
-      tipoBucket.totaleEmessaAnno += row.totaleEmessaAnno
-      tipoBucket.totaleFuturaAnno += row.totaleFuturaAnno
-      tipoBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
-
-      const percentMapKey = percentKeyOf(percentualeSuccesso)
-      let percentBucket = tipoBucket.percentuali.get(percentMapKey)
-      if (!percentBucket) {
-        percentBucket = {
-          percentualeSuccesso,
-          numeroProtocolli: 0,
-          totaleBudgetRicavo: 0,
-          totaleBudgetCosti: 0,
-          totaleFatturatoFuturo: 0,
-          totaleEmessaAnno: 0,
-          totaleFuturaAnno: 0,
-          totaleRicaviComplessivi: 0,
-        }
-        tipoBucket.percentuali.set(percentMapKey, percentBucket)
-      }
-
-      percentBucket.numeroProtocolli += numeroProtocolli
-      percentBucket.totaleBudgetRicavo += row.totaleBudgetRicavo
-      percentBucket.totaleBudgetCosti += row.totaleBudgetCosti
-      percentBucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
-      percentBucket.totaleEmessaAnno += row.totaleEmessaAnno
-      percentBucket.totaleFuturaAnno += row.totaleFuturaAnno
-      percentBucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+  const previsioniReportFunnelRccRowsFiltered = useMemo(() => {
+    const selectedTipo = previsioniReportFunnelRccTipo.trim()
+    const selectedPercentRaw = previsioniReportFunnelRccPercentuale.trim()
+    const selectedPercent = selectedPercentRaw.length > 0
+      ? Number.parseFloat(selectedPercentRaw.replace(',', '.'))
+      : null
+    return previsioniReportFunnelRccRows.filter((row) => {
+      const matchesTipo = selectedTipo.length === 0
+        || row.tipo.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0
+      const matchesPercent = selectedPercent === null
+        || (Number.isFinite(selectedPercent) && Math.abs(row.percentualeSuccesso - selectedPercent) < 0.0001)
+      return matchesTipo && matchesPercent
     })
-
-    const formatPercentLabel = (value: number) => {
-      if (!Number.isFinite(value)) {
-        return '-'
-      }
-      if (Math.abs(value - Math.round(value)) < 0.0001) {
-        return `${Math.round(value)}`
-      }
-      return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    }
-
-    const result: Array<{
-      key: string
-      anno: number
-      livello: 0 | 1 | 2
-      etichetta: string
-      percentualeSuccesso: number
-      numeroProtocolli: number
-      totaleBudgetRicavo: number
-      totaleBudgetCosti: number
-      totaleFatturatoFuturo: number
-      totaleEmessaAnno: number
-      totaleFuturaAnno: number
-      totaleRicaviComplessivi: number
-    }> = []
-
-    const sortedAggregazioni = [...grouped.values()].sort((left, right) => (
-      left.anno - right.anno ||
-      left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
-    ))
-    sortedAggregazioni.forEach((aggregazioneBucket) => {
-      result.push({
-        key: `agg-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}`,
-        anno: aggregazioneBucket.anno,
-        livello: 0,
-        etichetta: aggregazioneBucket.aggregazione,
-        percentualeSuccesso: 0,
-        numeroProtocolli: aggregazioneBucket.numeroProtocolli,
-        totaleBudgetRicavo: aggregazioneBucket.totaleBudgetRicavo,
-        totaleBudgetCosti: aggregazioneBucket.totaleBudgetCosti,
-        totaleFatturatoFuturo: aggregazioneBucket.totaleFatturatoFuturo,
-        totaleEmessaAnno: aggregazioneBucket.totaleEmessaAnno,
-        totaleFuturaAnno: aggregazioneBucket.totaleFuturaAnno,
-        totaleRicaviComplessivi: aggregazioneBucket.totaleRicaviComplessivi,
-      })
-
-      const sortedTipi = [...aggregazioneBucket.tipi.values()].sort((left, right) => (
-        left.tipo.localeCompare(right.tipo, 'it', { sensitivity: 'base' })
-      ))
-      sortedTipi.forEach((tipoBucket) => {
-        result.push({
-          key: `tipo-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}-${tipoBucket.tipo}`,
-          anno: aggregazioneBucket.anno,
-          livello: 1,
-          etichetta: tipoBucket.tipo,
-          percentualeSuccesso: 0,
-          numeroProtocolli: tipoBucket.numeroProtocolli,
-          totaleBudgetRicavo: tipoBucket.totaleBudgetRicavo,
-          totaleBudgetCosti: tipoBucket.totaleBudgetCosti,
-          totaleFatturatoFuturo: tipoBucket.totaleFatturatoFuturo,
-          totaleEmessaAnno: tipoBucket.totaleEmessaAnno,
-          totaleFuturaAnno: tipoBucket.totaleFuturaAnno,
-          totaleRicaviComplessivi: tipoBucket.totaleRicaviComplessivi,
-        })
-
-        const sortedPercentuali = [...tipoBucket.percentuali.values()].sort((left, right) => (
-          left.percentualeSuccesso - right.percentualeSuccesso
-        ))
-        sortedPercentuali.forEach((percentBucket) => {
-          result.push({
-            key: `pct-${aggregazioneBucket.anno}-${aggregazioneBucket.aggregazione}-${tipoBucket.tipo}-${percentBucket.percentualeSuccesso}`,
-            anno: aggregazioneBucket.anno,
-            livello: 2,
-            etichetta: formatPercentLabel(percentBucket.percentualeSuccesso),
-            percentualeSuccesso: percentBucket.percentualeSuccesso,
-            numeroProtocolli: percentBucket.numeroProtocolli,
-            totaleBudgetRicavo: percentBucket.totaleBudgetRicavo,
-            totaleBudgetCosti: percentBucket.totaleBudgetCosti,
-            totaleFatturatoFuturo: percentBucket.totaleFatturatoFuturo,
-            totaleEmessaAnno: percentBucket.totaleEmessaAnno,
-            totaleFuturaAnno: percentBucket.totaleFuturaAnno,
-            totaleRicaviComplessivi: percentBucket.totaleRicaviComplessivi,
-          })
-        })
-      })
-    })
-
-    return result
-  }
-
+  }, [previsioniReportFunnelRccPercentuale, previsioniReportFunnelRccRows, previsioniReportFunnelRccTipo])
   const previsioniReportFunnelRccPivotRows = useMemo(
-    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelRccRows),
-    [previsioniReportFunnelRccRows],
+    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelRccRowsFiltered),
+    [previsioniReportFunnelRccRowsFiltered],
   )
+  const previsioniReportFunnelRccTotaliPerAnno = useMemo(() => {
+    if (previsioniReportFunnelRccRowsFiltered.length === 0) {
+      return []
+    }
+    const grouped = new Map<number, {
+      anno: number
+      numeroProtocolli: number
+      percentualeSuccessoNumeratore: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleFuturaAnno: number
+      totaleEmessaAnno: number
+      totaleRicaviComplessivi: number
+    }>()
 
+    previsioniReportFunnelRccRowsFiltered.forEach((row) => {
+      const bucket = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numeroProtocolli: 0,
+        percentualeSuccessoNumeratore: 0,
+        totaleBudgetRicavo: 0,
+        totaleBudgetCosti: 0,
+        totaleFatturatoFuturo: 0,
+        totaleFuturaAnno: 0,
+        totaleEmessaAnno: 0,
+        totaleRicaviComplessivi: 0,
+      }
+
+      bucket.numeroProtocolli += row.numeroProtocolli
+      bucket.percentualeSuccessoNumeratore += row.percentualeSuccesso * row.numeroProtocolli
+      bucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      bucket.totaleBudgetCosti += row.totaleBudgetCosti
+      bucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      bucket.totaleFuturaAnno += row.totaleFuturaAnno
+      bucket.totaleEmessaAnno += row.totaleEmessaAnno
+      bucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+      grouped.set(row.anno, bucket)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        anno: row.anno,
+        numeroProtocolli: row.numeroProtocolli,
+        percentualeSuccesso: row.numeroProtocolli > 0
+          ? row.percentualeSuccessoNumeratore / row.numeroProtocolli
+          : 0,
+        totaleBudgetRicavo: row.totaleBudgetRicavo,
+        totaleBudgetCosti: row.totaleBudgetCosti,
+        totaleFatturatoFuturo: row.totaleFatturatoFuturo,
+        totaleFuturaAnno: row.totaleFuturaAnno,
+        totaleEmessaAnno: row.totaleEmessaAnno,
+        totaleRicaviComplessivi: row.totaleRicaviComplessivi,
+      }))
+  }, [previsioniReportFunnelRccRowsFiltered])
   const previsioniReportFunnelBuPivotRows = useMemo(
     () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelBuRows),
     [previsioniReportFunnelBuRows],
   )
-  const buildPrevisioniReportFunnelTotaliDettaglioRows = (rows: AnalisiRccPivotFunnelRow[]) => (
-    buildPrevisioniReportFunnelPivotRows(
-      rows.map((row) => ({
-        ...row,
-        aggregazione: 'Totale complessivo',
-      })),
-    )
-  )
-  const countPrevisioniReportFunnelAggregazioni = (rows: AnalisiRccPivotFunnelRow[]) => (
-    new Set(
-      rows
-        .map((row) => `${row.anno}|${row.aggregazione.trim().toUpperCase()}`)
-        .filter((value) => !value.endsWith('|')),
-    ).size
-  )
   const previsioniReportFunnelRccHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelRccRows) > 1
   const previsioniReportFunnelBuHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelBuRows) > 1
   const previsioniReportFunnelRccTotaliDettaglioRows = useMemo(
-    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelRccRows),
-    [previsioniReportFunnelRccRows],
+    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelRccRowsFiltered),
+    [previsioniReportFunnelRccRowsFiltered],
   )
   const previsioniReportFunnelBuTotaliDettaglioRows = useMemo(
     () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelBuRows),
@@ -9040,294 +6971,6 @@ function App() {
   const processoOffertaPercentualeAggregazioneOptions = isProcessoOffertaPercentualeSuccessoRccPage
     ? processoOffertaPercentualeRccOptions
     : processoOffertaPercentualeBuOptions
-
-  const calculateProcessoOffertaRicarico = (ricavo: number, costo: number) => (
-    costo === 0 ? 0 : (ricavo - costo) / costo
-  )
-  const buildSuccessCategory = (ricavo: number, costo: number): ProcessoOffertaSuccessoCategoria => ({
-    ricavo,
-    costo,
-    margine: ricavo - costo,
-    ricarico: calculateProcessoOffertaRicarico(ricavo, costo),
-  })
-
-  const buildSuccessoSintesiCategoria = (
-    numero: number,
-    importo: number,
-    totaleNumero: number,
-    totaleImporto: number,
-  ): ProcessoOffertaSuccessoSintesiCategoria => ({
-    numero,
-    importo,
-    percentualeNumero: totaleNumero > 0 ? (numero / totaleNumero) : 0,
-    percentualeImporto: totaleImporto !== 0 ? (importo / totaleImporto) : 0,
-  })
-
-  const buildProcessoOffertaSuccessoSintesiRows = (
-    rows: ProcessoOffertaSintesiRow[],
-    selectedAggregazione: string,
-  ): ProcessoOffertaSuccessoSintesiRow[] => {
-    const normalizedSelectedAggregazione = selectedAggregazione.trim()
-    const grouped = new Map<string, {
-      anno: number
-      aggregazione: string
-      negativoNumero: number
-      negativoImporto: number
-      nonDefinitoNumero: number
-      nonDefinitoImporto: number
-      positivoNumero: number
-      positivoImporto: number
-    }>()
-
-    rows.forEach((row) => {
-      if (
-        normalizedSelectedAggregazione.length > 0 &&
-        row.aggregazione.localeCompare(normalizedSelectedAggregazione, 'it', { sensitivity: 'base' }) !== 0
-      ) {
-        return
-      }
-
-      const key = `${row.anno}||${row.aggregazione}`
-      const current = grouped.get(key) ?? {
-        anno: row.anno,
-        aggregazione: row.aggregazione,
-        negativoNumero: 0,
-        negativoImporto: 0,
-        nonDefinitoNumero: 0,
-        nonDefinitoImporto: 0,
-        positivoNumero: 0,
-        positivoImporto: 0,
-      }
-
-      const bucket = getProcessoOffertaEsitoBucket(row.esitoPositivoTesto)
-      if (bucket === 'positivo') {
-        current.positivoNumero += row.numero
-        current.positivoImporto += row.importoPrevedibile
-      } else if (bucket === 'negativo') {
-        current.negativoNumero += row.numero
-        current.negativoImporto += row.importoPrevedibile
-      } else {
-        current.nonDefinitoNumero += row.numero
-        current.nonDefinitoImporto += row.importoPrevedibile
-      }
-
-      grouped.set(key, current)
-    })
-
-    return [...grouped.values()]
-      .sort((left, right) => {
-        if (left.anno !== right.anno) {
-          return left.anno - right.anno
-        }
-        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
-      })
-      .map((row) => {
-        const totaleNumero = row.negativoNumero + row.nonDefinitoNumero + row.positivoNumero
-        const totaleImporto = row.negativoImporto + row.nonDefinitoImporto + row.positivoImporto
-        return {
-          anno: row.anno,
-          aggregazione: row.aggregazione,
-          negativo: buildSuccessoSintesiCategoria(row.negativoNumero, row.negativoImporto, totaleNumero, totaleImporto),
-          nonDefinito: buildSuccessoSintesiCategoria(row.nonDefinitoNumero, row.nonDefinitoImporto, totaleNumero, totaleImporto),
-          positivo: buildSuccessoSintesiCategoria(row.positivoNumero, row.positivoImporto, totaleNumero, totaleImporto),
-          totaleNumero,
-          totaleImporto,
-        }
-      })
-  }
-
-  const buildProcessoOffertaSuccessoSintesiTotale = (
-    rows: ProcessoOffertaSuccessoSintesiRow[],
-  ): ProcessoOffertaSuccessoSintesiRow => {
-    const totals = rows.reduce((acc, row) => ({
-      negativoNumero: acc.negativoNumero + row.negativo.numero,
-      negativoImporto: acc.negativoImporto + row.negativo.importo,
-      nonDefinitoNumero: acc.nonDefinitoNumero + row.nonDefinito.numero,
-      nonDefinitoImporto: acc.nonDefinitoImporto + row.nonDefinito.importo,
-      positivoNumero: acc.positivoNumero + row.positivo.numero,
-      positivoImporto: acc.positivoImporto + row.positivo.importo,
-    }), {
-      negativoNumero: 0,
-      negativoImporto: 0,
-      nonDefinitoNumero: 0,
-      nonDefinitoImporto: 0,
-      positivoNumero: 0,
-      positivoImporto: 0,
-    })
-
-    const totaleNumero = totals.negativoNumero + totals.nonDefinitoNumero + totals.positivoNumero
-    const totaleImporto = totals.negativoImporto + totals.nonDefinitoImporto + totals.positivoImporto
-
-    return {
-      anno: 0,
-      aggregazione: '',
-      negativo: buildSuccessoSintesiCategoria(totals.negativoNumero, totals.negativoImporto, totaleNumero, totaleImporto),
-      nonDefinito: buildSuccessoSintesiCategoria(totals.nonDefinitoNumero, totals.nonDefinitoImporto, totaleNumero, totaleImporto),
-      positivo: buildSuccessoSintesiCategoria(totals.positivoNumero, totals.positivoImporto, totaleNumero, totaleImporto),
-      totaleNumero,
-      totaleImporto,
-    }
-  }
-
-  const buildProcessoOffertaSuccessoRows = (
-    rows: ProcessoOffertaSintesiRow[],
-    selectedAggregazione: string,
-  ): ProcessoOffertaSuccessoReportRow[] => {
-    const normalizedSelectedAggregazione = selectedAggregazione.trim()
-    const grouped = new Map<string, {
-      anno: number
-      aggregazione: string
-      negativoRicavo: number
-      negativoCosto: number
-      nonDefinitoRicavo: number
-      nonDefinitoCosto: number
-      positivoRicavo: number
-      positivoCosto: number
-    }>()
-
-    rows.forEach((row) => {
-      if (
-        normalizedSelectedAggregazione.length > 0 &&
-        row.aggregazione.localeCompare(normalizedSelectedAggregazione, 'it', { sensitivity: 'base' }) !== 0
-      ) {
-        return
-      }
-
-      const key = `${row.anno}||${row.aggregazione}`
-      const current = grouped.get(key) ?? {
-        anno: row.anno,
-        aggregazione: row.aggregazione,
-        negativoRicavo: 0,
-        negativoCosto: 0,
-        nonDefinitoRicavo: 0,
-        nonDefinitoCosto: 0,
-        positivoRicavo: 0,
-        positivoCosto: 0,
-      }
-
-      const bucket = getProcessoOffertaEsitoBucket(row.esitoPositivoTesto)
-      if (bucket === 'positivo') {
-        current.positivoRicavo += row.importoPrevedibile
-        current.positivoCosto += row.costoPrevedibile
-      } else if (bucket === 'negativo') {
-        current.negativoRicavo += row.importoPrevedibile
-        current.negativoCosto += row.costoPrevedibile
-      } else {
-        current.nonDefinitoRicavo += row.importoPrevedibile
-        current.nonDefinitoCosto += row.costoPrevedibile
-      }
-
-      grouped.set(key, current)
-    })
-
-    return [...grouped.values()]
-      .sort((left, right) => {
-        if (left.anno !== right.anno) {
-          return left.anno - right.anno
-        }
-        return left.aggregazione.localeCompare(right.aggregazione, 'it', { sensitivity: 'base' })
-      })
-      .map((row) => {
-        const negativo = buildSuccessCategory(row.negativoRicavo, row.negativoCosto)
-        const nonDefinito = buildSuccessCategory(row.nonDefinitoRicavo, row.nonDefinitoCosto)
-        const positivo = buildSuccessCategory(row.positivoRicavo, row.positivoCosto)
-        const totale = buildSuccessCategory(
-          negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
-          negativo.costo + nonDefinito.costo + positivo.costo,
-        )
-
-        return {
-          anno: row.anno,
-          aggregazione: row.aggregazione,
-          negativo,
-          nonDefinito,
-          positivo,
-          totale,
-        }
-      })
-  }
-
-  const buildProcessoOffertaSuccessoTotaliPerAnno = (
-    rows: ProcessoOffertaSuccessoReportRow[],
-  ): ProcessoOffertaSuccessoReportTotaleAnno[] => {
-    const grouped = new Map<number, {
-      anno: number
-      negativoRicavo: number
-      negativoCosto: number
-      nonDefinitoRicavo: number
-      nonDefinitoCosto: number
-      positivoRicavo: number
-      positivoCosto: number
-    }>()
-
-    rows.forEach((row) => {
-      const current = grouped.get(row.anno) ?? {
-        anno: row.anno,
-        negativoRicavo: 0,
-        negativoCosto: 0,
-        nonDefinitoRicavo: 0,
-        nonDefinitoCosto: 0,
-        positivoRicavo: 0,
-        positivoCosto: 0,
-      }
-      current.negativoRicavo += row.negativo.ricavo
-      current.negativoCosto += row.negativo.costo
-      current.nonDefinitoRicavo += row.nonDefinito.ricavo
-      current.nonDefinitoCosto += row.nonDefinito.costo
-      current.positivoRicavo += row.positivo.ricavo
-      current.positivoCosto += row.positivo.costo
-      grouped.set(row.anno, current)
-    })
-
-    return [...grouped.values()]
-      .sort((left, right) => left.anno - right.anno)
-      .map((row) => {
-        const negativo = buildSuccessCategory(row.negativoRicavo, row.negativoCosto)
-        const nonDefinito = buildSuccessCategory(row.nonDefinitoRicavo, row.nonDefinitoCosto)
-        const positivo = buildSuccessCategory(row.positivoRicavo, row.positivoCosto)
-        const totale = buildSuccessCategory(
-          negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
-          negativo.costo + nonDefinito.costo + positivo.costo,
-        )
-        return {
-          anno: row.anno,
-          negativo,
-          nonDefinito,
-          positivo,
-          totale,
-        }
-      })
-  }
-
-  const buildProcessoOffertaSuccessoTotaleComplessivo = (
-    rows: ProcessoOffertaSuccessoReportRow[],
-  ): ProcessoOffertaSuccessoCategoria[] => {
-    const totals = rows.reduce((acc, row) => ({
-      negativoRicavo: acc.negativoRicavo + row.negativo.ricavo,
-      negativoCosto: acc.negativoCosto + row.negativo.costo,
-      nonDefinitoRicavo: acc.nonDefinitoRicavo + row.nonDefinito.ricavo,
-      nonDefinitoCosto: acc.nonDefinitoCosto + row.nonDefinito.costo,
-      positivoRicavo: acc.positivoRicavo + row.positivo.ricavo,
-      positivoCosto: acc.positivoCosto + row.positivo.costo,
-    }), {
-      negativoRicavo: 0,
-      negativoCosto: 0,
-      nonDefinitoRicavo: 0,
-      nonDefinitoCosto: 0,
-      positivoRicavo: 0,
-      positivoCosto: 0,
-    })
-
-    const negativo = buildSuccessCategory(totals.negativoRicavo, totals.negativoCosto)
-    const nonDefinito = buildSuccessCategory(totals.nonDefinitoRicavo, totals.nonDefinitoCosto)
-    const positivo = buildSuccessCategory(totals.positivoRicavo, totals.positivoCosto)
-    const totale = buildSuccessCategory(
-      negativo.ricavo + nonDefinito.ricavo + positivo.ricavo,
-      negativo.costo + nonDefinito.costo + positivo.costo,
-    )
-
-    return [negativo, nonDefinito, positivo, totale]
-  }
 
   const processoOffertaSuccessoRccRows = useMemo(
     () => buildProcessoOffertaSuccessoRows(processoOffertaSintesiRccRows, processoOffertaPercentualeRcc),
@@ -9695,8 +7338,8 @@ function App() {
     setDetailAcquistiDateSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
   }
 
-  const detailVenditeDateSortIndicator = detailVenditeDateSortDirection === 'asc' ? '↑' : '↓'
-  const detailAcquistiDateSortIndicator = detailAcquistiDateSortDirection === 'asc' ? '↑' : '↓'
+  const detailVenditeDateSortIndicator = detailVenditeDateSortDirection === 'asc' ? '?' : '?'
+  const detailAcquistiDateSortIndicator = detailAcquistiDateSortDirection === 'asc' ? '?' : '?'
 
   const detailVenditeTotaleImporto = useMemo(
     () => detailVenditeSorted.reduce((total, row) => total + row.importo, 0),
@@ -10311,6 +7954,9 @@ function App() {
                                     activePage === 'analisi-piano-fatturazione'
                                       ? analisiPianoFatturazioneRows.length
                                       : (
+                                        activePage === 'analisi-albero-proiezioni'
+                                          ? analisiAlberoProiezioniRows.length
+                                          : (
                                         activePage === 'analisi-dettaglio-fatturato'
                                           ? analisiDettaglioFatturatoRows.length
                                           : (
@@ -10332,14 +7978,15 @@ function App() {
                                                         isProcessoOffertaPage
                                                           ? processoOffertaRowsCount
                                                           : 0
-                                                      )
-                                                  )
                                               )
                                           )
                                       )
                                           )
-                                      )
                                   )
+                              )
+                          )
+                      )
+                  )
                               )
                           )
                       )
@@ -11420,6 +9067,22 @@ function App() {
         filenamePrefix = 'AnalisiProiezioni_PianoFatturazione'
         break
       }
+      case 'analisi-albero-proiezioni': {
+        appendSheet(analisiAlberoProiezioniRows.map((row) => ({
+          Livello: row.livello,
+          Anno: row.anno,
+          RCC: row.rcc,
+          BU: row.businessUnit,
+          Cliente: row.cliente,
+          Commessa: row.commessa,
+          Fatturato: row.fatturato,
+          FatturatoFuturo: row.fatturatoFuturo,
+          Totale: row.totale,
+          RicavoIpotetico: row.ricavoIpotetico,
+        })), 'AlberoProiezioni')
+        filenamePrefix = 'AnalisiProiezioni_AlberoProiezioni'
+        break
+      }
       case 'analisi-dettaglio-fatturato': {
         appendSheet(analisiDettaglioFatturatoRows.map((row) => ({
           Anno: row.anno,
@@ -11479,7 +9142,8 @@ function App() {
         appendSheet(previsioniReportFunnelRccPivotRows.map((row) => ({
           Anno: row.anno,
           Livello: row.livello,
-          Etichetta: row.etichetta,
+          RCC: row.aggregazione,
+          Tipo: row.tipo,
           PercentualeSuccesso: row.percentualeSuccesso,
           NumeroProtocolli: row.numeroProtocolli,
           BudgetRicavo: row.totaleBudgetRicavo,
@@ -11898,18 +9562,31 @@ function App() {
     canAccessPrevisioniUtileMensileBuPage,
     canAccessPrevisioniUtileMensileRccPage,
     canAccessRisultatiRisorseMenu,
+    canAccessProcessoOffertaPage,
     canExportAnalisiPage,
     canSelectPrevisioniUtileMensileBu,
     canSelectPrevisioniUtileMensileRcc,
     currentProfile,
     asRisorsePivotFieldKeys,
     exportAnalisiExcel,
+    formatDate,
     formatAnalisiRccPercent,
     formatCurrency,
     formatNumber,
+    formatPercentRatio,
+    formatPercentValue,
     formatPercentRatioUnbounded,
     formatReferenceMonthLabel,
     handleAnalisiSubmit,
+    isProcessoOffertaPage,
+    isProcessoOffertaIncidenzaBuPage,
+    isProcessoOffertaIncidenzaRccPage,
+    isProcessoOffertaOffertePage,
+    isProcessoOffertaPercentualeSuccessoBuPage,
+    isProcessoOffertaPercentualeSuccessoRccPage,
+    isProcessoOffertaSintesiBuPage,
+    isProcessoOffertaSintesiRccPage,
+    isRisorsePage,
     isRisorseMensilePage,
     isRisorseOuMode,
     isRisorsePivotPage,
@@ -11934,6 +9611,9 @@ function App() {
     previsioniReportFunnelRccAnnoSelezionato,
     previsioniReportFunnelRccHasMultipleAggregazioni,
     previsioniReportFunnelRccOptions,
+    previsioniReportFunnelRccPercentualeOptions,
+    previsioniReportFunnelRccTipoDocumentoOptions,
+    previsioniReportFunnelRccTipoOptions,
     previsioniReportFunnelRccTotaliDettaglioRows,
     previsioniUtileMensileBu,
     previsioniUtileMensileBuAnno,
@@ -11956,16 +9636,29 @@ function App() {
     previsioniUtileMensileRccRows,
     previsioniUtileMensileRccTotaliPerAnno,
     processoOffertaAggregazioneLabel,
+    processoOffertaAnni,
     processoOffertaAnnoOptions,
     processoOffertaCountLabel,
+    processoOffertaCurrentData,
+    processoOffertaEsiti,
     processoOffertaEsitiOptions,
+    processoOffertaIncidenzaRows,
+    processoOffertaIncidenzaTotaliPerAnno,
+    processoOffertaOfferteRows,
+    processoOffertaOfferteTotals,
     processoOffertaPercentualeAggregazioneOptions,
     processoOffertaPercentualeSelectedAggregazione,
+    processoOffertaSintesiRicaricoTotale,
+    processoOffertaSintesiRows,
+    processoOffertaSintesiTotals,
+    processoOffertaSuccessoRows,
+    processoOffertaSuccessoSintesiRows,
     processoOffertaSuccessoSintesiTotale,
     processoOffertaSuccessoTotale,
     processoOffertaSuccessoTotaleNegativo,
     processoOffertaSuccessoTotaleNonDefinito,
     processoOffertaSuccessoTotalePositivo,
+    processoOffertaSuccessoTotaliPerAnno,
     processoOffertaTitle,
     processoOffertaVisibilityMessage,
     refreshRisorseFilters,
@@ -12008,8 +9701,212 @@ function App() {
     setPrevisioniUtileMensileRccAnno,
     setPrevisioniUtileMensileRccMeseRiferimento,
     setPrevisioniUtileMensileRccProduzione,
+    setProcessoOffertaAnni,
+    setProcessoOffertaEsiti,
+    setProcessoOffertaPercentualeBu,
+    setProcessoOffertaPercentualeRcc,
     statusMessageVisible,
     toggleAnalisiSearchCollapsed,
+  } as const
+  const analisiCommessePageProps = {
+    ...remainingPagesProps,
+    addCommesseDatiAnnualiSelectedFields,
+    annoOptions,
+    areAllProductsCollapsed,
+    asDatiAnnualiPivotFieldKeys,
+    attiveDalAnnoOptions,
+    backToSintesi,
+    calculateUtileFineProgetto,
+    collapseAllProducts,
+    commessaOptions,
+    commessaSearch,
+    commesseAndamentoMensileAggrega,
+    commesseAndamentoMensileAnni,
+    commesseAndamentoMensileAnnoOptions,
+    commesseAndamentoMensileBusinessUnit,
+    commesseAndamentoMensileBusinessUnitOptions,
+    commesseAndamentoMensileCommessa,
+    commesseAndamentoMensileCommessaOptions,
+    commesseAndamentoMensileCommessaSearch,
+    commesseAndamentoMensileControparte,
+    commesseAndamentoMensileControparteOptions,
+    commesseAndamentoMensileData,
+    commesseAndamentoMensileMacroTipologia,
+    commesseAndamentoMensileMacroTipologiaOptions,
+    commesseAndamentoMensileMese,
+    commesseAndamentoMensileMeseOptions,
+    commesseAndamentoMensilePm,
+    commesseAndamentoMensilePmSelectItems,
+    commesseAndamentoMensileRcc,
+    commesseAndamentoMensileRccSelectItems,
+    commesseAndamentoMensileRows,
+    commesseAndamentoMensileStato,
+    commesseAndamentoMensileStatoOptions,
+    commesseAndamentoMensileTipologia,
+    commesseAndamentoMensileTipologiaOptions,
+    commesseAndamentoMensileTotals,
+    commesseAnomaleAnomaliaOptions,
+    commesseAnomaleDataLoaded,
+    commesseAnomaleFiltroAnomalia,
+    commesseAnomaleFiltroRcc,
+    commesseAnomaleRccOptions,
+    commesseAnomaleRows,
+    commesseAnomaleRowsRawCount,
+    commesseDatiAnnualiAnni,
+    commesseDatiAnnualiAnnoOptions,
+    commesseDatiAnnualiAvailableFieldOptions,
+    commesseDatiAnnualiAvailableSelection,
+    commesseDatiAnnualiBusinessUnit,
+    commesseDatiAnnualiBusinessUnitOptions,
+    commesseDatiAnnualiColonneAggregazione,
+    commesseDatiAnnualiData,
+    commesseDatiAnnualiFiltersCollapsed,
+    commesseDatiAnnualiMacroTipologiaOptions,
+    commesseDatiAnnualiMacroTipologie,
+    commesseDatiAnnualiPivotRows,
+    commesseDatiAnnualiPm,
+    commesseDatiAnnualiPmOptions,
+    commesseDatiAnnualiRcc,
+    commesseDatiAnnualiRccOptions,
+    commesseDatiAnnualiSelectedFieldOptions,
+    commesseDatiAnnualiSelectedSelection,
+    commesseDatiAnnualiTipologia,
+    commesseDatiAnnualiTipologiaOptions,
+    commesseDatiAnnualiUseAggregationColumns,
+    datiContabiliAcquistoSearched,
+    datiContabiliAcquistoSortedRows,
+    datiContabiliCountLabel,
+    datiContabiliLoading,
+    datiContabiliProvenienzaOptions,
+    datiContabiliVenditaSearched,
+    datiContabiliVenditaSortedRows,
+    detailAcquistiDateSortIndicator,
+    detailAcquistiSorted,
+    detailAcquistiTotaleImporto,
+    detailActiveTab,
+    detailAnagrafica,
+    detailAvanzamentoStorico,
+    detailCommessa,
+    detailConsuntivoMesePrecedente,
+    detailCostiFuturiAggregati,
+    detailCostiPassatiRiconciliati,
+    detailCostoPersonaleFuturoProiezione,
+    detailCurrentYear,
+    detailData,
+    detailLastDayPreviousMonth,
+    detailLoading,
+    detailOfferteSorted,
+    detailOrdiniAggregati,
+    detailOrdiniPercentualeQuantita,
+    detailOrdiniSorted,
+    detailOreFuture,
+    detailOreRestantiInput,
+    detailOreRestantiProiezione,
+    detailOreSpeseRisorseRows,
+    detailOreSpeseRisorseTotal,
+    detailPercentRaggiuntoInput,
+    detailRequisitiOreRisorseRows,
+    detailRequisitiOreRows,
+    detailRequisitiOreTotals,
+    detailRicaviAnniSuccessivi,
+    detailRicaviFuturiAggregati,
+    detailRicavoMaturatoAlMesePrecedente,
+    detailRicavoPrevisto,
+    detailRicavoPrevistoInput,
+    detailSaving,
+    detailSintesiRows,
+    detailStatusMessage,
+    detailTotals,
+    detailUtileConsuntivatoRiconciliato,
+    detailUtileFineProgetto,
+    detailUtileRicalcolatoMesePrecedente,
+    detailVenditeDateSortIndicator,
+    detailVenditeSorted,
+    detailVenditeTotaleImporto,
+    expandAllProducts,
+    exportCommesseDatiAnnualiExcel,
+    exportDettaglioExcel,
+    exportSintesiExcel,
+    formatDate,
+    formatPercentRatio,
+    formatPercentValue,
+    getDefaultReferenceMonth,
+    handleDetailOreRestantiInputBlur,
+    handleDetailOreRestantiInputChange,
+    handleDetailPercentRaggiuntoInputBlur,
+    handleDetailPercentRaggiuntoInputChange,
+    handleDetailRicavoPrevistoInputBlur,
+    handleDetailRicavoPrevistoInputChange,
+    handleSaveDetailPercentRaggiunto,
+    handleSintesiSubmit,
+    hasCollapsedProducts,
+    hasProductGroups,
+    isAggregatedMode,
+    isDatiContabiliAcquistiPage,
+    isDatiContabiliPage,
+    isDatiContabiliVenditaPage,
+    isProdottiSintesiPage,
+    isSintesiFiltersCollapsible,
+    moveCommesseDatiAnnualiField,
+    parseReferenceMonthStrict,
+    productOrCounterpartColumn,
+    productOrCounterpartLabel,
+    refreshSintesiFilters,
+    removeCommesseDatiAnnualiSelectedFields,
+    resetSintesi,
+    selectedRequisitoId,
+    sessionLoading,
+    setCommesseAndamentoMensileAggrega,
+    setCommesseAndamentoMensileAnni,
+    setCommesseAndamentoMensileBusinessUnit,
+    setCommesseAndamentoMensileCommessa,
+    setCommesseAndamentoMensileCommessaSearch,
+    setCommesseAndamentoMensileControparte,
+    setCommesseAndamentoMensileMacroTipologia,
+    setCommesseAndamentoMensileMese,
+    setCommesseAndamentoMensilePm,
+    setCommesseAndamentoMensileRcc,
+    setCommesseAndamentoMensileStato,
+    setCommesseAndamentoMensileTipologia,
+    setCommesseAnomaleFiltroAnomalia,
+    setCommesseAnomaleFiltroRcc,
+    setCommesseDatiAnnualiAnni,
+    setCommesseDatiAnnualiAvailableSelection,
+    setCommesseDatiAnnualiBusinessUnit,
+    setCommesseDatiAnnualiColonneAggregazione,
+    setCommesseDatiAnnualiFiltersCollapsed,
+    setCommesseDatiAnnualiMacroTipologie,
+    setCommesseDatiAnnualiPm,
+    setCommesseDatiAnnualiRcc,
+    setCommesseDatiAnnualiSelectedSelection,
+    setCommesseDatiAnnualiTipologia,
+    setCommessaSearch,
+    setDetailActiveTab,
+    setSintesiFiltersCollapsed,
+    setSintesiFiltersForm,
+    setSintesiMode,
+    shouldShowUtileFineProgettoForRow,
+    showUtileFineProgettoColumn,
+    sintesiCountLabel,
+    sintesiExportRowsCount,
+    sintesiFilterLoadingDetail,
+    sintesiFiltersCollapsed,
+    sintesiFiltersForm,
+    sintesiLoadingData,
+    sintesiLoadingFilters,
+    sintesiSearched,
+    sintesiSelects,
+    sintesiTableRows,
+    sintesiTitle,
+    sortedRows,
+    sortIndicator,
+    toggleDetailAcquistiDateSort,
+    toggleDetailVenditeDateSort,
+    toggleProductCollapse,
+    toggleRequisitoDettaglio,
+    toggleSort,
+    totaleUtileFineProgettoValorizzato,
+    totals,
   } as const
   const analisiProiezioniPageProps = {
     ...remainingPagesProps,
@@ -12040,6 +9937,14 @@ function App() {
     analisiBurccPivotRcc,
     analisiBurccPivotRows,
     analisiBurccPivotTotaliPerAnno,
+    analisiAlberoProiezioniAnno,
+    analisiAlberoProiezioniAnnoOptions,
+    analisiAlberoProiezioniBusinessUnit,
+    analisiAlberoProiezioniBusinessUnitOptions,
+    analisiAlberoProiezioniData,
+    analisiAlberoProiezioniRcc,
+    analisiAlberoProiezioniRccOptions,
+    analisiAlberoProiezioniRows,
     analisiDettaglioFatturatoAnni,
     analisiDettaglioFatturatoBusinessUnit,
     analisiDettaglioFatturatoCommessa,
@@ -12059,6 +9964,7 @@ function App() {
     analisiPianoFatturazioneTipoCalcolo,
     canAccessAnalisiBuPage,
     canAccessAnalisiBurccPage,
+    canAccessAnalisiAlberoProiezioniPage,
     canAccessAnalisiDettaglioFatturatoPage,
     canAccessAnalisiPianoFatturazionePage,
     canAccessAnalisiRccPage,
@@ -12096,7 +10002,10 @@ function App() {
     previsioniReportFunnelBuTotaliPerAnno,
     previsioniReportFunnelRcc,
     previsioniReportFunnelRccData,
+    previsioniReportFunnelRccPercentuale,
     previsioniReportFunnelRccPivotRows,
+    previsioniReportFunnelRccTipo,
+    previsioniReportFunnelRccTipoDocumento,
     previsioniReportFunnelRccTotaliPerAnno,
     setAnalisiBuAnno,
     setAnalisiBuBusinessUnit,
@@ -12108,6 +10017,9 @@ function App() {
     setAnalisiBurccPivotBusinessUnit,
     setAnalisiBurccPivotRcc,
     setAnalisiBurccRcc,
+    setAnalisiAlberoProiezioniAnno,
+    setAnalisiAlberoProiezioniBusinessUnit,
+    setAnalisiAlberoProiezioniRcc,
     setAnalisiDettaglioFatturatoAnni,
     setAnalisiDettaglioFatturatoBusinessUnit,
     setAnalisiDettaglioFatturatoCommessa,
@@ -12134,2765 +10046,144 @@ function App() {
     setPrevisioniReportFunnelBuRcc,
     setPrevisioniReportFunnelRcc,
     setPrevisioniReportFunnelRccAnni,
+    setPrevisioniReportFunnelRccPercentuale,
+    setPrevisioniReportFunnelRccTipo,
+    setPrevisioniReportFunnelRccTipoDocumento,
+  } as const
+  const appTopBarProps = {
+    apiHealth,
+    appVersion,
+    canAccessAnalisiCommesseMenu,
+    canAccessAnalisiAlberoProiezioniPage,
+    canAccessAnalisiDettaglioFatturatoPage,
+    canAccessAnalisiPianoFatturazionePage,
+    canAccessAnalisiProiezioniMenu,
+    canAccessAnalisiBuPage,
+    canAccessAnalisiBurccPage,
+    canAccessAnalisiRccPage,
+    canAccessDatiContabiliMenu,
+    canAccessPrevisioniMenu,
+    canAccessPrevisioniFunnelBuPage,
+    canAccessPrevisioniFunnelRccPage,
+    canAccessPrevisioniUtileMensileBuPage,
+    canAccessPrevisioniUtileMensileRccPage,
+    canAccessProcessoOffertaPage,
+    canAccessRisultatiRisorseMenu,
+    canImpersonate,
+    currentProfile,
+    handleLogout,
+    handleOpenAppInfo,
+    handleOpenImpersonation,
+    handleOpenInfo,
+    isImpersonating,
+    onProfileChange: (value: string) => setSelectedProfile(normalizeProfileLabel(value)),
+    openMenu,
+    profiles,
+    sessionLoading,
+    stopImpersonation,
+    toggleMenu,
+    user,
+    activateAnalisiBuPivotFatturatoPage,
+    activateAnalisiBuRisultatoMensilePage,
+    activateAnalisiAlberoProiezioniPage,
+    activateAnalisiBurccPivotFatturatoPage,
+    activateAnalisiBurccRisultatoMensilePage,
+    activateAnalisiDettaglioFatturatoPage,
+    activateAnalisiPianoFatturazionePage,
+    activateAnalisiRccPivotFatturatoPage,
+    activateAnalisiRccRisultatoMensilePage,
+    activateCommesseAndamentoMensilePage,
+    activateCommesseAnomalePage,
+    activateCommesseDatiAnnualiAggregatiPage,
+    activateDatiContabiliAcquistiPage,
+    activateDatiContabiliVenditaPage,
+    activatePrevisioniFunnelPage,
+    activatePrevisioniReportFunnelBuPage,
+    activatePrevisioniReportFunnelBurccPage,
+    activatePrevisioniReportFunnelRccPage,
+    activatePrevisioniUtileMensileBuPage,
+    activatePrevisioniUtileMensileRccPage,
+    activateProcessoOffertaIncidenzaBuPage,
+    activateProcessoOffertaIncidenzaRccPage,
+    activateProcessoOffertaOffertePage,
+    activateProcessoOffertaPercentualeSuccessoBuPage,
+    activateProcessoOffertaPercentualeSuccessoRccPage,
+    activateProcessoOffertaSintesiBuPage,
+    activateProcessoOffertaSintesiRccPage,
+    activateProdottiPage,
+    activateRisorseOuRisorseMensilePage,
+    activateRisorseOuRisorseMensilePivotPage,
+    activateRisorseOuRisorsePage,
+    activateRisorseOuRisorsePivotPage,
+    activateRisorseRisultatiMensilePage,
+    activateRisorseRisultatiMensilePivotPage,
+    activateRisorseRisultatiPage,
+    activateRisorseRisultatiPivotPage,
+    activateSintesiPage,
+  } as const
+  const appMainContentProps = {
+    activePage,
+    analisiCommessePageProps,
+    analisiProiezioniPageProps,
+    remainingPagesProps,
+    statusMessageVisible,
   } as const
 
   return (
     <div className="app-shell">
-      <header className="top-bar">
-        <div className="brand-area">
-          <div className="brand">Produzione</div>
-          <p className="brand-subtitle">SSO centralizzato con Auth</p>
-        </div>
-
-        <nav className="menu main-nav" aria-label="Menu applicativo">
-          {canAccessAnalisiCommesseMenu && (
-            <div className={`menu-dropdown ${openMenu === 'sintesi' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('sintesi')}
-                aria-expanded={openMenu === 'sintesi'}
-              >
-                Analisi Commesse
-              </button>
-              <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={activateSintesiPage}>
-                  Commesse
-                </button>
-                <button type="button" className="menu-action" onClick={activateProdottiPage}>
-                  Prodotti
-                </button>
-                <button type="button" className="menu-action" onClick={activateCommesseAndamentoMensilePage}>
-                  Andamento Mensile
-                </button>
-                <button type="button" className="menu-action" onClick={activateCommesseDatiAnnualiAggregatiPage}>
-                  Dati Annuali Aggregati
-                </button>
-                {canAccessPrevisioniUtileMensileRccPage && (
-                  <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileRccPage}>
-                    Utile Mensile RCC
-                  </button>
-                )}
-                {canAccessPrevisioniUtileMensileBuPage && (
-                  <button type="button" className="menu-action" onClick={activatePrevisioniUtileMensileBuPage}>
-                    Utile Mensile BU
-                  </button>
-                )}
-                <button type="button" className="menu-action" onClick={activateCommesseAnomalePage}>
-                  Commesse Anomale
-                </button>
-              </div>
-            </div>
-          )}
-          {canAccessRisultatiRisorseMenu && (
-            <div className={`menu-dropdown ${openMenu === 'risorse' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('risorse')}
-                aria-expanded={openMenu === 'risorse'}
-              >
-                Analisi Risorse
-              </button>
-              <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={activateRisorseRisultatiPage}>
-                  Valutazione Annuale
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseRisultatiPivotPage}>
-                  Pivot Annuale
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseRisultatiMensilePage}>
-                  Valutazione Mensile
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseRisultatiMensilePivotPage}>
-                  Pivot Mensile
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseOuRisorsePage}>
-                  Analisi OU Risorse
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseOuRisorsePivotPage}>
-                  Analisi OU Risorse Pivot
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseOuRisorseMensilePage}>
-                  Analisi Mensile OU Risorse
-                </button>
-                <button type="button" className="menu-action" onClick={activateRisorseOuRisorseMensilePivotPage}>
-                  Analisi Mensile OU Risorse Pivot
-                </button>
-              </div>
-            </div>
-          )}
-          {canAccessAnalisiProiezioniMenu && (
-            <div className={`menu-dropdown ${openMenu === 'analisi-proiezioni' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('analisi-proiezioni')}
-                aria-expanded={openMenu === 'analisi-proiezioni'}
-              >
-                Analisi Proiezioni
-              </button>
-              <div className="menu-dropdown-panel">
-                {canAccessAnalisiRccPage && (
-                  <>
-                    <button type="button" className="menu-action" onClick={activateAnalisiRccRisultatoMensilePage}>
-                      Proiezione Mensile RCC
-                    </button>
-                    <button type="button" className="menu-action" onClick={activateAnalisiRccPivotFatturatoPage}>
-                      Report Annuale RCC
-                    </button>
-                  </>
-                )}
-                {canAccessAnalisiBuPage && (
-                  <>
-                    <button type="button" className="menu-action" onClick={activateAnalisiBuRisultatoMensilePage}>
-                      Proiezione Mensile BU
-                    </button>
-                    <button type="button" className="menu-action" onClick={activateAnalisiBuPivotFatturatoPage}>
-                      Report Annuale BU
-                    </button>
-                  </>
-                )}
-                {canAccessAnalisiBurccPage && (
-                  <>
-                    <button type="button" className="menu-action" onClick={activateAnalisiBurccRisultatoMensilePage}>
-                      Proiezione Mensile RCC-BU
-                    </button>
-                    <button type="button" className="menu-action" onClick={activateAnalisiBurccPivotFatturatoPage}>
-                      Report Annuale RCC-BU
-                    </button>
-                  </>
-                )}
-                {canAccessAnalisiPianoFatturazionePage && (
-                  <button type="button" className="menu-action" onClick={activateAnalisiPianoFatturazionePage}>
-                    Piano Fatturazione
-                  </button>
-                )}
-                {canAccessAnalisiDettaglioFatturatoPage && (
-                  <button type="button" className="menu-action" onClick={activateAnalisiDettaglioFatturatoPage}>
-                    Dettaglio Fatturato
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {canAccessPrevisioniMenu && (
-            <div className={`menu-dropdown ${openMenu === 'previsioni' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('previsioni')}
-                aria-expanded={openMenu === 'previsioni'}
-              >
-                Previsioni
-              </button>
-              <div className="menu-dropdown-panel">
-                {canAccessPrevisioniFunnelRccPage && (
-                  <>
-                    <button type="button" className="menu-action" onClick={activatePrevisioniFunnelPage}>
-                      Funnel
-                    </button>
-                    <button type="button" className="menu-action" onClick={activatePrevisioniReportFunnelRccPage}>
-                      Report Funnel RCC
-                    </button>
-                  </>
-                )}
-                {canAccessPrevisioniFunnelBuPage && (
-                  <button type="button" className="menu-action" onClick={activatePrevisioniReportFunnelBuPage}>
-                    Report Funnel BU
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {canAccessProcessoOffertaPage && (
-            <div className={`menu-dropdown ${openMenu === 'processo-offerta' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('processo-offerta')}
-                aria-expanded={openMenu === 'processo-offerta'}
-              >
-                Processo Offerta
-              </button>
-              <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaOffertePage}>
-                  Offerte
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaSintesiRccPage}>
-                  Sintesi RCC
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaSintesiBuPage}>
-                  Sintesi BU
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaPercentualeSuccessoRccPage}>
-                  Percentuale Successo RCC
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaPercentualeSuccessoBuPage}>
-                  Percentuale Successo BU
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaIncidenzaRccPage}>
-                  Incidenza RCC
-                </button>
-                <button type="button" className="menu-action" onClick={activateProcessoOffertaIncidenzaBuPage}>
-                  Incidenza BU
-                </button>
-              </div>
-            </div>
-          )}
-          {canAccessDatiContabiliMenu && (
-            <div className={`menu-dropdown ${openMenu === 'dati-contabili' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger"
-                onClick={() => toggleMenu('dati-contabili')}
-                aria-expanded={openMenu === 'dati-contabili'}
-              >
-                Dati Contabili
-              </button>
-              <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={activateDatiContabiliVenditaPage}>
-                  Vendite
-                </button>
-                <button type="button" className="menu-action" onClick={activateDatiContabiliAcquistiPage}>
-                  Acquisti
-                </button>
-              </div>
-            </div>
-          )}
-        </nav>
-
-        <div className="top-actions">
-          {profiles.length > 0 && (
-            <label className="context-switcher" htmlFor="context-switcher-profile">
-              <span>Profilo</span>
-              <select
-                id="context-switcher-profile"
-                value={currentProfile}
-                onChange={(event) => {
-                  setSelectedProfile(normalizeProfileLabel(event.target.value))
-                }}
-              >
-                {profiles.map((profile) => (
-                  <option key={profile} value={profile}>
-                    {profile}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <div className={`status-badge ${apiHealth === 'OK' ? 'ok' : 'ko'}`}>
-            API: {apiHealth}
-          </div>
-          <div className="status-badge neutral">
-            Ver: {appVersion}
-          </div>
-
-          {user && (
-            <div className={`menu-dropdown menu-dropdown-right ${openMenu === 'user' ? 'is-open' : ''}`}>
-              <button
-                type="button"
-                className="menu-trigger user-menu-trigger"
-                onClick={() => toggleMenu('user')}
-                aria-expanded={openMenu === 'user'}
-              >
-                <strong>{user.authenticatedUsername || user.username}</strong>
-                <span>{isImpersonating ? 'impersona' : 'login'}</span>
-              </button>
-              <div className="menu-dropdown-panel">
-                <button type="button" className="menu-action" onClick={handleOpenInfo}>
-                  Info
-                </button>
-                <button type="button" className="menu-action" onClick={handleOpenAppInfo}>
-                  Info applicazione
-                </button>
-                {canImpersonate && (
-                  <button type="button" className="menu-action" onClick={handleOpenImpersonation}>
-                    Impersonifica
-                  </button>
-                )}
-                {isImpersonating && (
-                  <button
-                    type="button"
-                    className="menu-action"
-                    onClick={() => void stopImpersonation()}
-                    disabled={sessionLoading}
-                  >
-                    {sessionLoading ? 'Attendi...' : 'Termina impersonificazione'}
-                  </button>
-                )}
-                <button type="button" className="menu-action" onClick={handleLogout}>
-                  Logout
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <main className={`content ${activePage === 'none' ? 'content-empty' : ''}`}>
-        {activePage === 'none' && (
-          <span className="sr-only" aria-live="polite">{statusMessageVisible}</span>
-        )}
-
-        {(activePage === 'commesse-sintesi' || activePage === 'prodotti-sintesi' || activePage === 'dati-contabili-vendita' || activePage === 'dati-contabili-acquisti') && (
-          <section className="panel sintesi-page">
-            <header className="panel-header">
-              <h2>{sintesiTitle}</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            <section className="panel sintesi-filter-panel">
-              <form
-                className={`sintesi-form ${sintesiLoadingFilters ? 'is-filter-loading' : ''}`}
-                onSubmit={handleSintesiSubmit}
-                aria-busy={sintesiLoadingFilters}
-              >
-                {(!isSintesiFiltersCollapsible || !sintesiFiltersCollapsed) && (
-                <div className="sintesi-filters-grid">
-                  <div className="sintesi-field sintesi-field-anni">
-                    <div className="sintesi-field-header-row">
-                      <label htmlFor="sintesi-anni">{isDatiContabiliPage ? 'Anni Fattura' : 'Anni'}</label>
-                      {!isDatiContabiliPage && (
-                        <label htmlFor="sintesi-aggrega" className="checkbox-label checkbox-label-inline">
-                          <input
-                            id="sintesi-aggrega"
-                            type="checkbox"
-                            checked={isAggregatedMode}
-                            onChange={(event) => setSintesiMode(event.target.checked ? 'aggregato' : 'dettaglio')}
-                          />
-                          Aggrega
-                        </label>
-                      )}
-                    </div>
-                    <select
-                      id="sintesi-anni"
-                      multiple
-                      size={2}
-                      value={sintesiFiltersForm.anni}
-                      disabled={sintesiLoadingFilters}
-                      onChange={(event) => setSintesiFiltersForm((current) => ({
-                        ...current,
-                        anni: Array.from(event.target.selectedOptions).map((option) => option.value),
-                      }))}
-                    >
-                      {annoOptions.map((option) => (
-                        <option key={`sintesi-anno-${option.value}`} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {!isDatiContabiliPage && (
-                    <div className="sintesi-field sintesi-field-attive-dal">
-                      <label htmlFor="sintesi-attive-dal-anno">Attive dal</label>
-                      <select
-                        id="sintesi-attive-dal-anno"
-                        value={sintesiFiltersForm.attiveDalAnno}
-                        disabled={sintesiLoadingFilters}
-                        onChange={(event) => setSintesiFiltersForm((current) => ({
-                          ...current,
-                          attiveDalAnno: event.target.value,
-                        }))}
-                      >
-                        <option value="">Tutte</option>
-                        {attiveDalAnnoOptions.map((value) => (
-                          <option key={`sintesi-attive-dal-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="sintesi-field">
-                    <label htmlFor="sintesi-commessa-search">Ricerca Commessa</label>
-                    <div className="commessa-inline-controls">
-                      <input
-                        id="sintesi-commessa-search"
-                        value={commessaSearch}
-                        onChange={(event) => setCommessaSearch(event.target.value)}
-                        placeholder="Cerca..."
-                        disabled={sintesiLoadingFilters}
-                      />
-                      <select
-                        id="sintesi-commessa"
-                        value={sintesiFiltersForm.commessa}
-                        disabled={sintesiLoadingFilters}
-                        onChange={(event) => setSintesiFiltersForm((current) => ({
-                          ...current,
-                          commessa: event.target.value,
-                        }))}
-                      >
-                        <option value="">Tutte</option>
-                        {commessaOptions.map((option) => (
-                          <option key={`sintesi-commessa-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {sintesiSelects.map((selectField) => (
-                    <div
-                      key={selectField.id}
-                      className={[
-                        'sintesi-field',
-                        selectField.id === 'sintesi-stato' ? 'sintesi-field-stato' : '',
-                        selectField.id === 'sintesi-business-unit' ? 'sintesi-field-business-unit' : '',
-                        selectField.id === 'sintesi-controparte' ? 'sintesi-field-controparte' : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <label htmlFor={selectField.id}>{selectField.label}</label>
-                      <select
-                        id={selectField.id}
-                        value={sintesiFiltersForm[selectField.key]}
-                        disabled={sintesiLoadingFilters}
-                        onChange={(event) => setSintesiFiltersForm((current) => ({
-                          ...current,
-                          [selectField.key]: event.target.value,
-                        }))}
-                      >
-                        <option value="">Tutti</option>
-                        {selectField.options.map((option) => (
-                          <option key={`${selectField.id}-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-
-                  {isDatiContabiliPage && (
-                    <div className="sintesi-field">
-                      <label htmlFor="sintesi-provenienza">Provenienza</label>
-                      <select
-                        id="sintesi-provenienza"
-                        value={sintesiFiltersForm.provenienza}
-                        disabled={sintesiLoadingFilters}
-                        onChange={(event) => setSintesiFiltersForm((current) => ({
-                          ...current,
-                          provenienza: event.target.value,
-                        }))}
-                      >
-                        <option value="">Tutte</option>
-                        {datiContabiliProvenienzaOptions.map((option) => (
-                          <option key={`sintesi-provenienza-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {isDatiContabiliPage && (
-                    <div className="sintesi-field sintesi-field-checkbox">
-                      <label htmlFor="sintesi-solo-scadute" className="checkbox-label checkbox-label-inline">
-                        <input
-                          id="sintesi-solo-scadute"
-                          type="checkbox"
-                          checked={sintesiFiltersForm.soloScadute}
-                          onChange={(event) => setSintesiFiltersForm((current) => ({
-                            ...current,
-                            soloScadute: event.target.checked,
-                          }))}
-                        />
-                        Solo scadute
-                      </label>
-                    </div>
-                  )}
-
-                  {!isProdottiSintesiPage && !isDatiContabiliPage && (
-                    <div className="sintesi-field sintesi-field-checkbox sintesi-field-escludi-prodotti">
-                      <label htmlFor="sintesi-escludi-prodotti" className="checkbox-label checkbox-label-inline">
-                        <input
-                          id="sintesi-escludi-prodotti"
-                          type="checkbox"
-                          checked={sintesiFiltersForm.escludiProdotti}
-                          onChange={(event) => setSintesiFiltersForm((current) => ({
-                            ...current,
-                            escludiProdotti: event.target.checked,
-                          }))}
-                        />
-                        Escludi prodotti
-                      </label>
-                    </div>
-                  )}
-                </div>
-                )}
-
-                <div className="inline-actions">
-                  <button
-                    type="submit"
-                    disabled={(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) || sintesiLoadingFilters || sessionLoading}
-                  >
-                    {(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) ? 'Ricerca in corso...' : 'Cerca'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={refreshSintesiFilters}
-                    disabled={sintesiLoadingFilters || sessionLoading}
-                  >
-                    {sintesiLoadingFilters ? 'Aggiorno...' : 'Aggiorna Filtri'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={resetSintesi}
-                    disabled={(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) || sintesiLoadingFilters || sessionLoading}
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={exportSintesiExcel}
-                    disabled={(isDatiContabiliPage ? datiContabiliLoading : sintesiLoadingData) || sintesiExportRowsCount === 0}
-                  >
-                    Export Excel
-                  </button>
-                  {isProdottiSintesiPage && !isDatiContabiliPage && (
-                    <>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={expandAllProducts}
-                        disabled={sintesiLoadingData || !hasCollapsedProducts}
-                      >
-                        Espandi tutto
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={collapseAllProducts}
-                        disabled={sintesiLoadingData || !hasProductGroups || areAllProductsCollapsed}
-                      >
-                        Riduci tutto
-                      </button>
-                    </>
-                  )}
-                  {isSintesiFiltersCollapsible && (
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => setSintesiFiltersCollapsed((current) => !current)}
-                    >
-                      {sintesiFiltersCollapsed ? 'Mostra filtri' : 'Nascondi filtri'}
-                    </button>
-                  )}
-                  <span className="sintesi-inline-message" role="status" aria-live="polite" aria-atomic="true">
-                    {sintesiLoadingFilters
-                      ? `Aggiornamento filtri in corso. ${sintesiFilterLoadingDetail || 'Attendere...'}`
-                      : statusMessageVisible}
-                  </span>
-                  <span className="status-badge neutral sintesi-inline-count-badge">
-                    {isDatiContabiliPage ? datiContabiliCountLabel : sintesiCountLabel}
-                  </span>
-                </div>
-              </form>
-            </section>
-
-            <section className="panel sintesi-data-panel">
-              {isDatiContabiliVenditaPage ? (
-                <>
-                  {!datiContabiliVenditaSearched && (
-                    <p className="empty-state">
-                      Nessun dato visualizzato. Imposta i filtri e premi Cerca.
-                    </p>
-                  )}
-
-                  {datiContabiliVenditaSearched && datiContabiliVenditaSortedRows.length === 0 && (
-                    <p className="empty-state">
-                      Nessuna vendita trovata con i filtri correnti.
-                    </p>
-                  )}
-
-                  {datiContabiliVenditaSortedRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno Fattura</th>
-                            <th>Data</th>
-                            <th>Commessa</th>
-                            <th>Descrizione Commessa</th>
-                            <th>Tipologia</th>
-                            <th>Stato</th>
-                            <th>Macrotipologia</th>
-                            <th>Controparte</th>
-                            <th>Business Unit</th>
-                            <th>RCC</th>
-                            <th>PM</th>
-                            <th>Numero</th>
-                            <th>Descrizione Movimento</th>
-                            <th>Causale</th>
-                            <th>Sottoconto</th>
-                            <th>Controparte Movimento</th>
-                            <th>Provenienza</th>
-                            <th>Temporale</th>
-                            <th>Scaduta</th>
-                            <th className="num">Fatturato</th>
-                            <th className="num">Fatturato Futuro</th>
-                            <th className="num">Ricavo Ipotetico</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {datiContabiliVenditaSortedRows.map((row, index) => (
-                            <tr key={`vendita-${row.commessa}-${row.numeroDocumento}-${index}`}>
-                              <td>{row.annoFattura ?? ''}</td>
-                              <td>{formatDate(row.dataMovimento)}</td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="inline-link-button"
-                                  onClick={() => openCommessaDetail(row.commessa)}
-                                  title={`Apri dettaglio commessa ${row.commessa}`}
-                                >
-                                  {row.commessa}
-                                </button>
-                              </td>
-                              <td>{row.descrizioneCommessa}</td>
-                              <td>{row.tipologiaCommessa}</td>
-                              <td>{row.statoCommessa}</td>
-                              <td>{row.macroTipologia}</td>
-                              <td>{row.controparteCommessa}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{row.rcc}</td>
-                              <td>{row.pm}</td>
-                              <td>{row.numeroDocumento}</td>
-                              <td>{row.descrizioneMovimento}</td>
-                              <td>{row.causale}</td>
-                              <td>{row.sottoconto}</td>
-                              <td>{row.controparteMovimento}</td>
-                              <td>{row.provenienza}</td>
-                              <td>{row.statoTemporale}</td>
-                              <td>
-                                <span className={`status-badge ${row.isScaduta ? 'ko' : 'neutral'}`}>
-                                  {row.isScaduta ? 'Si' : 'No'}
-                                </span>
-                              </td>
-                              <td className={`num ${row.fatturato < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturato)}</td>
-                              <td className={`num ${row.fatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturo)}</td>
-                              <td className={`num ${row.ricavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoIpotetico)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              ) : isDatiContabiliAcquistiPage ? (
-                <>
-                  {!datiContabiliAcquistoSearched && (
-                    <p className="empty-state">
-                      Nessun dato visualizzato. Imposta i filtri e premi Cerca.
-                    </p>
-                  )}
-
-                  {datiContabiliAcquistoSearched && datiContabiliAcquistoSortedRows.length === 0 && (
-                    <p className="empty-state">
-                      Nessun acquisto trovato con i filtri correnti.
-                    </p>
-                  )}
-
-                  {datiContabiliAcquistoSortedRows.length > 0 && (
-                    <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
-                      <table className="bonifici-table">
-                        <thead>
-                          <tr>
-                            <th>Anno Fattura</th>
-                            <th>Data Documento</th>
-                            <th>Commessa</th>
-                            <th>Descrizione Commessa</th>
-                            <th>Tipologia</th>
-                            <th>Stato</th>
-                            <th>Macrotipologia</th>
-                            <th>Controparte</th>
-                            <th>Business Unit</th>
-                            <th>RCC</th>
-                            <th>PM</th>
-                            <th>Codice Societa</th>
-                            <th>Descrizione Fattura</th>
-                            <th>Causale</th>
-                            <th>Sottoconto</th>
-                            <th>Controparte Movimento</th>
-                            <th>Provenienza</th>
-                            <th>Temporale</th>
-                            <th>Scaduta</th>
-                            <th className="num">Importo Complessivo</th>
-                            <th className="num">Importo Contabilita</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {datiContabiliAcquistoSortedRows.map((row, index) => (
-                            <tr key={`acquisto-${row.commessa}-${row.codiceSocieta}-${index}`}>
-                              <td>{row.annoFattura ?? ''}</td>
-                              <td>{formatDate(row.dataDocumento)}</td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="inline-link-button"
-                                  onClick={() => openCommessaDetail(row.commessa)}
-                                  title={`Apri dettaglio commessa ${row.commessa}`}
-                                >
-                                  {row.commessa}
-                                </button>
-                              </td>
-                              <td>{row.descrizioneCommessa}</td>
-                              <td>{row.tipologiaCommessa}</td>
-                              <td>{row.statoCommessa}</td>
-                              <td>{row.macroTipologia}</td>
-                              <td>{row.controparteCommessa}</td>
-                              <td>{row.businessUnit}</td>
-                              <td>{row.rcc}</td>
-                              <td>{row.pm}</td>
-                              <td>{row.codiceSocieta}</td>
-                              <td>{row.descrizioneFattura}</td>
-                              <td>{row.causale}</td>
-                              <td>{row.sottoconto}</td>
-                              <td>{row.controparteMovimento}</td>
-                              <td>{row.provenienza}</td>
-                              <td>{row.statoTemporale}</td>
-                              <td>
-                                <span className={`status-badge ${row.isScaduta ? 'ko' : 'neutral'}`}>
-                                  {row.isScaduta ? 'Si' : 'No'}
-                                </span>
-                              </td>
-                              <td className={`num ${row.importoComplessivo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoComplessivo)}</td>
-                              <td className={`num ${row.importoContabilitaDettaglio < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoContabilitaDettaglio)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-              {!sintesiSearched && (
-                <p className="empty-state">
-                  Nessun dato visualizzato. Imposta i filtri e premi Cerca.
-                </p>
-              )}
-
-              {sintesiSearched && sortedRows.length === 0 && (
-                <p className="empty-state">
-                  Nessun dato trovato con i filtri correnti.
-                </p>
-              )}
-
-              {sortedRows.length > 0 && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
-                  <table className="bonifici-table">
-                    <thead>
-                      <tr>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('anno')}>
-                            Anno <span className="sort-indicator">{sortIndicator('anno')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('commessa')}>
-                            Commessa <span className="sort-indicator">{sortIndicator('commessa')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('descrizioneCommessa')}>
-                            Descrizione <span className="sort-indicator">{sortIndicator('descrizioneCommessa')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('tipologiaCommessa')}>
-                            Tipologia <span className="sort-indicator">{sortIndicator('tipologiaCommessa')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('stato')}>
-                            Stato <span className="sort-indicator">{sortIndicator('stato')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('macroTipologia')}>
-                            Macrotipologia <span className="sort-indicator">{sortIndicator('macroTipologia')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort(productOrCounterpartColumn)}>
-                            {productOrCounterpartLabel} <span className="sort-indicator">{sortIndicator(productOrCounterpartColumn)}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('businessUnit')}>
-                            Business Unit <span className="sort-indicator">{sortIndicator('businessUnit')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('rcc')}>
-                            RCC <span className="sort-indicator">{sortIndicator('rcc')}</span>
-                          </button>
-                        </th>
-                        <th>
-                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('pm')}>
-                            PM <span className="sort-indicator">{sortIndicator('pm')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('oreLavorate')}>
-                            Ore Lavorate <span className="sort-indicator">{sortIndicator('oreLavorate')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costoPersonale')}>
-                            Costo Personale <span className="sort-indicator">{sortIndicator('costoPersonale')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricavi')}>
-                            Ricavi <span className="sort-indicator">{sortIndicator('ricavi')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costi')}>
-                            Costi <span className="sort-indicator">{sortIndicator('costi')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricaviMaturati')}>
-                            Ricavi Maturati <span className="sort-indicator">{sortIndicator('ricaviMaturati')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('utileSpecifico')}>
-                            Utile Specifico <span className="sort-indicator">{sortIndicator('utileSpecifico')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricaviFuturi')}>
-                            Ricavi Futuri <span className="sort-indicator">{sortIndicator('ricaviFuturi')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costiFuturi')}>
-                            Costi Futuri <span className="sort-indicator">{sortIndicator('costiFuturi')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('oreFuture')}>
-                            Ore Future <span className="sort-indicator">{sortIndicator('oreFuture')}</span>
-                          </button>
-                        </th>
-                        <th className="num">
-                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costoPersonaleFuturo')}>
-                            Costo Personale Futuro <span className="sort-indicator">{sortIndicator('costoPersonaleFuturo')}</span>
-                          </button>
-                        </th>
-                        {showUtileFineProgettoColumn && (
-                          <th className="num">
-                            <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('utileFineProgetto')}>
-                              Utile a fine progetto <span className="sort-indicator">{sortIndicator('utileFineProgetto')}</span>
-                            </button>
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sintesiTableRows.map((tableRow) => {
-                        if (tableRow.kind === 'prodotto-summary') {
-                          const row = tableRow.row
-                          return (
-                            <tr
-                              key={tableRow.key}
-                              className={`table-group-summary-row ${tableRow.isCollapsed ? 'is-collapsed' : ''}`}
-                            >
-                              <td colSpan={10} className="table-group-summary-label">
-                                <div className="table-group-summary-label-content">
-                                  <button
-                                    type="button"
-                                    className="group-toggle-button"
-                                    onClick={() => toggleProductCollapse(tableRow.productKey)}
-                                    aria-expanded={!tableRow.isCollapsed}
-                                    title={tableRow.isCollapsed ? `Espandi prodotto ${row.prodotto}` : `Riduci prodotto ${row.prodotto}`}
-                                  >
-                                    {tableRow.isCollapsed ? '+' : '-'}
-                                  </button>
-                                  <span>Prodotto: {row.prodotto}</span>
-                                  <span className="table-group-summary-count">({tableRow.commesseCount} commesse)</span>
-                                </div>
-                              </td>
-                              <td className="num">{formatNumber(row.oreLavorate)}</td>
-                              <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                              <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                              <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                              <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
-                              <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
-                              <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
-                              <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
-                              <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
-                              <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
-                              {showUtileFineProgettoColumn && (
-                                shouldShowUtileFineProgettoForRow(row)
-                                  ? (
-                                    <td className={`num ${calculateUtileFineProgetto(row) < 0 ? 'num-negative' : ''}`}>{formatNumber(calculateUtileFineProgetto(row))}</td>
-                                    )
-                                  : <td className="num" />
-                              )}
-                            </tr>
-                          )
-                        }
-
-                        const row = tableRow.row
-                        return (
-                          <tr key={tableRow.key}>
-                            <td>{row.anno ?? ''}</td>
-                            <td>
-                              <button
-                                type="button"
-                                className="inline-link-button"
-                                onClick={() => openCommessaDetail(row.commessa)}
-                                title={`Apri dettaglio commessa ${row.commessa}`}
-                              >
-                                {row.commessa}
-                              </button>
-                            </td>
-                            <td>{row.descrizioneCommessa}</td>
-                            <td>{row.tipologiaCommessa}</td>
-                            <td>{row.stato}</td>
-                            <td>{row.macroTipologia}</td>
-                            <td>{isProdottiSintesiPage ? row.prodotto : row.controparte}</td>
-                            <td>{row.businessUnit}</td>
-                            <td>{row.rcc}</td>
-                            <td>{row.pm}</td>
-                            <td className="num">{formatNumber(row.oreLavorate)}</td>
-                            <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                            <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                            <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                            <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
-                            <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                              {formatNumber(row.utileSpecifico)}
-                            </td>
-                            <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
-                            <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
-                            <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
-                            <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
-                            {showUtileFineProgettoColumn && (
-                              shouldShowUtileFineProgettoForRow(row)
-                                ? (
-                                  <td className={`num ${calculateUtileFineProgetto(row) < 0 ? 'num-negative' : ''}`}>{formatNumber(calculateUtileFineProgetto(row))}</td>
-                                  )
-                                : <td className="num" />
-                            )}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="table-totals-row">
-                        <td colSpan={10} className="table-totals-label">Totale</td>
-                        <td className="num">{formatNumber(totals.oreLavorate)}</td>
-                        <td className={`num ${totals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonale)}</td>
-                        <td className={`num ${totals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricavi)}</td>
-                        <td className={`num ${totals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costi)}</td>
-                        <td className={`num ${totals.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricaviMaturati)}</td>
-                        <td className={`num ${totals.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                          {formatNumber(totals.utileSpecifico)}
-                        </td>
-                        <td className={`num ${totals.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricaviFuturi)}</td>
-                        <td className={`num ${totals.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costiFuturi)}</td>
-                        <td className={`num ${totals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.oreFuture)}</td>
-                        <td className={`num ${totals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonaleFuturo)}</td>
-                        {showUtileFineProgettoColumn && (
-                          <td className={`num ${totaleUtileFineProgettoValorizzato < 0 ? 'num-negative' : ''}`}>{formatNumber(totaleUtileFineProgettoValorizzato)}</td>
-                        )}
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-                </>
-              )}
-            </section>
-          </section>
-        )}
-
-        {activePage === 'commesse-andamento-mensile' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Commesse - Andamento Mensile</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            <section className="panel sintesi-filter-panel">
-              <form
-                className={`sintesi-form ${analisiRccLoading ? 'is-filter-loading' : ''}`}
-                onSubmit={handleAnalisiSubmit}
-                aria-busy={analisiRccLoading}
-              >
-                {(!isAnalisiSearchCollapsible || !isAnalisiSearchCollapsed) && (
-                  <div className="sintesi-filters-grid andamento-mensile-filters-grid">
-                    <div className="sintesi-field sintesi-field-anni">
-                      <label htmlFor="commesse-andamento-mensile-anni">Anni</label>
-                      <select
-                        id="commesse-andamento-mensile-anni"
-                        multiple
-                        size={2}
-                        value={commesseAndamentoMensileAnni}
-                        onChange={(event) => setCommesseAndamentoMensileAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {commesseAndamentoMensileAnnoOptions.map((year) => (
-                          <option key={`commesse-andamento-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-commessa-search">Ricerca Commessa</label>
-                      <div className="commessa-inline-controls">
-                        <input
-                          id="commesse-andamento-mensile-commessa-search"
-                          type="search"
-                          placeholder="Cerca..."
-                          value={commesseAndamentoMensileCommessaSearch}
-                          onChange={(event) => setCommesseAndamentoMensileCommessaSearch(event.target.value)}
-                        />
-                        <select
-                          id="commesse-andamento-mensile-commessa"
-                          value={commesseAndamentoMensileCommessa}
-                          onChange={(event) => setCommesseAndamentoMensileCommessa(event.target.value)}
-                        >
-                          <option value="">Tutte</option>
-                          {commesseAndamentoMensileCommessaOptions.map((option) => (
-                            <option key={`commesse-andamento-commessa-${option.value}`} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-tipologia">Tipologia Commessa</label>
-                      <select
-                        id="commesse-andamento-mensile-tipologia"
-                        value={commesseAndamentoMensileTipologia}
-                        onChange={(event) => setCommesseAndamentoMensileTipologia(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseAndamentoMensileTipologiaOptions.map((value) => (
-                          <option key={`commesse-andamento-tipologia-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-stato">Stato</label>
-                      <select
-                        id="commesse-andamento-mensile-stato"
-                        value={commesseAndamentoMensileStato}
-                        onChange={(event) => setCommesseAndamentoMensileStato(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {commesseAndamentoMensileStatoOptions.map((value) => (
-                          <option key={`commesse-andamento-stato-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-macro">Macrotipologia</label>
-                      <select
-                        id="commesse-andamento-mensile-macro"
-                        value={commesseAndamentoMensileMacroTipologia}
-                        onChange={(event) => setCommesseAndamentoMensileMacroTipologia(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseAndamentoMensileMacroTipologiaOptions.map((value) => (
-                          <option key={`commesse-andamento-macro-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-bu">Business Unit</label>
-                      <select
-                        id="commesse-andamento-mensile-bu"
-                        value={commesseAndamentoMensileBusinessUnit}
-                        onChange={(event) => setCommesseAndamentoMensileBusinessUnit(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseAndamentoMensileBusinessUnitOptions.map((value) => (
-                          <option key={`commesse-andamento-bu-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-controparte">Controparte</label>
-                      <select
-                        id="commesse-andamento-mensile-controparte"
-                        value={commesseAndamentoMensileControparte}
-                        onChange={(event) => setCommesseAndamentoMensileControparte(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseAndamentoMensileControparteOptions.map((value) => (
-                          <option key={`commesse-andamento-controparte-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-rcc">RCC</label>
-                      <select
-                        id="commesse-andamento-mensile-rcc"
-                        value={commesseAndamentoMensileRcc}
-                        onChange={(event) => setCommesseAndamentoMensileRcc(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {commesseAndamentoMensileRccSelectItems.map((option) => (
-                          <option key={`commesse-andamento-rcc-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sintesi-field">
-                      <label htmlFor="commesse-andamento-mensile-pm">PM</label>
-                      <select
-                        id="commesse-andamento-mensile-pm"
-                        value={commesseAndamentoMensilePm}
-                        onChange={(event) => setCommesseAndamentoMensilePm(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {commesseAndamentoMensilePmSelectItems.map((option) => (
-                          <option key={`commesse-andamento-pm-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                <div className="inline-actions">
-                  <button type="submit" disabled={analisiRccLoading}>
-                    {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={resetAnalisiFilters}
-                    disabled={analisiRccLoading}
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={exportAnalisiExcel}
-                    disabled={analisiRccLoading || !canExportAnalisiPage}
-                  >
-                    Export Excel
-                  </button>
-                  {isAnalisiSearchCollapsible && (
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={toggleAnalisiSearchCollapsed}
-                    >
-                      {isAnalisiSearchCollapsed ? 'Mostra ricerca' : 'Nascondi ricerca'}
-                    </button>
-                  )}
-                  <label className="checkbox-label checkbox-label-inline analisi-aggrega-inline" htmlFor="commesse-andamento-mensile-aggrega">
-                    <input
-                      id="commesse-andamento-mensile-aggrega"
-                      type="checkbox"
-                      checked={commesseAndamentoMensileAggrega}
-                      onChange={(event) => setCommesseAndamentoMensileAggrega(event.target.checked)}
-                    />
-                    Aggrega fino a
-                  </label>
-                  <label className="analisi-aggrega-mese-inline" htmlFor="commesse-andamento-mensile-mese">
-                    <span>Mese</span>
-                    <select
-                      id="commesse-andamento-mensile-mese"
-                      value={(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString()}
-                      disabled={!commesseAndamentoMensileAggrega}
-                      onChange={(event) => setCommesseAndamentoMensileMese(event.target.value)}
-                    >
-                      {commesseAndamentoMensileMeseOptions.map((month) => (
-                        <option key={`commesse-andamento-mese-${month}`} value={month.toString()}>
-                          {formatReferenceMonthLabel(month)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <span className="status-badge neutral sintesi-inline-count-badge">
-                    {analisiPageCountLabel}
-                  </span>
-                </div>
-              </form>
-              <div className="sintesi-toolbar-row">
-                <p className="sintesi-toolbar-message">
-                  {commesseAndamentoMensileData
-                    ? `Andamento mensile ${commesseAndamentoMensileAggrega ? 'aggregato fino a' : 'dettaglio mensile'} caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}${commesseAndamentoMensileAggrega ? `, mese: ${(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString().padStart(2, '0')}` : ''}).`
-                    : statusMessageVisible}
-                </p>
-              </div>
-            </section>
-
-            <section className="panel analisi-rcc-grid-card">
-              <header className="panel-header">
-                <h3>AnalisiCommesseMensili</h3>
-              </header>
-
-              {commesseAndamentoMensileRows.length === 0 && !analisiRccLoading && (
-                <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-              )}
-
-              {commesseAndamentoMensileRows.length > 0 && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                  <table className="bonifici-table">
-                    <thead>
-                      <tr>
-                        <th>Anno</th>
-                        <th>Mese</th>
-                        <th>Commessa</th>
-                        <th>Descrizione</th>
-                        <th>Tipologia</th>
-                        <th>Stato</th>
-                        <th>Macrotipologia</th>
-                        <th>Prodotto</th>
-                        <th>Controparte</th>
-                        <th>BU</th>
-                        <th>RCC</th>
-                        <th>PM</th>
-                        <th>Produzione</th>
-                        <th className="num">Ore Lavorate</th>
-                        <th className="num">Costo Personale</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">Costi</th>
-                        <th className="num">Ricavi Maturati</th>
-                        <th className="num">Utile Specifico</th>
-                        <th className="num">Ore Future</th>
-                        <th className="num">Costo Personale Futuro</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commesseAndamentoMensileRows.map((row, index) => (
-                        <tr key={`commesse-andamento-row-${row.annoCompetenza}-${row.meseCompetenza}-${row.commessa}-${index}`}>
-                          <td>{row.annoCompetenza}</td>
-                          <td>{row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : '-'}</td>
-                          <td>
-                            {row.commessa.trim()
-                              ? (
-                                <button
-                                  type="button"
-                                  className="inline-link-button"
-                                  onClick={() => openCommessaDetail(row.commessa)}
-                                  title={`Apri dettaglio commessa ${row.commessa}`}
-                                >
-                                  {row.commessa}
-                                </button>
-                              )
-                              : ''}
-                          </td>
-                          <td>{row.descrizioneCommessa}</td>
-                          <td>{row.tipologiaCommessa}</td>
-                          <td>{row.stato}</td>
-                          <td>{row.macroTipologia}</td>
-                          <td>{row.prodotto}</td>
-                          <td>{row.controparte}</td>
-                          <td>{row.businessUnit}</td>
-                          <td>{row.rcc}</td>
-                          <td>{row.pm}</td>
-                          <td>{row.produzione ? 'Si' : 'No'}</td>
-                          <td className="num">{formatNumber(row.oreLavorate)}</td>
-                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                          <td className={`num ${row.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviMaturati)}</td>
-                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
-                          <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
-                          <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="table-totals-row">
-                        <td colSpan={13} className="table-totals-label">Totale</td>
-                        <td className="num">{formatNumber(commesseAndamentoMensileTotals.oreLavorate)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonale)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricavi)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costi)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.ricaviMaturati < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.ricaviMaturati)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.oreFuture)}</td>
-                        <td className={`num ${commesseAndamentoMensileTotals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </section>
-          </section>
-        )}
-
-        {activePage === 'commesse-anomale' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Commesse - Commesse Anomale</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            <section className="panel sintesi-filter-panel">
-              <form
-                className={`analisi-rcc-toolbar ${analisiRccLoading ? 'is-filter-loading' : ''}`}
-                onSubmit={handleAnalisiSubmit}
-              >
-                <label className="analisi-rcc-year-field" htmlFor="commesse-anomale-anomalia">
-                  <span>Anomalia</span>
-                  <select
-                    id="commesse-anomale-anomalia"
-                    value={commesseAnomaleFiltroAnomalia}
-                    onChange={(event) => setCommesseAnomaleFiltroAnomalia(event.target.value)}
-                    disabled={analisiRccLoading || commesseAnomaleRowsRaw.length === 0}
-                  >
-                    <option value="">Tutte</option>
-                    {commesseAnomaleAnomaliaOptions.map((option) => (
-                      <option key={`commesse-anomale-anomalia-${option}`} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="analisi-rcc-year-field" htmlFor="commesse-anomale-rcc">
-                  <span>RCC</span>
-                  <select
-                    id="commesse-anomale-rcc"
-                    value={commesseAnomaleFiltroRcc}
-                    onChange={(event) => setCommesseAnomaleFiltroRcc(event.target.value)}
-                    disabled={analisiRccLoading || commesseAnomaleRowsRaw.length === 0}
-                  >
-                    <option value="">Tutti</option>
-                    {commesseAnomaleRccOptions.map((option) => (
-                      <option key={`commesse-anomale-rcc-${option}`} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="inline-actions">
-                  <button type="submit" disabled={analisiRccLoading}>
-                    {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={resetAnalisiFilters}
-                    disabled={analisiRccLoading}
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={exportAnalisiExcel}
-                    disabled={analisiRccLoading || commesseAnomaleRows.length === 0}
-                  >
-                    Export Excel
-                  </button>
-                  <span className="status-badge neutral sintesi-inline-count-badge">
-                    {analisiPageCountLabel}
-                  </span>
-                </div>
-              </form>
-              <div className="sintesi-toolbar-row">
-                <p className="sintesi-toolbar-message">
-                  {commesseAnomaleData
-                    ? `Commesse anomale caricate: ${commesseAnomaleRows.length} righe${commesseAnomaleRows.length !== commesseAnomaleRowsRaw.length ? ` (su ${commesseAnomaleRowsRaw.length} totali)` : ''}.`
-                    : statusMessageVisible}
-                </p>
-              </div>
-            </section>
-
-            <section className="panel analisi-rcc-grid-card">
-              {commesseAnomaleRows.length === 0 && !analisiRccLoading && (
-                <p className="empty-state">Nessuna commessa anomala disponibile per i criteri correnti.</p>
-              )}
-
-              {commesseAnomaleRows.length > 0 && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                  <table className="bonifici-table">
-                    <thead>
-                      <tr>
-                        <th>Anomalia</th>
-                        <th>Dettaglio anomalia</th>
-                        <th>Commessa</th>
-                        <th>Descrizione</th>
-                        <th>Tipologia</th>
-                        <th>Stato</th>
-                        <th>Macrotipologia</th>
-                        <th>Controparte</th>
-                        <th>Business Unit</th>
-                        <th>RCC</th>
-                        <th>PM</th>
-                        <th className="num">Ore Lavorate</th>
-                        <th className="num">Costo Personale</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">Costi</th>
-                        <th className="num">Ricavi Futuri</th>
-                        <th className="num">Costi Futuri</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commesseAnomaleRows.map((row) => (
-                        <tr key={`${row.idCommessa}-${row.tipoAnomalia}-${row.dettaglioAnomalia}`}>
-                          <td>{row.tipoAnomalia}</td>
-                          <td>{row.dettaglioAnomalia}</td>
-                          <td>
-                            <button
-                              type="button"
-                              className="inline-link-button"
-                              onClick={() => openCommessaDetail(row.commessa)}
-                              title={`Apri dettaglio commessa ${row.commessa}`}
-                            >
-                              {row.commessa}
-                            </button>
-                          </td>
-                          <td>{row.descrizioneCommessa}</td>
-                          <td>{row.tipologiaCommessa}</td>
-                          <td>{row.stato}</td>
-                          <td>{row.macroTipologia}</td>
-                          <td>{row.controparte}</td>
-                          <td>{row.businessUnit}</td>
-                          <td>{row.rcc}</td>
-                          <td>{row.pm}</td>
-                          <td className="num">{formatNumber(row.oreLavorate)}</td>
-                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
-                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </section>
-        )}
-
-        {activePage === 'commesse-dati-annuali-aggregati' && (
-          <section className="panel sintesi-page analisi-rcc-page">
-            <header className="panel-header">
-              <h2>Analisi Commesse - Dati Annuali Aggregati</h2>
-              <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
-            </header>
-
-            <section className="panel sintesi-filter-panel">
-              <form
-                id="commesse-dati-annuali-aggregati-form"
-                className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`}
-                onSubmit={handleAnalisiSubmit}
-              >
-                {!commesseDatiAnnualiFiltersCollapsed && (
-                  <>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-anni">
-                      <span>Anni</span>
-                      <select
-                        id="commesse-dati-annuali-anni"
-                        multiple
-                        size={4}
-                        value={commesseDatiAnnualiAnni}
-                        onChange={(event) => setCommesseDatiAnnualiAnni(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {commesseDatiAnnualiAnnoOptions.map((year) => (
-                          <option key={`commesse-dati-annuali-anno-${year}`} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-macrotipologia">
-                      <span>Macrotipologia</span>
-                      <select
-                        id="commesse-dati-annuali-macrotipologia"
-                        multiple
-                        size={4}
-                        value={commesseDatiAnnualiMacroTipologie}
-                        onChange={(event) => setCommesseDatiAnnualiMacroTipologie(
-                          Array.from(event.target.selectedOptions).map((option) => option.value),
-                        )}
-                      >
-                        {commesseDatiAnnualiMacroTipologiaOptions.map((option) => (
-                          <option key={`commesse-dati-annuali-macro-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-tipologia">
-                      <span>Tipologia Commessa</span>
-                      <select
-                        id="commesse-dati-annuali-tipologia"
-                        value={commesseDatiAnnualiTipologia}
-                        onChange={(event) => setCommesseDatiAnnualiTipologia(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseDatiAnnualiTipologiaOptions.map((option) => (
-                          <option key={`commesse-dati-annuali-tipologia-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-bu">
-                      <span>BU</span>
-                      <select
-                        id="commesse-dati-annuali-bu"
-                        value={commesseDatiAnnualiBusinessUnit}
-                        onChange={(event) => setCommesseDatiAnnualiBusinessUnit(event.target.value)}
-                      >
-                        <option value="">Tutte</option>
-                        {commesseDatiAnnualiBusinessUnitOptions.map((option) => (
-                          <option key={`commesse-dati-annuali-bu-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-rcc">
-                      <span>RCC</span>
-                      <select
-                        id="commesse-dati-annuali-rcc"
-                        value={commesseDatiAnnualiRcc}
-                        onChange={(event) => setCommesseDatiAnnualiRcc(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {commesseDatiAnnualiRccOptions.map((option) => (
-                          <option key={`commesse-dati-annuali-rcc-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="analisi-rcc-year-field" htmlFor="commesse-dati-annuali-pm">
-                      <span>PM</span>
-                      <select
-                        id="commesse-dati-annuali-pm"
-                        value={commesseDatiAnnualiPm}
-                        onChange={(event) => setCommesseDatiAnnualiPm(event.target.value)}
-                      >
-                        <option value="">Tutti</option>
-                        {commesseDatiAnnualiPmOptions.map((option) => (
-                          <option key={`commesse-dati-annuali-pm-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </>
-                )}
-              </form>
-              <div className="sintesi-toolbar-row">
-                <p className="sintesi-toolbar-message">
-                  {commesseDatiAnnualiData
-                    ? `Dati annuali caricati (anni: ${commesseDatiAnnualiData.anni.join(', ') || '-'}). Livelli selezionati: ${commesseDatiAnnualiSelectedFieldOptions.map((item) => item.label).join(' > ') || 'solo anno'}.`
-                    : statusMessageVisible}
-                </p>
-              </div>
-            </section>
-
-            {!commesseDatiAnnualiFiltersCollapsed && (
-            <section className="panel analisi-rcc-grid-card dati-annuali-pivot-config-panel">
-              <header className="panel-header">
-                <h3>Configurazione Pivot</h3>
-              </header>
-              <div className="dati-annuali-pivot-config-grid">
-                <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="commesse-dati-annuali-fields-available">
-                  <span>Campi disponibili</span>
-                  <select
-                    id="commesse-dati-annuali-fields-available"
-                    multiple
-                    size={8}
-                    value={commesseDatiAnnualiAvailableSelection}
-                    onChange={(event) => setCommesseDatiAnnualiAvailableSelection(
-                      asDatiAnnualiPivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
-                    )}
-                  >
-                    {commesseDatiAnnualiAvailableFieldOptions.map((option) => (
-                      <option key={`commesse-dati-annuali-available-${option.key}`} value={option.key}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="dati-annuali-pivot-config-actions">
-                  <button
-                    type="button"
-                    onClick={addCommesseDatiAnnualiSelectedFields}
-                    disabled={commesseDatiAnnualiAvailableSelection.length === 0}
-                  >
-                    Aggiungi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={removeCommesseDatiAnnualiSelectedFields}
-                    disabled={commesseDatiAnnualiSelectedSelection.length === 0}
-                  >
-                    Rimuovi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveCommesseDatiAnnualiField('up')}
-                    disabled={commesseDatiAnnualiSelectedSelection.length !== 1}
-                  >
-                    Su
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveCommesseDatiAnnualiField('down')}
-                    disabled={commesseDatiAnnualiSelectedSelection.length !== 1}
-                  >
-                    Giu
-                  </button>
-                </div>
-                <label className="analisi-rcc-year-field dati-annuali-pivot-listbox-field" htmlFor="commesse-dati-annuali-fields-selected">
-                  <span>Livelli aggregazione (ordine pivot)</span>
-                  <select
-                    id="commesse-dati-annuali-fields-selected"
-                    multiple
-                    size={8}
-                    value={commesseDatiAnnualiSelectedSelection}
-                    onChange={(event) => setCommesseDatiAnnualiSelectedSelection(
-                      asDatiAnnualiPivotFieldKeys(Array.from(event.target.selectedOptions).map((option) => option.value)),
-                    )}
-                  >
-                    {commesseDatiAnnualiSelectedFieldOptions.map((option) => (
-                      <option key={`commesse-dati-annuali-selected-${option.key}`} value={option.key}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </section>
-            )}
-            <div className="inline-actions">
-              <button
-                type="submit"
-                form="commesse-dati-annuali-aggregati-form"
-                disabled={analisiRccLoading}
-              >
-                {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={resetAnalisiFilters}
-                disabled={analisiRccLoading}
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={exportCommesseDatiAnnualiExcel}
-                disabled={analisiRccLoading || commesseDatiAnnualiPivotRows.length === 0}
-              >
-                Export Excel
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setCommesseDatiAnnualiFiltersCollapsed((current) => !current)}
-              >
-                {commesseDatiAnnualiFiltersCollapsed ? 'Mostra filtri e aggregazione' : 'Nascondi filtri e aggregazione'}
-              </button>
-              <label className="checkbox-label checkbox-label-inline" htmlFor="commesse-dati-annuali-colonne-aggregazione">
-                <input
-                  id="commesse-dati-annuali-colonne-aggregazione"
-                  type="checkbox"
-                  checked={commesseDatiAnnualiColonneAggregazione}
-                  onChange={(event) => setCommesseDatiAnnualiColonneAggregazione(event.target.checked)}
-                />
-                Colonne aggregazioni
-              </label>
-              <span className="status-badge neutral sintesi-inline-count-badge">
-                {commesseDatiAnnualiPivotRows.length} righe
-              </span>
-            </div>
-
-            <section className="panel analisi-rcc-grid-card">
-              <header className="panel-header">
-                <h3>Dati Annuali Aggregati (Pivot)</h3>
-              </header>
-
-              {commesseDatiAnnualiPivotRows.length === 0 && !analisiRccLoading && (
-                <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
-              )}
-
-              {commesseDatiAnnualiPivotRows.length > 0 && (
-                <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                  <table className="bonifici-table">
-                    <thead>
-                      <tr>
-                        {commesseDatiAnnualiUseAggregationColumns
-                          ? commesseDatiAnnualiSelectedFieldOptions.map((option) => (
-                            <th key={`dati-annuali-col-${option.key}`}>{option.label}</th>
-                          ))
-                          : <th>Etichette di riga</th>}
-                        <th className="num">Numero Commesse</th>
-                        <th className="num">Ore Lavorate</th>
-                        <th className="num">Costo Personale</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">Costi</th>
-                        <th className="num">Utile Specifico</th>
-                        <th className="num">Ricavi Futuri</th>
-                        <th className="num">Costi Futuri</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commesseDatiAnnualiPivotRows.map((row) => (
-                        <tr
-                          key={row.key}
-                          className={row.kind === 'totale' ? 'table-totals-row' : 'table-group-summary-row'}
-                        >
-                          {commesseDatiAnnualiUseAggregationColumns
-                            ? commesseDatiAnnualiSelectedFieldOptions.map((option, index) => (
-                              <td key={`${row.key}-${option.key}`} className="table-group-summary-label">
-                                {row.kind === 'totale'
-                                  ? (index === 0 ? row.label : '')
-                                  : (row.groupValues[option.key] ?? '')}
-                              </td>
-                            ))
-                            : (
-                              <td className="table-group-summary-label">
-                                <span className={`dati-annuali-pivot-label level-${Math.min(row.level, 6)}`}>
-                                  {row.label}
-                                </span>
-                              </td>
-                            )}
-                          <td className="num">{row.numeroCommesse.toLocaleString('it-IT')}</td>
-                          <td className="num">{formatNumber(row.oreLavorate)}</td>
-                          <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                          <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                          <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                          <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
-                          <td className={`num ${row.ricaviFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricaviFuturi)}</td>
-                          <td className={`num ${row.costiFuturi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costiFuturi)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </section>
-        )}
-
-        {isRisorsePage && (
-          <RisorsePage {...remainingPagesProps} />
-        )}
-
-        {isProcessoOffertaPage && (
-          <ProcessoOffertaPage {...remainingPagesProps} />
-        )}
-
-        {activePage === 'analisi-rcc-risultato-mensile' && (
-          <AnalisiRccRisultatoMensilePage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-rcc-pivot-fatturato' && (
-          <AnalisiRccPivotFatturatoPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-bu-risultato-mensile' && (
-          <AnalisiBuRisultatoMensilePage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-bu-pivot-fatturato' && (
-          <AnalisiBuPivotFatturatoPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-burcc-risultato-mensile' && (
-          <AnalisiBurccRisultatoMensilePage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-burcc-pivot-fatturato' && (
-          <AnalisiBurccPivotFatturatoPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-piano-fatturazione' && (
-          <AnalisiPianoFatturazionePage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'analisi-dettaglio-fatturato' && (
-          <AnalisiDettaglioFatturatoPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'previsioni-funnel' && (
-          <PrevisioniFunnelPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'previsioni-report-funnel-rcc' && (
-          <PrevisioniReportFunnelRccPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'previsioni-report-funnel-bu' && (
-          <PrevisioniReportFunnelBuPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'previsioni-utile-mensile-rcc' && (
-          <PrevisioniUtileMensileRccPage {...analisiProiezioniPageProps} />
-        )}
-        {activePage === 'previsioni-utile-mensile-bu' && (
-          <PrevisioniUtileMensileBuPage {...analisiProiezioniPageProps} />
-        )}
-
-        {activePage === 'commessa-dettaglio' && (
-          <section className="panel sintesi-page detail-page">
-            <span className="sr-only" aria-live="polite">
-              {`Dettaglio commessa ${detailCommessa ? `"${detailCommessa}"` : ''}. ${
-                detailStatusMessage || 'Dettaglio commessa in caricamento.'
-              }`}
-            </span>
-
-            <section className="detail-top-zone">
-              <section className="panel detail-anagrafica-panel">
-                <header className="panel-header">
-                  <h3>Anagrafica Commessa</h3>
-                  <div className="detail-header-actions">
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={exportDettaglioExcel}
-                      disabled={detailLoading || !detailData}
-                    >
-                      Export Excel
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={backToSintesi}
-                    >
-                      Torna a Sintesi
-                    </button>
-                  </div>
-                </header>
-
-              {!detailAnagrafica && !detailLoading && (
-                <p className="empty-state">Nessun dato anagrafico disponibile per la commessa selezionata.</p>
-              )}
-
-              {detailAnagrafica && (
-                <div className="bonifici-table-wrap">
-                  <table className="bonifici-table detail-anagrafica-table">
-                    <thead>
-                      <tr>
-                        <th>Commessa</th>
-                        <th>Descrizione</th>
-                        <th>Tipologia</th>
-                        <th>Stato</th>
-                        <th>Macrotipologia</th>
-                        <th>Prodotto</th>
-                        <th>Controparte</th>
-                        <th>Business Unit</th>
-                        <th>RCC</th>
-                        <th>PM</th>
-                        <th>Data apertura</th>
-                        <th>Data chiusura</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>{detailAnagrafica.commessa}</td>
-                        <td>{detailAnagrafica.descrizioneCommessa}</td>
-                        <td>{detailAnagrafica.tipologiaCommessa}</td>
-                        <td>{detailAnagrafica.stato}</td>
-                        <td>{detailAnagrafica.macroTipologia}</td>
-                        <td>{detailAnagrafica.prodotto}</td>
-                        <td>{detailAnagrafica.controparte}</td>
-                        <td>{detailAnagrafica.businessUnit}</td>
-                        <td>{detailAnagrafica.rcc}</td>
-                        <td>{detailAnagrafica.pm}</td>
-                        <td>{formatDate(detailAnagrafica.dataApertura)}</td>
-                        <td>{formatDate(detailAnagrafica.dataChiusura)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="panel detail-summary-strip-panel">
-              <div className="bonifici-table-wrap detail-kpi-table-wrap" role="status" aria-live="polite">
-                <table className="bonifici-table detail-kpi-table">
-                  <thead>
-                    <tr>
-                      <th className="detail-kpi-group-head" colSpan={5}>
-                        Consuntivato {detailLastDayPreviousMonth ? `${detailLastDayPreviousMonth.toLocaleDateString('it-IT')} (anni precedenti inclusi)` : 'mese precedente'}
-                      </th>
-                      <th className="detail-kpi-group-head" colSpan={4}>
-                        {detailCurrentYear > 0 ? `Futuro ${detailCurrentYear}` : 'Futuro'}
-                      </th>
-                      <th className="detail-kpi-group-head" colSpan={7}>
-                        Proiezione {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : 'mese precedente'}
-                      </th>
-                      <th className="detail-kpi-group-head detail-kpi-action-col" colSpan={1}>
-                        Azione
-                      </th>
-                    </tr>
-                    <tr>
-                      <th className="num">Ore lavorate</th>
-                      <th className="num">Costo personale</th>
-                      <th className="num">Ricavi passati</th>
-                      <th className="num">Costi passati</th>
-                      <th className="num">Utile consuntivato</th>
-                      <th className="num">Ricavi futuri</th>
-                      <th className="num">Ricavi anni successivi</th>
-                      <th className="num">Costi futuri</th>
-                      <th className="num">Ore future</th>
-                      <th className="num">Ore restanti</th>
-                      <th className="num">Costo personale futuro</th>
-                      <th className="num">
-                        <span className="detail-tooltip-label" title="Ricavo futuro da elaborare.">
-                          Ricavo previsto
-                        </span>
-                      </th>
-                      <th className="detail-kpi-percent-col">
-                        <span className="detail-tooltip-label" title="% di sviluppo realizzata.">
-                          % raggiunto
-                        </span>
-                      </th>
-                      <th className="num">
-                        <span className="detail-tooltip-label" title="Ricavo futuro attualizzato ad oggi secondo la percentuale della lavorazione realizzata.">
-                          Ricavo maturato
-                        </span>
-                      </th>
-                      <th className="num">
-                        <span className="detail-tooltip-label" title="Ricavo storico + Ricavo maturato - Costo storico - Costo del personale.">
-                          Utile ricalcolato
-                        </span>
-                      </th>
-                      <th className="num">
-                        <span className="detail-tooltip-label" title="Utile storico + Ricavi futuri complessivi - Costi futuri - Costo personale futuro.">
-                          Utile fine progetto
-                        </span>
-                      </th>
-                      <th className="detail-kpi-action-col">Salva</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className={`num ${detailConsuntivoMesePrecedente.oreLavorate < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailConsuntivoMesePrecedente.oreLavorate)}
-                      </td>
-                      <td className={`num ${detailConsuntivoMesePrecedente.costoPersonale < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailConsuntivoMesePrecedente.costoPersonale)}
-                      </td>
-                      <td className={`num ${detailConsuntivoMesePrecedente.ricavi < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailConsuntivoMesePrecedente.ricavi)}
-                      </td>
-                      <td className={`num ${detailCostiPassatiRiconciliati < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailCostiPassatiRiconciliati)}
-                      </td>
-                      <td className={`num ${detailUtileConsuntivatoRiconciliato < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailUtileConsuntivatoRiconciliato)}
-                      </td>
-                      <td className={`num ${detailRicaviFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviFuturiAggregati)}</td>
-                      <td className={`num ${detailRicaviAnniSuccessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviAnniSuccessivi)}</td>
-                      <td className={`num ${detailCostiFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailCostiFuturiAggregati)}</td>
-                      <td className={`num ${detailOreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreFuture)}</td>
-                      <td className={`detail-kpi-amount-cell ${detailOreRestantiProiezione < 0 ? 'num-negative' : ''}`}>
-                        <label className="detail-kpi-amount-input-wrap">
-                          <input
-                            className="detail-kpi-amount-input"
-                            type="text"
-                            inputMode="decimal"
-                            value={detailOreRestantiInput}
-                            onChange={handleDetailOreRestantiInputChange}
-                            onBlur={handleDetailOreRestantiInputBlur}
-                            aria-label="Ore restanti"
-                          />
-                          <span className="detail-kpi-amount-suffix">h</span>
-                        </label>
-                      </td>
-                      <td className={`num ${detailCostoPersonaleFuturoProiezione < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailCostoPersonaleFuturoProiezione)}
-                      </td>
-                      <td className={`detail-kpi-amount-cell ${detailRicavoPrevisto < 0 ? 'num-negative' : ''}`}>
-                        <label className="detail-kpi-amount-input-wrap">
-                          <input
-                            className="detail-kpi-amount-input"
-                            type="text"
-                            inputMode="decimal"
-                            value={detailRicavoPrevistoInput}
-                            onChange={handleDetailRicavoPrevistoInputChange}
-                            onBlur={handleDetailRicavoPrevistoInputBlur}
-                            aria-label="Ricavo previsto"
-                          />
-                          <span className="detail-kpi-amount-suffix">EUR</span>
-                        </label>
-                      </td>
-                      <td className="detail-kpi-percent-cell">
-                        <label className="detail-kpi-percent-input-wrap">
-                          <input
-                            className="detail-kpi-percent-input"
-                            type="text"
-                            inputMode="decimal"
-                            value={detailPercentRaggiuntoInput}
-                            onChange={handleDetailPercentRaggiuntoInputChange}
-                            onBlur={handleDetailPercentRaggiuntoInputBlur}
-                            aria-label="% raggiunto progetto"
-                          />
-                          <span className="detail-kpi-percent-suffix">%</span>
-                        </label>
-                      </td>
-                      <td className={`num ${detailRicavoMaturatoAlMesePrecedente < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailRicavoMaturatoAlMesePrecedente)}
-                      </td>
-                      <td className={`num ${detailUtileRicalcolatoMesePrecedente < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailUtileRicalcolatoMesePrecedente)}
-                      </td>
-                      <td className={`num ${detailUtileFineProgetto < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailUtileFineProgetto)}
-                      </td>
-                      <td className="detail-kpi-action-cell">
-                        <button
-                          type="button"
-                          onClick={handleSaveDetailPercentRaggiunto}
-                          disabled={detailLoading || detailSaving || !detailData?.commessa}
-                        >
-                          {detailSaving ? 'Salvataggio...' : 'Salva'}
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            </section>
-
-            <section className="detail-main-zone">
-            <section className="detail-tabs-bar" aria-label="Navigazione dettaglio commessa">
-              <button
-                type="button"
-                className={`detail-tab-button ${detailActiveTab === 'storico' ? 'is-active' : ''}`}
-                onClick={() => setDetailActiveTab('storico')}
-              >
-                Storico
-              </button>
-              <button
-                type="button"
-                className={`detail-tab-button ${detailActiveTab === 'dati-contabili' ? 'is-active' : ''}`}
-                onClick={() => setDetailActiveTab('dati-contabili')}
-              >
-                Dati contabili
-              </button>
-              <button
-                type="button"
-                className={`detail-tab-button ${detailActiveTab === 'commerciale' ? 'is-active' : ''}`}
-                onClick={() => setDetailActiveTab('commerciale')}
-              >
-                Commerciale
-              </button>
-              <button
-                type="button"
-                className={`detail-tab-button ${detailActiveTab === 'personale' ? 'is-active' : ''}`}
-                onClick={() => setDetailActiveTab('personale')}
-              >
-                Personale
-              </button>
-            </section>
-            <section className={`detail-grid-panels detail-grid-panels-tab-${detailActiveTab}`}>
-              <section className={`panel detail-card detail-card-consuntivo ${detailActiveTab !== 'storico' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Consuntivo storico</h3>
-                </header>
-                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                  {(detailSintesiRows.length === 0 && !detailLoading) && (
-                    <p className="empty-state">Nessun dato numerico disponibile per la commessa selezionata.</p>
-                  )}
-
-                  {detailSintesiRows.length > 0 && (
-                    <table className="bonifici-table detail-numeri-table">
-                      <thead>
-                        <tr>
-                          <th>Anno</th>
-                          <th>Scenario</th>
-                          <th className="num">Utile</th>
-                          <th className="num">Ore Lavorate</th>
-                          <th className="num">Costo Personale</th>
-                          <th className="num">Ricavi</th>
-                          <th className="num">Costi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailSintesiRows.map((row) => (
-                          <tr key={row.key} className={row.isMonthRow ? 'detail-progressivo-row' : ''}>
-                            <td>{row.anno}</td>
-                            <td>{row.scenario}</td>
-                            <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                              {formatNumber(row.utileSpecifico)}
-                            </td>
-                            <td className="num">{formatNumber(row.oreLavorate)}</td>
-                            <td className={`num ${row.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonale)}</td>
-                            <td className={`num ${row.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavi)}</td>
-                            <td className={`num ${row.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costi)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="table-totals-row">
-                          <td colSpan={2} className="table-totals-label">Totale</td>
-                          <td className={`num ${detailTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>
-                            {formatNumber(detailTotals.utileSpecifico)}
-                          </td>
-                          <td className="num">{formatNumber(detailTotals.oreLavorate)}</td>
-                          <td className={`num ${detailTotals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.costoPersonale)}</td>
-                          <td className={`num ${detailTotals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.ricavi)}</td>
-                          <td className={`num ${detailTotals.costi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailTotals.costi)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-vendite ${detailActiveTab !== 'dati-contabili' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Vendite ordinate per data</h3>
-                </header>
-                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                  {(detailVenditeSorted.length === 0 && !detailLoading) && (
-                    <p className="empty-state">Nessuna vendita disponibile per la commessa selezionata.</p>
-                  )}
-
-                  {detailVenditeSorted.length > 0 && (
-                    <table className="bonifici-table detail-movimenti-table">
-                      <thead>
-                        <tr>
-                          <th>
-                            <button type="button" className="sort-header-btn" onClick={toggleDetailVenditeDateSort}>
-                              Data <span className="sort-indicator">{detailVenditeDateSortIndicator}</span>
-                            </button>
-                          </th>
-                          <th className="num">Importo</th>
-                          <th>Documento</th>
-                          <th>Descrizione</th>
-                          <th>Causale</th>
-                          <th>Sottoconto</th>
-                          <th>Provenienza</th>
-                          <th>Temporale</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailVenditeSorted.map((row, index) => (
-                          <tr key={`vendita-${row.numeroDocumento}-${row.dataMovimento ?? 'na'}-${index}`} className={row.isFuture ? 'detail-mov-row-future' : 'detail-mov-row-past'}>
-                            <td>{formatDate(row.dataMovimento)}</td>
-                            <td className={`num ${row.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importo)}</td>
-                            <td>{row.numeroDocumento}</td>
-                            <td>{row.descrizione}</td>
-                            <td>{row.causale}</td>
-                            <td>{row.sottoconto}</td>
-                            <td>{row.provenienza}</td>
-                            <td>
-                              <span className={`detail-time-badge ${row.isFuture ? 'future' : 'past'}`}>
-                                {row.statoTemporale || (row.isFuture ? 'Futuro' : 'Passato')}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="table-totals-row">
-                          <td className="table-totals-label">Totale</td>
-                          <td className={`num ${detailVenditeTotaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailVenditeTotaleImporto)}</td>
-                          <td colSpan={6} />
-                        </tr>
-                      </tfoot>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-acquisti ${detailActiveTab !== 'dati-contabili' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Acquisti ordinati per data</h3>
-                </header>
-                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                  {(detailAcquistiSorted.length === 0 && !detailLoading) && (
-                    <p className="empty-state">Nessun acquisto disponibile per la commessa selezionata.</p>
-                  )}
-
-                  {detailAcquistiSorted.length > 0 && (
-                    <table className="bonifici-table detail-movimenti-table">
-                      <thead>
-                        <tr>
-                          <th>
-                            <button type="button" className="sort-header-btn" onClick={toggleDetailAcquistiDateSort}>
-                              Data <span className="sort-indicator">{detailAcquistiDateSortIndicator}</span>
-                            </button>
-                          </th>
-                          <th className="num">Importo</th>
-                          <th>Documento</th>
-                          <th>Descrizione</th>
-                          <th>Causale</th>
-                          <th>Sottoconto</th>
-                          <th>Controparte</th>
-                          <th>Provenienza</th>
-                          <th>Temporale</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailAcquistiSorted.map((row, index) => (
-                          <tr key={`acquisto-${row.numeroDocumento}-${row.dataMovimento ?? 'na'}-${index}`} className={row.isFuture ? 'detail-mov-row-future' : 'detail-mov-row-past'}>
-                            <td>{formatDate(row.dataMovimento)}</td>
-                            <td className={`num ${row.importo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importo)}</td>
-                            <td>{row.numeroDocumento}</td>
-                            <td>{row.descrizione}</td>
-                            <td>{row.causale}</td>
-                            <td>{row.sottoconto}</td>
-                            <td>{row.controparte}</td>
-                            <td>{row.provenienza}</td>
-                            <td>
-                              <span className={`detail-time-badge ${row.isFuture ? 'future' : 'past'}`}>
-                                {row.statoTemporale || (row.isFuture ? 'Futuro' : 'Passato')}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="table-totals-row">
-                          <td className="table-totals-label">Totale</td>
-                          <td className={`num ${detailAcquistiTotaleImporto < 0 ? 'num-negative' : ''}`}>{formatNumber(detailAcquistiTotaleImporto)}</td>
-                          <td colSpan={7} />
-                        </tr>
-                      </tfoot>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-ordini ${detailActiveTab !== 'commerciale' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Ordini</h3>
-                </header>
-                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                  {(detailOrdiniSorted.length === 0 && !detailLoading) && (
-                    <p className="empty-state">Nessun ordine disponibile per la commessa selezionata.</p>
-                  )}
-
-                  {detailOrdiniSorted.length > 0 && (
-                    <table className="bonifici-table detail-ordini-table">
-                      <thead>
-                        <tr>
-                          <th>Protocollo</th>
-                          <th>Stato</th>
-                          <th>Posizione</th>
-                          <th>Descrizione</th>
-                          <th className="num">Quantita</th>
-                          <th className="num">Prezzo Unit.</th>
-                          <th className="num">Importo Ordine</th>
-                          <th className="num">Qta originale</th>
-                          <th className="num">Qta fatture</th>
-                          <th className="num">% raggiung.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailOrdiniSorted.map((row) => {
-                          const percentualeRiga = row.quantita <= 0 ? 0 : row.quantitaFatture / row.quantita
-                          return (
-                            <tr key={`ordine-${row.idDettaglioOrdine}`}>
-                              <td>{row.protocollo}</td>
-                              <td>{row.documentoStato}</td>
-                              <td>{row.posizione}</td>
-                              <td>{row.descrizione}</td>
-                              <td className="num">{formatNumber(row.quantita)}</td>
-                              <td className="num">{formatNumber(row.prezzoUnitario)}</td>
-                              <td className={`num ${row.importoOrdine < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoOrdine)}</td>
-                              <td className="num">{formatNumber(row.quantitaOriginaleOrdinata)}</td>
-                              <td className="num">{formatNumber(row.quantitaFatture)}</td>
-                              <td className="num">{formatPercentRatio(percentualeRiga)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="table-totals-row">
-                          <td colSpan={6} className="table-totals-label">Totale</td>
-                          <td className={`num ${detailOrdiniAggregati.importoOrdinato < 0 ? 'num-negative' : ''}`}>
-                            {formatNumber(detailOrdiniAggregati.importoOrdinato)}
-                          </td>
-                          <td className="num">{formatNumber(detailOrdiniAggregati.quantitaOriginale)}</td>
-                          <td className="num">{formatNumber(detailOrdiniAggregati.quantitaFatturata)}</td>
-                          <td className="num">{formatPercentRatio(detailOrdiniPercentualeQuantita)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-offerte ${detailActiveTab !== 'commerciale' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Offerte</h3>
-                </header>
-                <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                  {(detailOfferteSorted.length === 0 && !detailLoading) && (
-                    <p className="empty-state">Nessuna offerta disponibile per la commessa selezionata.</p>
-                  )}
-
-                  {detailOfferteSorted.length > 0 && (
-                    <table className="bonifici-table detail-offerte-table">
-                      <thead>
-                        <tr>
-                          <th>Anno</th>
-                          <th>Data</th>
-                          <th>Protocollo</th>
-                          <th>Oggetto</th>
-                          <th>Stato</th>
-                          <th className="num">Ricavo Previsto</th>
-                          <th className="num">Costo Previsto</th>
-                          <th className="num">Costo Prev. Personale</th>
-                          <th className="num">Ore prev. offerta</th>
-                          <th className="num">% Successo</th>
-                          <th>Ordini collegati</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailOfferteSorted.map((row, index) => (
-                          <tr key={`offerta-${row.protocollo}-${index}`}>
-                            <td>{row.anno ?? ''}</td>
-                            <td>{formatDate(row.data)}</td>
-                            <td>{row.protocollo}</td>
-                            <td>{row.oggetto}</td>
-                            <td>{row.documentoStato}</td>
-                            <td className={`num ${row.ricavoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.ricavoPrevisto)}</td>
-                            <td className={`num ${row.costoPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevisto)}</td>
-                            <td className={`num ${row.costoPrevistoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPrevistoPersonale)}</td>
-                            <td className={`num ${row.orePrevisteOfferta < 0 ? 'num-negative' : ''}`}>{formatNumber(row.orePrevisteOfferta)}</td>
-                            <td className="num">{formatPercentValue(row.percentualeSuccesso)}</td>
-                            <td>{row.ordiniCollegati}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-percent ${detailActiveTab !== 'storico' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>% raggiungimento</h3>
-                </header>
-                <div className="detail-card-body detail-raggiungimento-body">
-                  <div className="detail-avanzamento-box">
-                    <p className="detail-kpi-caption">
-                      Dati salvati in produzione.avanzamento (stessa data riferimento = sovrascrittura).
-                    </p>
-
-                    {detailAvanzamentoStorico.length === 0 && (
-                      <p className="empty-state">Nessun avanzamento salvato disponibile per la commessa selezionata.</p>
-                    )}
-
-                    {detailAvanzamentoStorico.length > 0 && (
-                      <table className="bonifici-table detail-avanzamento-table detail-avanzamento-grid-table">
-                        <thead>
-                          <tr>
-                            <th>Data riferimento</th>
-                            <th className="num">% raggiunto</th>
-                            <th className="num">Importo riferimento</th>
-                            <th className="num">Ore future</th>
-                            <th className="num">Costo personale futuro</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailAvanzamentoStorico.map((row) => (
-                            <tr key={`avanzamento-${row.id}`}>
-                              <td>{formatDate(row.dataRiferimento)}</td>
-                              <td className="num">{formatPercentValue(row.percentualeRaggiunto)}</td>
-                              <td className={`num ${row.importoRiferimento < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(row.importoRiferimento)}
-                              </td>
-                              <td className={`num ${(Number.isFinite(row.oreFuture) ? row.oreFuture : row.oreRestanti) < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(Number.isFinite(row.oreFuture) ? row.oreFuture : row.oreRestanti)}
-                              </td>
-                              <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>
-                                {formatNumber(row.costoPersonaleFuturo)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              <section className={`panel detail-card detail-card-requisiti ${detailActiveTab !== 'personale' ? 'detail-card-hidden' : ''}`}>
-                <header className="panel-header">
-                  <h3>Ore requisiti commessa</h3>
-                </header>
-                <div className="detail-card-body">
-                  <p className="detail-kpi-caption">
-                    Speso attivita fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
-                  </p>
-
-                  {detailRequisitiOreRows.length === 0 && (
-                    <p className="empty-state">
-                      Nessun requisito con ore previste/spese disponibile per la commessa selezionata.
-                    </p>
-                  )}
-
-                  {detailRequisitiOreRows.length > 0 && (
-                    <>
-                      <div className="detail-requisiti-split">
-                        <div className="detail-requisiti-col">
-                          <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                            <table className="bonifici-table detail-requisiti-table">
-                              <thead>
-                                <tr>
-                                  <th>Requisito</th>
-                                  <th className="num">Durata requisito</th>
-                                  <th className="num">Ore Previste</th>
-                                  <th className="num">Ore Spese</th>
-                                  <th className="num">Ore Restanti</th>
-                                  <th className="num">% Avanzamento</th>
-                                  <th>Dettaglio</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {detailRequisitiOreRows.map((row) => {
-                                  const isExpanded = selectedRequisitoId === row.idRequisito
-                                  const risorseRows = isExpanded
-                                    ? detailRequisitiOreRisorseRows.filter((item) => item.idRequisito === row.idRequisito)
-                                    : []
-                                  const risorseTotals = risorseRows.reduce((acc, item) => ({
-                                    orePreviste: acc.orePreviste + item.orePreviste,
-                                    oreSpese: acc.oreSpese + item.oreSpese,
-                                    oreRestanti: acc.oreRestanti + item.oreRestanti,
-                                  }), {
-                                    orePreviste: 0,
-                                    oreSpese: 0,
-                                    oreRestanti: 0,
-                                  })
-
-                                  return (
-                                    <Fragment key={`requisito-${row.idRequisito}`}>
-                                      <tr>
-                                        <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
-                                        <td className="num">{formatNumber(row.durataRequisito)}</td>
-                                        <td className="num">{formatNumber(row.orePreviste)}</td>
-                                        <td className="num">{formatNumber(row.oreSpese)}</td>
-                                        <td className={`num ${row.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                          {formatNumber(row.oreRestanti)}
-                                        </td>
-                                        <td className="num">{formatPercentRatio(row.percentualeAvanzamento)}</td>
-                                        <td>
-                                          <button
-                                            type="button"
-                                            className="ghost-button detail-inline-action"
-                                            onClick={() => toggleRequisitoDettaglio(row.idRequisito)}
-                                          >
-                                            {isExpanded ? 'Nascondi' : 'Vedi'}
-                                          </button>
-                                        </td>
-                                      </tr>
-
-                                      {isExpanded && (
-                                        <tr className="detail-requisito-expand-row">
-                                          <td colSpan={7}>
-                                            {risorseRows.length === 0 && (
-                                              <p className="empty-state">Nessun dettaglio risorsa disponibile per il requisito selezionato.</p>
-                                            )}
-                                            {risorseRows.length > 0 && (
-                                              <div className="detail-requisiti-dettaglio">
-                                                <table className="bonifici-table detail-requisiti-table detail-requisiti-table-inline">
-                                                  <thead>
-                                                    <tr>
-                                                      <th>Risorsa</th>
-                                                      <th className="num">Durata requisito</th>
-                                                      <th className="num">Ore Previste</th>
-                                                      <th className="num">Ore Spese</th>
-                                                      <th className="num">Ore Restanti</th>
-                                                      <th className="num">% Avanzamento</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody>
-                                                    {risorseRows.map((item) => (
-                                                      <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`}>
-                                                        <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
-                                                        <td className="num">{formatNumber(item.durataRequisito)}</td>
-                                                        <td className="num">{formatNumber(item.orePreviste)}</td>
-                                                        <td className="num">{formatNumber(item.oreSpese)}</td>
-                                                        <td className={`num ${item.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                          {formatNumber(item.oreRestanti)}
-                                                        </td>
-                                                        <td className="num">{formatPercentRatio(item.percentualeAvanzamento)}</td>
-                                                      </tr>
-                                                    ))}
-                                                  </tbody>
-                                                  <tfoot>
-                                                    <tr className="table-totals-row">
-                                                      <td className="table-totals-label">Totale requisito</td>
-                                                      <td className="num">{formatNumber(row.durataRequisito)}</td>
-                                                      <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
-                                                      <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
-                                                      <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                        {formatNumber(risorseTotals.oreRestanti)}
-                                                      </td>
-                                                      <td className="num">
-                                                        {formatPercentRatio(
-                                                          (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito) > 0
-                                                            ? risorseTotals.oreSpese / (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito)
-                                                            : 0,
-                                                        )}
-                                                      </td>
-                                                    </tr>
-                                                  </tfoot>
-                                                </table>
-                                              </div>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </Fragment>
-                                  )
-                                })}
-                              </tbody>
-                              <tfoot>
-                                <tr className="table-totals-row">
-                                  <td className="table-totals-label">Totale</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.durataRequisito)}</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
-                                  <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                    {formatNumber(detailRequisitiOreTotals.oreRestanti)}
-                                  </td>
-                                  <td className="num">
-                                    {formatPercentRatio(
-                                      detailRequisitiOreTotals.oreRiferimento > 0
-                                        ? detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.oreRiferimento
-                                        : 0,
-                                    )}
-                                  </td>
-                                  <td />
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        </div>
-
-                        <div className="detail-requisiti-col">
-                          <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
-                            <table className="bonifici-table detail-requisiti-table">
-                              <thead>
-                                <tr>
-                                  <th>Risorsa</th>
-                                  <th className="num">Ore spese totali</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {detailOreSpeseRisorseRows.length === 0 && (
-                                  <tr>
-                                    <td colSpan={2} className="empty-state">Nessun dato ore spese per risorsa.</td>
-                                  </tr>
-                                )}
-                                {detailOreSpeseRisorseRows.map((row) => (
-                                  <tr key={`ore-spese-risorsa-${row.idRisorsa}`}>
-                                    <td>{row.nomeRisorsa || `ID ${row.idRisorsa}`}</td>
-                                    <td className={`num ${row.oreSpeseTotali < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreSpeseTotali)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="table-totals-row">
-                                  <td className="table-totals-label">Totale</td>
-                                  <td className={`num ${detailOreSpeseRisorseTotal < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreSpeseRisorseTotal)}</td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </section>
-            </section>
-            </section>
-          </section>
-        )}
-      </main>
-
-      {infoModalOpen && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="info-title">
-            <header className="modal-header">
-              <h2 id="info-title">Info Utente</h2>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setInfoModalOpen(false)}
-              >
-                Chiudi
-              </button>
-            </header>
-            <div className="modal-details">
-              <p><strong>Utente autenticato:</strong> {user?.authenticatedUsername || user?.username || 'n/d'}</p>
-              <p><strong>Utente effettivo:</strong> {user?.username || 'n/d'}</p>
-              <p><strong>Impersonificazione:</strong> {isImpersonating ? 'Attiva' : 'Non attiva'}</p>
-              <p><strong>Ruoli autenticati:</strong> {authenticatedRoles.length > 0 ? authenticatedRoles.join(', ') : 'n/d'}</p>
-              <p><strong>Profili effettivi:</strong> {profiles.length > 0 ? profiles.join(', ') : 'n/d'}</p>
-              <p><strong>OU effettive:</strong> {ouScopes.length > 0 ? ouScopes.join(', ') : 'n/d'}</p>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {appInfoModalOpen && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="modal-card app-info-modal-card" role="dialog" aria-modal="true" aria-labelledby="app-info-title">
-            <header className="modal-header">
-              <h2 id="app-info-title">Info Applicazione - Produzione</h2>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setAppInfoModalOpen(false)}
-              >
-                Chiudi
-              </button>
-            </header>
-            <div className="modal-details app-info-details">
-              <p className="app-info-intro">
-                Riepilogo menu e funzionalita principali attive in questa versione dell applicazione.
-              </p>
-              <p className="app-info-intro">
-                Profilo attivo: {currentProfile || 'n/d'}.
-                {canEditAppInfo ? ' Modalita modifica descrizioni attiva.' : ' Modalita sola lettura.'}
-              </p>
-              <p className="app-info-intro">
-                Versione applicazione: {appVersion}.
-              </p>
-              {appInfoStatus && (
-                <p className="app-info-intro">{appInfoStatus}</p>
-              )}
-              {appInfoLoading && (
-                <p className="app-info-intro">Caricamento in corso...</p>
-              )}
-              {appInfoByMenu.map((group) => (
-                <section key={`app-info-${group.menu}`} className="app-info-menu-block">
-                  <h3>{group.menu}</h3>
-                  <ul className="app-info-voice-list">
-                    {group.voci.map((item) => {
-                      const itemKey = appInfoVoiceKey(item.menu, item.voce)
-                      const draftValue = appInfoDrafts[itemKey] ?? item.sintesi
-                      const isSaving = appInfoSavingKey === itemKey
-                      const canSave = canEditAppInfo && !appInfoLoading && !isSaving
-                      return (
-                      <li key={`app-info-${group.menu}-${item.voce}`} className="app-info-voice-item">
-                        <p className="app-info-voice-title">{item.voce}</p>
-                        {canEditAppInfo ? (
-                          <>
-                            <textarea
-                              className="app-info-voice-input"
-                              value={draftValue}
-                              onChange={(event) => setAppInfoDrafts((current) => ({
-                                ...current,
-                                [itemKey]: event.target.value,
-                              }))}
-                              rows={3}
-                            />
-                            <div className="app-info-voice-actions">
-                              <button
-                                type="button"
-                                className="ghost-button"
-                                disabled={!canSave}
-                                onClick={() => void saveAppInfoDescription(item.menu, item.voce)}
-                              >
-                                {isSaving ? 'Salvo...' : 'Salva'}
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <p className="app-info-voice-summary">{item.sintesi}</p>
-                        )}
-                      </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </section>
-        </div>
-      )}
-
-      {impersonationModalOpen && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="impersona-title">
-            <header className="modal-header">
-              <h2 id="impersona-title">Impersonifica Utente</h2>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setImpersonationModalOpen(false)}
-                disabled={sessionLoading}
-              >
-                Chiudi
-              </button>
-            </header>
-            <form className="form" onSubmit={(event) => void applyImpersonation(event)}>
-              <label htmlFor="impersona-user">Username target</label>
-              <input
-                id="impersona-user"
-                value={impersonationInput}
-                onChange={(event) => setImpersonationInput(event.target.value)}
-                placeholder="es: acastiglione"
-                autoFocus
-              />
-              {isImpersonating && (
-                <p className="menu-note">
-                  Attiva: {user?.impersonatorUsername || user?.authenticatedUsername || '-'}
-                  {' -> '}
-                  {user?.username}
-                </p>
-              )}
-              <div className="inline-actions">
-                <button type="submit" disabled={sessionLoading}>
-                  {sessionLoading ? 'Attendi...' : 'Applica'}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  disabled={sessionLoading || !isImpersonating}
-                  onClick={() => void stopImpersonation()}
-                >
-                  Termina
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
+      <AppTopBar {...appTopBarProps} />
+
+      <AppMainContent {...appMainContentProps} />
+
+      <UserInfoModal
+        open={infoModalOpen}
+        user={user}
+        isImpersonating={isImpersonating}
+        authenticatedRoles={authenticatedRoles}
+        profiles={profiles}
+        ouScopes={ouScopes}
+        onClose={() => setInfoModalOpen(false)}
+      />
+
+      <AppInfoModal
+        open={appInfoModalOpen}
+        currentProfile={currentProfile}
+        appVersion={appVersion}
+        canEditAppInfo={canEditAppInfo}
+        appInfoStatus={appInfoStatus}
+        appInfoLoading={appInfoLoading}
+        appInfoByMenu={appInfoByMenu}
+        appInfoDrafts={appInfoDrafts}
+        appInfoSavingKey={appInfoSavingKey}
+        appInfoVoiceKey={appInfoVoiceKey}
+        setAppInfoDrafts={setAppInfoDrafts}
+        saveAppInfoDescription={saveAppInfoDescription}
+        onClose={() => setAppInfoModalOpen(false)}
+      />
+
+      <ImpersonationModal
+        open={impersonationModalOpen}
+        sessionLoading={sessionLoading}
+        impersonationInput={impersonationInput}
+        isImpersonating={isImpersonating}
+        user={user}
+        setImpersonationInput={(value) => setImpersonationInput(value)}
+        applyImpersonation={applyImpersonation}
+        stopImpersonation={stopImpersonation}
+        onClose={() => setImpersonationModalOpen(false)}
+      />
     </div>
   )
 }
 
 export default App
+
+
+
+
+
+
+
 
 
 

@@ -105,6 +105,14 @@ public interface IAnalisiRccRepository
         IReadOnlyCollection<string>? allowedBusinessUnits = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<AnalisiRccPivotFunnelRow>> GetPivotFunnelBurccAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<ProcessoOffertaDettaglioRow>> GetProcessoOffertaDettaglioAsync(
         int idRisorsa,
         IReadOnlyCollection<int>? anni,

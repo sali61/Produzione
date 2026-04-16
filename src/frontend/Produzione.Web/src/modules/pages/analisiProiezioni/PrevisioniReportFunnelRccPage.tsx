@@ -13,7 +13,9 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
     currentProfile,
     exportAnalisiExcel,
     formatNumber,
+    formatAnalisiRccPercent,
     handleAnalisiSubmit,
+    isAnalisiRccPercentUnderTarget,
     isAnalisiSearchCollapsed,
     isAnalisiSearchCollapsible,
     previsioniReportFunnelRcc,
@@ -22,15 +24,36 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
     previsioniReportFunnelRccData,
     previsioniReportFunnelRccHasMultipleAggregazioni,
     previsioniReportFunnelRccOptions,
+    previsioniReportFunnelRccPercentuale,
+    previsioniReportFunnelRccPercentualeOptions,
     previsioniReportFunnelRccPivotRows,
+    previsioniReportFunnelRccTipo,
+    previsioniReportFunnelRccTipoOptions,
     previsioniReportFunnelRccTotaliDettaglioRows,
     previsioniReportFunnelRccTotaliPerAnno,
     resetAnalisiFilters,
     setPrevisioniReportFunnelRcc,
     setPrevisioniReportFunnelRccAnni,
+    setPrevisioniReportFunnelRccPercentuale,
+    setPrevisioniReportFunnelRccTipo,
     statusMessageVisible,
     toggleAnalisiSearchCollapsed
   } = props as any
+
+  const rowClassName = (row: any, withTotalsClass = false) => {
+    const classes = [`funnel-pivot-row`, `level-${row.livello}`]
+    if (row.livello === 0) {
+      classes.push('funnel-total-rcc-row')
+    } else if (row.livello === 1) {
+      classes.push('funnel-total-tipo-row')
+    } else {
+      classes.push('funnel-detail-percent-row')
+    }
+    if (withTotalsClass) {
+      classes.push('table-totals-row')
+    }
+    return classes.join(' ')
+  }
 
   return (
           <section className="panel sintesi-page analisi-rcc-page">
@@ -80,6 +103,36 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
                         </select>
                       </label>
                     )}
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-tipo">
+                      <span>Tipo</span>
+                      <select
+                        id="previsioni-report-funnel-rcc-tipo"
+                        value={previsioniReportFunnelRccTipo}
+                        onChange={(event) => setPrevisioniReportFunnelRccTipo(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        {previsioniReportFunnelRccTipoOptions.map((value) => (
+                          <option key={`previsioni-report-funnel-rcc-tipo-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-rcc-percentuale">
+                      <span>% successo</span>
+                      <select
+                        id="previsioni-report-funnel-rcc-percentuale"
+                        value={previsioniReportFunnelRccPercentuale}
+                        onChange={(event) => setPrevisioniReportFunnelRccPercentuale(event.target.value)}
+                      >
+                        <option value="">Tutte</option>
+                        {previsioniReportFunnelRccPercentualeOptions.map((value) => (
+                          <option key={`previsioni-report-funnel-rcc-percentuale-${value}`} value={value.toString()}>
+                            {formatAnalisiRccPercent(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <div className="inline-actions analisi-inline-actions">
                       <button type="submit" disabled={analisiRccLoading}>
                         {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
@@ -141,7 +194,9 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
                         <thead>
                           <tr>
                             <th>Anno</th>
-                            <th>Etichette di riga</th>
+                            <th>RCC</th>
+                            <th>Tipo</th>
+                            <th className="num">% Successo</th>
                             <th className="num">Conteggio protocollo</th>
                             <th className="num">Budget Ricavo</th>
                             <th className="num">Budget Costi</th>
@@ -153,10 +208,12 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
                         </thead>
                         <tbody>
                           {previsioniReportFunnelRccPivotRows.map((row) => (
-                            <tr key={row.key} className={`funnel-pivot-row level-${row.livello}`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                            <tr key={row.key} className={rowClassName(row)}>
+                              <td>{row.livello === 0 ? row.anno : ''}</td>
+                              <td>{row.livello === 0 ? row.aggregazione : ''}</td>
+                              <td>{row.livello === 1 ? row.tipo : ''}</td>
+                              <td className={`num ${row.isPercentualeRow && isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
+                                {row.isPercentualeRow ? formatAnalisiRccPercent(row.percentualeSuccesso) : ''}
                               </td>
                               <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
                               <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
@@ -186,7 +243,9 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
                         <thead>
                           <tr>
                             <th>Anno</th>
-                            <th>Etichette di riga</th>
+                            <th>RCC</th>
+                            <th>Tipo</th>
+                            <th className="num">% Successo</th>
                             <th className="num">Conteggio protocollo</th>
                             <th className="num">Budget Ricavo</th>
                             <th className="num">Budget Costi</th>
@@ -198,10 +257,12 @@ export function PrevisioniReportFunnelRccPage(props: PrevisioniReportFunnelRccPa
                         </thead>
                         <tbody>
                           {previsioniReportFunnelRccTotaliDettaglioRows.map((row) => (
-                            <tr key={`previsioni-report-funnel-rcc-totale-dettaglio-${row.key}`} className={`funnel-pivot-row level-${row.livello} table-totals-row`}>
-                              <td>{row.anno}</td>
-                              <td>
-                                <span className={`funnel-pivot-label level-${row.livello}`}>{row.etichetta}</span>
+                            <tr key={`previsioni-report-funnel-rcc-totale-dettaglio-${row.key}`} className={rowClassName(row, true)}>
+                              <td>{row.livello === 0 ? row.anno : ''}</td>
+                              <td>{row.livello === 0 ? row.aggregazione : ''}</td>
+                              <td>{row.livello === 1 ? row.tipo : ''}</td>
+                              <td className={`num ${row.isPercentualeRow && isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
+                                {row.isPercentualeRow ? formatAnalisiRccPercent(row.percentualeSuccesso) : ''}
                               </td>
                               <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
                               <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>

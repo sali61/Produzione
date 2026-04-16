@@ -1242,6 +1242,26 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<AnalisiRccPivotFunnelRow>> GetPivotFunnelBurccAsync(
+        int idRisorsa,
+        int anno,
+        string? businessUnit,
+        string? rcc,
+        IReadOnlyCollection<string>? allowedBusinessUnits = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetPivotFunnelCoreAsync(
+            idRisorsa,
+            anno,
+            "BURCC",
+            "Aggregazione",
+            new[] { "Aggregazione" },
+            null,
+            null,
+            null,
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<ProcessoOffertaDettaglioRow>> GetProcessoOffertaDettaglioAsync(
         int idRisorsa,
         IReadOnlyCollection<int>? anni,
@@ -1696,6 +1716,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                         annoValue,
                         aggregazioneValue.Trim(),
                         ReadString(reader, "tipo", "Tipo"),
+                        ReadString(reader, "documentostato", "DocumentoStato", "statoDocumento", "tipodocumento", "TipoDocumento"),
                         ReadDecimal(reader, "percentualesuccesso", "PercentualeSuccesso"),
                         ReadNullableInt(reader, "numero", "Numero", "conteggio_protocollo", "conteggio_protocolli") ?? 0,
                         ReadDecimal(reader, "totale_Budget_Ricavo", "totale_budget_ricavo"),
@@ -1712,6 +1733,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 .OrderBy(item => item.Anno)
                 .ThenBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(item => item.Tipo, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.TipoDocumento, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         catch

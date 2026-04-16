@@ -63,10 +63,12 @@ export type AppPage =
   | 'analisi-burcc-risultato-mensile'
   | 'analisi-burcc-pivot-fatturato'
   | 'analisi-piano-fatturazione'
+  | 'analisi-albero-proiezioni'
   | 'analisi-dettaglio-fatturato'
   | 'previsioni-funnel'
   | 'previsioni-report-funnel-rcc'
   | 'previsioni-report-funnel-bu'
+  | 'previsioni-report-funnel-burcc'
   | 'previsioni-utile-mensile-rcc'
   | 'previsioni-utile-mensile-bu'
   | 'processo-offerta-offerte'
@@ -501,6 +503,7 @@ export type AnalisiRccPivotFunnelRow = {
   anno: number
   aggregazione: string
   tipo: string
+  tipoDocumento: string
   percentualeSuccesso: number
   numeroProtocolli: number
   totaleBudgetRicavo: number
@@ -529,8 +532,14 @@ export type AnalisiRccPivotFunnelResponse = {
   vediTutto: boolean
   aggregazioneFiltro?: string | null
   rccFiltro?: string | null
+  tipoFiltro?: string | null
+  tipoDocumentoFiltro?: string | null
+  percentualeSuccessoFiltro?: number | null
   aggregazioniDisponibili: string[]
   rccDisponibili: string[]
+  tipiDisponibili: string[]
+  tipiDocumentoDisponibili: string[]
+  percentualiSuccessoDisponibili: number[]
   righe: AnalisiRccPivotFunnelRow[]
   totaliPerAnno: AnalisiRccPivotFunnelTotaleAnno[]
 }

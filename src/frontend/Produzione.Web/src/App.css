@@ -800,6 +800,20 @@
   background: #f4f8ff;
 }
 
+.funnel-pivot-row.funnel-total-rcc-row td {
+  background: #eef4ff;
+  font-weight: 700;
+}
+
+.funnel-pivot-row.funnel-total-tipo-row td {
+  background: #f7fbff;
+  font-weight: 600;
+}
+
+.funnel-pivot-row.funnel-detail-percent-row td {
+  background: #ffffff;
+}
+
 .funnel-pivot-label {
   display: inline-block;
 }
@@ -810,6 +824,33 @@
 
 .funnel-pivot-label.level-2 {
   padding-left: 2rem;
+}
+
+.funnel-pivot-label.level-3 {
+  padding-left: 3rem;
+}
+
+.albero-proiezioni-row.level-0 td {
+  background: #e8f0ff;
+  font-weight: 700;
+}
+
+.albero-proiezioni-row.level-1 td {
+  background: #eef4ff;
+  font-weight: 700;
+}
+
+.albero-proiezioni-row.level-2 td {
+  background: #f4f8ff;
+  font-weight: 600;
+}
+
+.albero-proiezioni-row.level-3 td {
+  background: #f9fbff;
+}
+
+.albero-proiezioni-row.level-4 td {
+  background: #ffffff;
 }
 
 .dati-annuali-pivot-config-panel {
@@ -1115,6 +1156,11 @@ button:disabled {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.bonifici-table th.percent-col,
+.bonifici-table td.percent-col {
+  background: #f3f8ff;
 }
 
 .num-negative {

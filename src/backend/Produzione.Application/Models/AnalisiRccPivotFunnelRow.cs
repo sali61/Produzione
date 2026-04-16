@@ -4,6 +4,7 @@ public sealed record AnalisiRccPivotFunnelRow(
     int Anno,
     string Aggregazione,
     string Tipo,
+    string TipoDocumento,
     decimal PercentualeSuccesso,
     int NumeroProtocolli,
     decimal TotaleBudgetRicavo,

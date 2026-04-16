@@ -1,15 +1,15 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-type PrevisioniReportFunnelBuPageProps = any
+type PrevisioniReportFunnelBurccPageProps = any
 
-export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPageProps) {
+export function PrevisioniReportFunnelBurccPage(props: PrevisioniReportFunnelBurccPageProps) {
   const {
     analisiPageCountLabel,
     analisiRccLoading,
-    canAccessPrevisioniFunnelBuPage,
+    canAccessPrevisioniFunnelBurccPage,
     canExportAnalisiPage,
-    canSelectPrevisioniFunnelBu,
+    canSelectPrevisioniFunnelBurcc,
     currentProfile,
     exportAnalisiExcel,
     formatNumber,
@@ -18,29 +18,29 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
     isAnalisiRccPercentUnderTarget,
     isAnalisiSearchCollapsed,
     isAnalisiSearchCollapsible,
-    previsioniReportFunnelBu,
-    previsioniReportFunnelBuAnnoOptions,
-    previsioniReportFunnelBuAnnoSelezionato,
-    previsioniReportFunnelBuData,
-    previsioniReportFunnelBuHasMultipleAggregazioni,
-    previsioniReportFunnelBuOptions,
-    previsioniReportFunnelBuPercentuale,
-    previsioniReportFunnelBuPercentualeOptions,
-    previsioniReportFunnelBuPivotRows,
-    previsioniReportFunnelBuRcc,
-    previsioniReportFunnelBuRccOptions,
-    previsioniReportFunnelBuTipo,
-    previsioniReportFunnelBuTipoOptions,
-    previsioniReportFunnelBuTotaliDettaglioRows,
-    previsioniReportFunnelBuTotaliPerAnno,
+    previsioniReportFunnelBurccAnnoOptions,
+    previsioniReportFunnelBurccAnnoSelezionato,
+    previsioniReportFunnelBurccBusinessUnit,
+    previsioniReportFunnelBurccBusinessUnitOptions,
+    previsioniReportFunnelBurccData,
+    previsioniReportFunnelBurccOrder,
+    previsioniReportFunnelBurccPercentuale,
+    previsioniReportFunnelBurccPercentualeOptions,
+    previsioniReportFunnelBurccPivotRows,
+    previsioniReportFunnelBurccRcc,
+    previsioniReportFunnelBurccRccOptions,
+    previsioniReportFunnelBurccTipo,
+    previsioniReportFunnelBurccTipoOptions,
+    previsioniReportFunnelBurccTotaliPerAnno,
     resetAnalisiFilters,
-    setPrevisioniReportFunnelBu,
-    setPrevisioniReportFunnelBuAnni,
-    setPrevisioniReportFunnelBuPercentuale,
-    setPrevisioniReportFunnelBuRcc,
-    setPrevisioniReportFunnelBuTipo,
+    setPrevisioniReportFunnelBurccAnni,
+    setPrevisioniReportFunnelBurccBusinessUnit,
+    setPrevisioniReportFunnelBurccOrder,
+    setPrevisioniReportFunnelBurccPercentuale,
+    setPrevisioniReportFunnelBurccRcc,
+    setPrevisioniReportFunnelBurccTipo,
     statusMessageVisible,
-    toggleAnalisiSearchCollapsed
+    toggleAnalisiSearchCollapsed,
   } = props as any
 
   const rowClassName = (row: any, withTotalsClass = false) => {
@@ -49,6 +49,8 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
       classes.push('funnel-total-rcc-row')
     } else if (row.livello === 1) {
       classes.push('funnel-total-tipo-row')
+    } else if (row.livello === 2) {
+      classes.push('funnel-detail-tipo-row')
     } else {
       classes.push('funnel-detail-percent-row')
     }
@@ -58,99 +60,136 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
     return classes.join(' ')
   }
 
+  const showBusinessUnit = (row: any) => {
+    if (row.livello === 1) {
+      return row.businessUnit
+    }
+    if (row.livello === 0 && previsioniReportFunnelBurccOrder === 'bu-rcc') {
+      return row.businessUnit
+    }
+    return ''
+  }
+
+  const showRcc = (row: any) => {
+    if (row.livello === 1) {
+      return row.rcc
+    }
+    if (row.livello === 0 && previsioniReportFunnelBurccOrder === 'rcc-bu') {
+      return row.rcc
+    }
+    return ''
+  }
+
   return (
     <section className="panel sintesi-page analisi-rcc-page">
       <header className="panel-header">
-        <h2>Previsioni - Report Funnel BU</h2>
+        <h2>Previsioni - Report Funnel BU RCC</h2>
         <span className="status-badge neutral">Profilo attivo: {currentProfile || '-'}</span>
       </header>
 
-      {!canAccessPrevisioniFunnelBuPage && (
+      {!canAccessPrevisioniFunnelBurccPage && (
         <p className="empty-state">
           Il profilo corrente non e' abilitato a questa analisi.
         </p>
       )}
 
-      {canAccessPrevisioniFunnelBuPage && (
+      {canAccessPrevisioniFunnelBurccPage && (
         <>
           <section className="panel sintesi-filter-panel">
             <form className={`analisi-rcc-toolbar ${isAnalisiSearchCollapsed ? 'is-collapsed' : ''}`} onSubmit={handleAnalisiSubmit}>
-              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-anno">
+              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-anno">
                 <span>Anno</span>
                 <select
-                  id="previsioni-report-funnel-bu-anno"
-                  value={previsioniReportFunnelBuAnnoSelezionato}
-                  onChange={(event) => setPrevisioniReportFunnelBuAnni([event.target.value])}
+                  id="previsioni-report-funnel-burcc-anno"
+                  value={previsioniReportFunnelBurccAnnoSelezionato}
+                  onChange={(event) => setPrevisioniReportFunnelBurccAnni([event.target.value])}
                 >
-                  {previsioniReportFunnelBuAnnoOptions.map((year) => (
-                    <option key={`previsioni-report-funnel-bu-anno-${year}`} value={year}>
+                  {previsioniReportFunnelBurccAnnoOptions.map((year: string) => (
+                    <option key={`previsioni-report-funnel-burcc-anno-${year}`} value={year}>
                       {year}
                     </option>
                   ))}
                 </select>
               </label>
-              {canSelectPrevisioniFunnelBu && (
-                <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-bu">
+
+              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-ordine">
+                <span>Ordine aggregazione</span>
+                <select
+                  id="previsioni-report-funnel-burcc-ordine"
+                  value={previsioniReportFunnelBurccOrder}
+                  onChange={(event) => setPrevisioniReportFunnelBurccOrder(event.target.value)}
+                >
+                  <option value="rcc-bu">RCC &gt; BU</option>
+                  <option value="bu-rcc">BU &gt; RCC</option>
+                </select>
+              </label>
+
+              {canSelectPrevisioniFunnelBurcc && (
+                <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-bu">
                   <span>BU</span>
                   <select
-                    id="previsioni-report-funnel-bu-bu"
-                    value={previsioniReportFunnelBu}
-                    onChange={(event) => setPrevisioniReportFunnelBu(event.target.value)}
+                    id="previsioni-report-funnel-burcc-bu"
+                    value={previsioniReportFunnelBurccBusinessUnit}
+                    onChange={(event) => setPrevisioniReportFunnelBurccBusinessUnit(event.target.value)}
                   >
                     <option value="">Tutte</option>
-                    {previsioniReportFunnelBuOptions.map((value) => (
-                      <option key={`previsioni-report-funnel-bu-${value}`} value={value}>
+                    {previsioniReportFunnelBurccBusinessUnitOptions.map((value: string) => (
+                      <option key={`previsioni-report-funnel-burcc-bu-${value}`} value={value}>
                         {value}
                       </option>
                     ))}
                   </select>
                 </label>
               )}
-              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-rcc">
+
+              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-rcc">
                 <span>RCC</span>
                 <select
-                  id="previsioni-report-funnel-bu-rcc"
-                  value={previsioniReportFunnelBuRcc}
-                  onChange={(event) => setPrevisioniReportFunnelBuRcc(event.target.value)}
+                  id="previsioni-report-funnel-burcc-rcc"
+                  value={previsioniReportFunnelBurccRcc}
+                  onChange={(event) => setPrevisioniReportFunnelBurccRcc(event.target.value)}
                 >
                   <option value="">Tutti</option>
-                  {previsioniReportFunnelBuRccOptions.map((value) => (
-                    <option key={`previsioni-report-funnel-bu-rcc-${value}`} value={value}>
+                  {previsioniReportFunnelBurccRccOptions.map((value: string) => (
+                    <option key={`previsioni-report-funnel-burcc-rcc-${value}`} value={value}>
                       {value}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-tipo">
+
+              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-tipo">
                 <span>Tipo</span>
                 <select
-                  id="previsioni-report-funnel-bu-tipo"
-                  value={previsioniReportFunnelBuTipo}
-                  onChange={(event) => setPrevisioniReportFunnelBuTipo(event.target.value)}
+                  id="previsioni-report-funnel-burcc-tipo"
+                  value={previsioniReportFunnelBurccTipo}
+                  onChange={(event) => setPrevisioniReportFunnelBurccTipo(event.target.value)}
                 >
                   <option value="">Tutti</option>
-                  {previsioniReportFunnelBuTipoOptions.map((value) => (
-                    <option key={`previsioni-report-funnel-bu-tipo-${value}`} value={value}>
+                  {previsioniReportFunnelBurccTipoOptions.map((value: string) => (
+                    <option key={`previsioni-report-funnel-burcc-tipo-${value}`} value={value}>
                       {value}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-percentuale">
+
+              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-burcc-percentuale">
                 <span>% successo</span>
                 <select
-                  id="previsioni-report-funnel-bu-percentuale"
-                  value={previsioniReportFunnelBuPercentuale}
-                  onChange={(event) => setPrevisioniReportFunnelBuPercentuale(event.target.value)}
+                  id="previsioni-report-funnel-burcc-percentuale"
+                  value={previsioniReportFunnelBurccPercentuale}
+                  onChange={(event) => setPrevisioniReportFunnelBurccPercentuale(event.target.value)}
                 >
                   <option value="">Tutte</option>
-                  {previsioniReportFunnelBuPercentualeOptions.map((value) => (
-                    <option key={`previsioni-report-funnel-bu-percentuale-${value}`} value={value.toString()}>
+                  {previsioniReportFunnelBurccPercentualeOptions.map((value: number) => (
+                    <option key={`previsioni-report-funnel-burcc-percentuale-${value}`} value={value.toString()}>
                       {formatAnalisiRccPercent(value)}
                     </option>
                   ))}
                 </select>
               </label>
+
               <div className="inline-actions analisi-inline-actions">
                 <button type="submit" disabled={analisiRccLoading}>
                   {analisiRccLoading ? 'Caricamento...' : 'Cerca'}
@@ -187,32 +226,33 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
             </form>
             <div className="sintesi-toolbar-row">
               <p className="sintesi-toolbar-message">
-                {previsioniReportFunnelBuData
-                  ? `Anno ${previsioniReportFunnelBuAnnoSelezionato}. Visibilita: ${previsioniReportFunnelBuData.vediTutto ? 'tutte le BU' : `solo ${previsioniReportFunnelBuData.aggregazioneFiltro || 'BU corrente'}`}.`
+                {previsioniReportFunnelBurccData
+                  ? `Anno ${previsioniReportFunnelBurccAnnoSelezionato}.`
                   : statusMessageVisible}
               </p>
               <span className="status-badge neutral">
-                {previsioniReportFunnelBuData ? `${previsioniReportFunnelBuPivotRows.length} righe` : '0 righe'}
+                {previsioniReportFunnelBurccData ? `${previsioniReportFunnelBurccPivotRows.length} righe` : '0 righe'}
               </span>
             </div>
           </section>
 
           <section className="panel analisi-rcc-grid-card">
             <header className="panel-header">
-              <h3>Report Funnel BU</h3>
+              <h3>Report Funnel BU RCC</h3>
             </header>
 
-            {previsioniReportFunnelBuPivotRows.length === 0 && !analisiRccLoading && (
+            {previsioniReportFunnelBurccPivotRows.length === 0 && !analisiRccLoading && (
               <p className="empty-state">Nessun dato disponibile per i criteri correnti.</p>
             )}
 
-            {previsioniReportFunnelBuPivotRows.length > 0 && (
+            {previsioniReportFunnelBurccPivotRows.length > 0 && (
               <div className="bonifici-table-wrap bonifici-table-wrap-main">
                 <table className="bonifici-table">
                   <thead>
                     <tr>
                       <th>Anno</th>
                       <th>BU</th>
+                      <th>RCC</th>
                       <th>Tipo</th>
                       <th className="num">% Successo</th>
                       <th className="num">Conteggio protocollo</th>
@@ -225,11 +265,12 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
                     </tr>
                   </thead>
                   <tbody>
-                    {previsioniReportFunnelBuPivotRows.map((row) => (
+                    {previsioniReportFunnelBurccPivotRows.map((row: any) => (
                       <tr key={row.key} className={rowClassName(row)}>
                         <td>{row.livello === 0 ? row.anno : ''}</td>
-                        <td>{row.livello === 0 ? row.aggregazione : ''}</td>
-                        <td>{row.livello === 1 ? row.tipo : ''}</td>
+                        <td>{showBusinessUnit(row)}</td>
+                        <td>{showRcc(row)}</td>
+                        <td>{row.livello === 2 ? row.tipo : ''}</td>
                         <td className={`num ${row.isPercentualeRow && isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
                           {row.isPercentualeRow ? formatAnalisiRccPercent(row.percentualeSuccesso) : ''}
                         </td>
@@ -250,52 +291,12 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
 
           <section className="panel analisi-rcc-grid-card">
             <header className="panel-header">
-              <h3>{previsioniReportFunnelBuHasMultipleAggregazioni ? 'Totali per anno (ripartiti per tipo/% successo)' : 'Totali per anno'}</h3>
+              <h3>Totali per anno</h3>
             </header>
-            {previsioniReportFunnelBuTotaliPerAnno.length === 0 && !analisiRccLoading && (
+            {previsioniReportFunnelBurccTotaliPerAnno.length === 0 && !analisiRccLoading && (
               <p className="empty-state">Nessun totale disponibile per i criteri correnti.</p>
             )}
-            {previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliDettaglioRows.length > 0 && (
-              <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                <table className="bonifici-table">
-                  <thead>
-                    <tr>
-                      <th>Anno</th>
-                      <th>BU</th>
-                      <th>Tipo</th>
-                      <th className="num">% Successo</th>
-                      <th className="num">Conteggio protocollo</th>
-                      <th className="num">Budget Ricavo</th>
-                      <th className="num">Budget Costi</th>
-                      <th className="num">Fatturato Futuro</th>
-                      <th className="num">Futura Anno</th>
-                      <th className="num">Emessa Anno</th>
-                      <th className="num">Totale Anno</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previsioniReportFunnelBuTotaliDettaglioRows.map((row) => (
-                      <tr key={`previsioni-report-funnel-bu-totale-dettaglio-${row.key}`} className={rowClassName(row, true)}>
-                        <td>{row.livello === 0 ? row.anno : ''}</td>
-                        <td>{row.livello === 0 ? row.aggregazione : ''}</td>
-                        <td>{row.livello === 1 ? row.tipo : ''}</td>
-                        <td className={`num ${row.isPercentualeRow && isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
-                          {row.isPercentualeRow ? formatAnalisiRccPercent(row.percentualeSuccesso) : ''}
-                        </td>
-                        <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
-                        <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>
-                        <td className={`num ${row.totaleBudgetCosti < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetCosti)}</td>
-                        <td className={`num ${row.totaleFatturatoFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoFuturo)}</td>
-                        <td className={`num ${row.totaleFuturaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFuturaAnno)}</td>
-                        <td className={`num ${row.totaleEmessaAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleEmessaAnno)}</td>
-                        <td className={`num ${row.totaleRicaviComplessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicaviComplessivi)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {!previsioniReportFunnelBuHasMultipleAggregazioni && previsioniReportFunnelBuTotaliPerAnno.length > 0 && (
+            {previsioniReportFunnelBurccTotaliPerAnno.length > 0 && (
               <div className="bonifici-table-wrap bonifici-table-wrap-main">
                 <table className="bonifici-table">
                   <thead>
@@ -311,8 +312,8 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
                     </tr>
                   </thead>
                   <tbody>
-                    {previsioniReportFunnelBuTotaliPerAnno.map((row) => (
-                      <tr key={`previsioni-report-funnel-bu-totale-${row.anno}`} className="table-totals-row">
+                    {previsioniReportFunnelBurccTotaliPerAnno.map((row: any) => (
+                      <tr key={`previsioni-report-funnel-burcc-totale-${row.anno}`} className="table-totals-row">
                         <td>{row.anno}</td>
                         <td className="num">{row.numeroProtocolli.toLocaleString('it-IT')}</td>
                         <td className={`num ${row.totaleBudgetRicavo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleBudgetRicavo)}</td>

@@ -5,6 +5,7 @@ public sealed class AnalisiRccPivotFunnelRowDto
     public int Anno { get; set; }
     public string Aggregazione { get; set; } = string.Empty;
     public string Tipo { get; set; } = string.Empty;
+    public string TipoDocumento { get; set; } = string.Empty;
     public decimal PercentualeSuccesso { get; set; }
     public int NumeroProtocolli { get; set; }
     public decimal TotaleBudgetRicavo { get; set; }

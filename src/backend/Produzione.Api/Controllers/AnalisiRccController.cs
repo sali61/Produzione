@@ -1771,6 +1771,9 @@ public sealed class AnalisiRccController(
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
         [FromQuery] string? rcc = null,
+        [FromQuery] string? tipo = null,
+        [FromQuery] string? tipoDocumento = null,
+        [FromQuery] decimal? percentualeSuccesso = null,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
     {
@@ -1814,6 +1817,15 @@ public sealed class AnalisiRccController(
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
                 : rcc.Trim();
+            var requestedTipo = string.IsNullOrWhiteSpace(tipo)
+                ? null
+                : tipo.Trim();
+            var requestedTipoDocumento = string.IsNullOrWhiteSpace(tipoDocumento)
+                ? null
+                : tipoDocumento.Trim();
+            var requestedPercentualeSuccesso = percentualeSuccesso.HasValue
+                ? NormalizePivotFunnelPercent(percentualeSuccesso.Value)
+                : (decimal?)null;
 
             string? rccFiltro;
             if (!vediTutto)
@@ -1837,6 +1849,7 @@ public sealed class AnalisiRccController(
                     cancellationToken);
                 rows.AddRange(yearRows);
             }
+            var rowsForFilterOptions = rows.ToArray();
 
             var aggregazioniDisponibili = new List<string>();
             if (vediTutto)
@@ -1864,25 +1877,47 @@ public sealed class AnalisiRccController(
                 aggregazioniDisponibili.Add(rccFiltro);
             }
 
-            var rowsOrdered = rows
+            var filteredRows = rows.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(requestedTipo))
+            {
+                filteredRows = filteredRows.Where(item => item.Tipo.Equals(requestedTipo, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrWhiteSpace(requestedTipoDocumento))
+            {
+                filteredRows = filteredRows.Where(item => item.TipoDocumento.Equals(requestedTipoDocumento, StringComparison.OrdinalIgnoreCase));
+            }
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                filteredRows = filteredRows.Where(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso) == requestedPercentualeSuccesso.Value);
+            }
+
+            var rowsOrdered = filteredRows
                 .OrderBy(item => item.Anno)
                 .ThenBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(item => item.Tipo, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.TipoDocumento, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.PercentualeSuccesso)
                 .ToArray();
 
             var dettaglioRows = await analisiRccRepository.GetFunnelAsync(
                 analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
-                null,
-                null,
+                requestedTipo,
+                requestedTipoDocumento,
                 cancellationToken);
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                dettaglioRows = dettaglioRows
+                    .Where(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso) == requestedPercentualeSuccesso.Value)
+                    .ToArray();
+            }
             var protocolCountLookup = BuildProtocolCountLookup(dettaglioRows, item => item.Rcc);
 
             var rowDtos = rowsOrdered
                 .Select(item =>
                 {
-                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.PercentualeSuccesso);
+                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.TipoDocumento, item.PercentualeSuccesso);
                     var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
                         ? count
                         : item.NumeroProtocolli;
@@ -1895,6 +1930,7 @@ public sealed class AnalisiRccController(
                         Anno = item.Anno,
                         Aggregazione = item.Aggregazione,
                         Tipo = item.Tipo,
+                        TipoDocumento = item.TipoDocumento,
                         PercentualeSuccesso = item.PercentualeSuccesso,
                         NumeroProtocolli = numeroProtocolli,
                         TotaleBudgetRicavo = item.TotaleBudgetRicavo,
@@ -1939,8 +1975,28 @@ public sealed class AnalisiRccController(
                 VediTutto = vediTutto,
                 AggregazioneFiltro = rccFiltro,
                 RccFiltro = rccFiltro,
+                TipoFiltro = requestedTipo,
+                TipoDocumentoFiltro = requestedTipoDocumento,
+                PercentualeSuccessoFiltro = requestedPercentualeSuccesso,
                 AggregazioniDisponibili = aggregazioniDisponibili.ToArray(),
                 RccDisponibili = aggregazioniDisponibili.ToArray(),
+                TipiDisponibili = rowsForFilterOptions
+                    .Select(item => item.Tipo?.Trim() ?? string.Empty)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                TipiDocumentoDisponibili = rowsForFilterOptions
+                    .Select(item => item.TipoDocumento?.Trim() ?? string.Empty)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                PercentualiSuccessoDisponibili = rowsForFilterOptions
+                    .Select(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso))
+                    .Distinct()
+                    .OrderBy(value => value)
+                    .ToArray(),
                 Righe = rowDtos,
                 TotaliPerAnno = totaliPerAnno
             };
@@ -1976,6 +2032,8 @@ public sealed class AnalisiRccController(
         [FromQuery(Name = "anni")] int[]? anni = null,
         [FromQuery] string? businessUnit = null,
         [FromQuery] string? rcc = null,
+        [FromQuery] string? tipo = null,
+        [FromQuery] decimal? percentualeSuccesso = null,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
     {
@@ -2022,6 +2080,12 @@ public sealed class AnalisiRccController(
             var requestedRcc = string.IsNullOrWhiteSpace(rcc)
                 ? null
                 : rcc.Trim();
+            var requestedTipo = string.IsNullOrWhiteSpace(tipo)
+                ? null
+                : tipo.Trim();
+            var requestedPercentualeSuccesso = percentualeSuccesso.HasValue
+                ? NormalizePivotFunnelPercent(percentualeSuccesso.Value)
+                : (decimal?)null;
 
             IReadOnlyCollection<string>? allowedBusinessUnits = null;
             if (!vediTutto)
@@ -2067,6 +2131,7 @@ public sealed class AnalisiRccController(
                     cancellationToken);
                 rows.AddRange(yearRows);
             }
+            var rowsForFilterOptions = rows.ToArray();
 
             List<string> aggregazioniDisponibili;
             if (vediTutto)
@@ -2096,17 +2161,28 @@ public sealed class AnalisiRccController(
                 aggregazioniDisponibili = NormalizeScopes(allowedBusinessUnits).ToList();
             }
 
-            var rowsOrdered = rows
+            var filteredRows = rows.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(requestedTipo))
+            {
+                filteredRows = filteredRows.Where(item => item.Tipo.Equals(requestedTipo, StringComparison.OrdinalIgnoreCase));
+            }
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                filteredRows = filteredRows.Where(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso) == requestedPercentualeSuccesso.Value);
+            }
+
+            var rowsOrdered = filteredRows
                 .OrderBy(item => item.Anno)
                 .ThenBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(item => item.Tipo, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.PercentualeSuccesso)
                 .ToArray();
 
             var dettaglioRows = await analisiRccRepository.GetFunnelAsync(
                 analisiIdRisorsa,
                 anniRiferimento,
                 null,
-                null,
+                requestedTipo,
                 null,
                 cancellationToken);
 
@@ -2127,7 +2203,9 @@ public sealed class AnalisiRccController(
                     .ToArray();
             }
 
-            var rccDisponibili = dettaglioRows
+            var dettaglioRowsForRccOptions = dettaglioRows;
+
+            var rccDisponibili = dettaglioRowsForRccOptions
                 .Select(item => item.Rcc?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -2140,13 +2218,19 @@ public sealed class AnalisiRccController(
                     .Where(item => item.Rcc.Equals(requestedRcc, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
             }
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                dettaglioRows = dettaglioRows
+                    .Where(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso) == requestedPercentualeSuccesso.Value)
+                    .ToArray();
+            }
 
             var protocolCountLookup = BuildProtocolCountLookup(dettaglioRows, item => item.BusinessUnit);
 
             var rowDtos = rowsOrdered
                 .Select(item =>
                 {
-                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.PercentualeSuccesso);
+                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.TipoDocumento, item.PercentualeSuccesso);
                     var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
                         ? count
                         : item.NumeroProtocolli;
@@ -2159,6 +2243,7 @@ public sealed class AnalisiRccController(
                         Anno = item.Anno,
                         Aggregazione = item.Aggregazione,
                         Tipo = item.Tipo,
+                        TipoDocumento = item.TipoDocumento,
                         PercentualeSuccesso = item.PercentualeSuccesso,
                         NumeroProtocolli = numeroProtocolli,
                         TotaleBudgetRicavo = item.TotaleBudgetRicavo,
@@ -2205,8 +2290,21 @@ public sealed class AnalisiRccController(
                     ? requestedBusinessUnit
                     : (requestedBusinessUnit ?? BuildScopeLabel(allowedBusinessUnits)),
                 RccFiltro = requestedRcc,
+                TipoFiltro = requestedTipo,
+                PercentualeSuccessoFiltro = requestedPercentualeSuccesso,
                 AggregazioniDisponibili = aggregazioniDisponibili.ToArray(),
                 RccDisponibili = rccDisponibili,
+                TipiDisponibili = rowsForFilterOptions
+                    .Select(item => item.Tipo?.Trim() ?? string.Empty)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                PercentualiSuccessoDisponibili = rowsForFilterOptions
+                    .Select(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso))
+                    .Distinct()
+                    .OrderBy(value => value)
+                    .ToArray(),
                 Righe = rowDtos,
                 TotaliPerAnno = totaliPerAnno
             };
@@ -2227,6 +2325,342 @@ public sealed class AnalisiRccController(
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Errore interno durante il recupero Report Funnel BU."
+            });
+        }
+    }
+
+    [HttpGet("pivot-funnel-burcc")]
+    [ProducesResponseType(typeof(AnalisiRccPivotFunnelResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> PivotFunnelBurcc(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? tipo = null,
+        [FromQuery] decimal? percentualeSuccesso = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            if (!AllowedProfilesBurcc.Contains(profileResult, StringComparer.OrdinalIgnoreCase))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato. Profili ammessi: {string.Join(", ", AllowedProfilesBurcc)}."
+                });
+            }
+
+            var anniRiferimento = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+
+            if (anniRiferimento.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                anniRiferimento = [anno.Value];
+            }
+
+            if (anniRiferimento.Length == 0)
+            {
+                anniRiferimento = [DateTime.Now.Year];
+            }
+
+            var requestedBusinessUnit = string.IsNullOrWhiteSpace(businessUnit)
+                ? null
+                : businessUnit.Trim();
+            var requestedRcc = string.IsNullOrWhiteSpace(rcc)
+                ? null
+                : rcc.Trim();
+            var requestedTipo = string.IsNullOrWhiteSpace(tipo)
+                ? null
+                : tipo.Trim();
+            var requestedPercentualeSuccesso = percentualeSuccesso.HasValue
+                ? NormalizePivotFunnelPercent(percentualeSuccesso.Value)
+                : (decimal?)null;
+
+            var vediTutto = profileResult.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+                            profileResult.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+            var analisiIdRisorsa = 0;
+
+            var isRccProfile = profileResult.Equals(ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase);
+            var isRouProfile = profileResult.Equals(ProfileCatalog.ResponsabileOu, StringComparison.OrdinalIgnoreCase);
+
+            IReadOnlyCollection<string>? allowedBusinessUnits = null;
+            string? enforcedRcc = null;
+
+            if (!vediTutto)
+            {
+                if (isRccProfile)
+                {
+                    enforcedRcc = await analisiRccRepository.GetNomeRisorsaAsync(
+                        contextData.EffectiveUser.IdRisorsa,
+                        cancellationToken);
+
+                    if (!string.IsNullOrWhiteSpace(requestedRcc) &&
+                        !string.IsNullOrWhiteSpace(enforcedRcc) &&
+                        !requestedRcc.Equals(enforcedRcc, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"RCC '{requestedRcc}' non autorizzato per il profilo '{profileResult}'."
+                        });
+                    }
+                }
+
+                if (isRouProfile)
+                {
+                    var effectiveOuScopes = NormalizeScopes(contextData.EffectiveOuScopes);
+                    if (effectiveOuScopes.Length == 0)
+                    {
+                        return Ok(new AnalisiRccPivotFunnelResponseDto
+                        {
+                            Profile = profileResult,
+                            Anni = anniRiferimento,
+                            VediTutto = false,
+                            AggregazioneFiltro = null,
+                            RccFiltro = requestedRcc,
+                            AggregazioniDisponibili = [],
+                            RccDisponibili = [],
+                            TipiDisponibili = [],
+                            PercentualiSuccessoDisponibili = [],
+                            Righe = [],
+                            TotaliPerAnno = []
+                        });
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedBusinessUnit) &&
+                        !effectiveOuScopes.Contains(requestedBusinessUnit, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = $"Business Unit '{requestedBusinessUnit}' non autorizzata per il profilo '{profileResult}'."
+                        });
+                    }
+
+                    allowedBusinessUnits = effectiveOuScopes;
+                }
+            }
+
+            var effectiveRcc = !string.IsNullOrWhiteSpace(enforcedRcc)
+                ? enforcedRcc
+                : requestedRcc;
+
+            var rawRows = new List<AnalisiRccPivotFunnelRow>();
+            foreach (var currentYear in anniRiferimento)
+            {
+                var yearRows = await analisiRccRepository.GetPivotFunnelBurccAsync(
+                    analisiIdRisorsa,
+                    currentYear,
+                    requestedBusinessUnit,
+                    effectiveRcc,
+                    allowedBusinessUnits,
+                    cancellationToken);
+                rawRows.AddRange(yearRows);
+            }
+
+            var allowedBusinessUnitSet = allowedBusinessUnits is null
+                ? null
+                : new HashSet<string>(NormalizeScopes(allowedBusinessUnits), StringComparer.OrdinalIgnoreCase);
+
+            var rowsWithKeys = rawRows
+                .Select(item =>
+                {
+                    var (rowBusinessUnit, rowRcc) = SplitBurccAggregation(item.Aggregazione);
+                    return new
+                    {
+                        Row = item,
+                        BusinessUnit = rowBusinessUnit?.Trim() ?? string.Empty,
+                        Rcc = rowRcc?.Trim() ?? string.Empty
+                    };
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.BusinessUnit) && !string.IsNullOrWhiteSpace(item.Rcc))
+                .Where(item => allowedBusinessUnitSet is null || allowedBusinessUnitSet.Contains(item.BusinessUnit))
+                .ToArray();
+
+            var businessUnitOptionsSource = rowsWithKeys
+                .Where(item => string.IsNullOrWhiteSpace(effectiveRcc) || item.Rcc.Equals(effectiveRcc, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            var rccOptionsSource = rowsWithKeys
+                .Where(item => string.IsNullOrWhiteSpace(requestedBusinessUnit) || item.BusinessUnit.Equals(requestedBusinessUnit, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            var businessUnitOptions = businessUnitOptionsSource
+                .Select(item => item.BusinessUnit)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var rccOptions = rccOptionsSource
+                .Select(item => item.Rcc)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var scopedRows = rowsWithKeys
+                .Where(item => string.IsNullOrWhiteSpace(requestedBusinessUnit) || item.BusinessUnit.Equals(requestedBusinessUnit, StringComparison.OrdinalIgnoreCase))
+                .Where(item => string.IsNullOrWhiteSpace(effectiveRcc) || item.Rcc.Equals(effectiveRcc, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            var rowsForFilterOptions = scopedRows.Select(item => item.Row).ToArray();
+
+            var filteredRows = scopedRows.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(requestedTipo))
+            {
+                filteredRows = filteredRows.Where(item => item.Row.Tipo.Equals(requestedTipo, StringComparison.OrdinalIgnoreCase));
+            }
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                filteredRows = filteredRows.Where(item => NormalizePivotFunnelPercent(item.Row.PercentualeSuccesso) == requestedPercentualeSuccesso.Value);
+            }
+
+            var rowsOrdered = filteredRows
+                .OrderBy(item => item.Row.Anno)
+                .ThenBy(item => item.BusinessUnit, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Rcc, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Row.Tipo, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Row.PercentualeSuccesso)
+                .ToArray();
+
+            var dettaglioRows = await analisiRccRepository.GetFunnelAsync(
+                analisiIdRisorsa,
+                anniRiferimento,
+                effectiveRcc,
+                requestedTipo,
+                null,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(requestedBusinessUnit))
+            {
+                dettaglioRows = dettaglioRows
+                    .Where(item => item.BusinessUnit.Equals(requestedBusinessUnit, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+            }
+
+            if (allowedBusinessUnitSet is not null)
+            {
+                dettaglioRows = dettaglioRows
+                    .Where(item => allowedBusinessUnitSet.Contains(item.BusinessUnit))
+                    .ToArray();
+            }
+
+            if (requestedPercentualeSuccesso.HasValue)
+            {
+                dettaglioRows = dettaglioRows
+                    .Where(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso) == requestedPercentualeSuccesso.Value)
+                    .ToArray();
+            }
+
+            var protocolCountLookup = BuildProtocolCountLookup(dettaglioRows, item => $"{item.BusinessUnit} - {item.Rcc}");
+
+            var rowDtos = rowsOrdered
+                .Select(item =>
+                {
+                    var aggregazioneLabel = $"{item.BusinessUnit} - {item.Rcc}";
+                    var key = BuildPivotFunnelKey(item.Row.Anno, aggregazioneLabel, item.Row.Tipo, item.Row.TipoDocumento, item.Row.PercentualeSuccesso);
+                    var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
+                        ? count
+                        : item.Row.NumeroProtocolli;
+                    var totaleFatturatoFuturo = item.Row.TotaleFatturatoFuturo != 0m
+                        ? item.Row.TotaleFatturatoFuturo
+                        : item.Row.TotaleFuturaAnno;
+
+                    return new AnalisiRccPivotFunnelRowDto
+                    {
+                        Anno = item.Row.Anno,
+                        Aggregazione = aggregazioneLabel,
+                        Tipo = item.Row.Tipo,
+                        TipoDocumento = item.Row.TipoDocumento,
+                        PercentualeSuccesso = item.Row.PercentualeSuccesso,
+                        NumeroProtocolli = numeroProtocolli,
+                        TotaleBudgetRicavo = item.Row.TotaleBudgetRicavo,
+                        TotaleBudgetCosti = item.Row.TotaleBudgetCosti,
+                        TotaleFatturatoFuturo = totaleFatturatoFuturo,
+                        TotaleEmessaAnno = item.Row.TotaleEmessaAnno,
+                        TotaleFuturaAnno = item.Row.TotaleFuturaAnno,
+                        TotaleRicaviComplessivi = item.Row.TotaleRicaviComplessivi
+                    };
+                })
+                .ToArray();
+
+            var totaliPerAnno = rowDtos
+                .GroupBy(item => item.Anno)
+                .OrderBy(group => group.Key)
+                .Select(group =>
+                {
+                    var totaleBudgetRicavo = group.Sum(item => item.TotaleBudgetRicavo);
+                    var percentualeSuccesso = totaleBudgetRicavo == 0m
+                        ? (group.Any() ? group.Average(item => item.PercentualeSuccesso) : 0m)
+                        : group.Sum(item => item.PercentualeSuccesso * item.TotaleBudgetRicavo) / totaleBudgetRicavo;
+
+                    return new AnalisiRccPivotFunnelTotaleAnnoDto
+                    {
+                        Anno = group.Key,
+                        NumeroProtocolli = group.Sum(item => item.NumeroProtocolli),
+                        PercentualeSuccesso = percentualeSuccesso,
+                        TotaleBudgetRicavo = totaleBudgetRicavo,
+                        TotaleBudgetCosti = group.Sum(item => item.TotaleBudgetCosti),
+                        TotaleFatturatoFuturo = group.Sum(item => item.TotaleFatturatoFuturo),
+                        TotaleEmessaAnno = group.Sum(item => item.TotaleEmessaAnno),
+                        TotaleFuturaAnno = group.Sum(item => item.TotaleFuturaAnno),
+                        TotaleRicaviComplessivi = group.Sum(item => item.TotaleRicaviComplessivi)
+                    };
+                })
+                .ToArray();
+
+            var response = new AnalisiRccPivotFunnelResponseDto
+            {
+                Profile = profileResult,
+                Anni = anniRiferimento,
+                VediTutto = vediTutto,
+                AggregazioneFiltro = requestedBusinessUnit,
+                RccFiltro = effectiveRcc,
+                TipoFiltro = requestedTipo,
+                PercentualeSuccessoFiltro = requestedPercentualeSuccesso,
+                AggregazioniDisponibili = businessUnitOptions,
+                RccDisponibili = rccOptions,
+                TipiDisponibili = rowsForFilterOptions
+                    .Select(item => item.Tipo?.Trim() ?? string.Empty)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                PercentualiSuccessoDisponibili = rowsForFilterOptions
+                    .Select(item => NormalizePivotFunnelPercent(item.PercentualeSuccesso))
+                    .Distinct()
+                    .OrderBy(value => value)
+                    .ToArray(),
+                Righe = rowDtos,
+                TotaliPerAnno = totaliPerAnno
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/analisi-rcc/pivot-funnel-burcc.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/analisi-rcc/pivot-funnel-burcc.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero Report Funnel BU RCC."
             });
         }
     }
@@ -3017,12 +3451,18 @@ public sealed class AnalisiRccController(
         IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rows,
         IReadOnlyCollection<int> mesi)
     {
+        var budgetTotaleFallback = rows
+            .GroupBy(item => item.Rcc)
+            .Select(group => ResolveMonthlyBudget(group))
+            .Sum();
+
         var righe = rows
             .GroupBy(item => item.Rcc)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var groupRows = group.ToArray();
+                var budgetFallback = ResolveMonthlyBudget(groupRows);
                 var (businessUnit, rcc) = SplitBurccAggregation(group.Key);
                 return new AnalisiRccRisultatoMensileRowDto
                 {
@@ -3036,7 +3476,7 @@ public sealed class AnalisiRccController(
                             var meseRows = groupRows
                                 .Where(item => item.MeseSnapshot == mese)
                                 .ToArray();
-                            var value = ResolveMonthlyPercent(meseRows);
+                            var value = ResolveMonthlyPercent(meseRows, budgetFallback);
                             return new AnalisiRccMensileValueDto
                             {
                                 Mese = mese,
@@ -3062,7 +3502,7 @@ public sealed class AnalisiRccController(
                         var meseRows = rows
                             .Where(item => item.MeseSnapshot == mese)
                             .ToArray();
-                        var value = ResolveMonthlyPercent(meseRows);
+                        var value = ResolveMonthlyPercent(meseRows, budgetTotaleFallback);
                         return new AnalisiRccMensileValueDto
                         {
                             Mese = mese,
@@ -3108,21 +3548,41 @@ public sealed class AnalisiRccController(
         return budgets.FirstOrDefault();
     }
 
-    private static decimal ResolveMonthlyPercent(IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rows)
+    private static decimal ResolveMonthlyPercent(
+        IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rows,
+        decimal budgetFallback = 0m)
     {
         if (rows.Count == 0)
         {
             return 0m;
         }
 
-        var totalBudget = rows.Sum(item => item.Budget);
-        if (totalBudget != 0m)
+        var totalRisultato = rows.Sum(item => item.TotaleRisultatoPesato);
+        var effectiveBudget = budgetFallback;
+        if (effectiveBudget == 0m)
         {
-            var totalRisultato = rows.Sum(item => item.TotaleRisultatoPesato);
-            return totalRisultato / totalBudget;
+            var monthlyBudgets = rows
+                .Select(item => item.Budget)
+                .Where(value => value != 0m)
+                .ToArray();
+            if (monthlyBudgets.Length > 0)
+            {
+                effectiveBudget = monthlyBudgets.Max();
+            }
         }
 
-        return rows.Average(item => item.PercentualePesato);
+        if (effectiveBudget != 0m)
+        {
+            return totalRisultato / effectiveBudget;
+        }
+
+        var averagePercent = rows.Average(item => item.PercentualePesato);
+        if (averagePercent == 0m && totalRisultato != 0m && budgetFallback != 0m)
+        {
+            return totalRisultato / budgetFallback;
+        }
+
+        return averagePercent;
     }
 
     private static decimal? CalculateAnnualTimeProgressRatio(int year, decimal fatturatoAnno, decimal budgetAnnuale)
@@ -3185,26 +3645,28 @@ public sealed class AnalisiRccController(
         return (businessUnit, rcc);
     }
 
-    private static (int Anno, string Aggregazione, string Tipo, decimal PercentualeSuccesso) BuildPivotFunnelKey(
+    private static (int Anno, string Aggregazione, string Tipo, string TipoDocumento, decimal PercentualeSuccesso) BuildPivotFunnelKey(
         int anno,
         string? aggregazione,
         string? tipo,
+        string? tipoDocumento,
         decimal percentualeSuccesso)
     {
         return (
             anno,
             NormalizePivotFunnelText(aggregazione),
             NormalizePivotFunnelText(tipo),
+            NormalizePivotFunnelText(tipoDocumento),
             NormalizePivotFunnelPercent(percentualeSuccesso)
         );
     }
 
-    private static Dictionary<(int Anno, string Aggregazione, string Tipo, decimal PercentualeSuccesso), int> BuildProtocolCountLookup(
+    private static Dictionary<(int Anno, string Aggregazione, string Tipo, string TipoDocumento, decimal PercentualeSuccesso), int> BuildProtocolCountLookup(
         IEnumerable<AnalisiRccFunnelRow> rows,
         Func<AnalisiRccFunnelRow, string> aggregazioneSelector)
     {
         return rows
-            .GroupBy(item => BuildPivotFunnelKey(item.Anno, aggregazioneSelector(item), item.Tipo, item.PercentualeSuccesso))
+            .GroupBy(item => BuildPivotFunnelKey(item.Anno, aggregazioneSelector(item), item.Tipo, item.StatoDocumento, item.PercentualeSuccesso))
             .ToDictionary(
                 group => group.Key,
                 group => group

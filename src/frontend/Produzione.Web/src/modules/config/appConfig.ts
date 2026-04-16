@@ -1,3 +1,10 @@
+import type {
+  AppInfoVoice,
+  AppPage,
+  DatiAnnualiPivotFieldKey,
+  RisorsePivotFieldKey,
+} from '../types/appTypes'
+
 export const APP_UI_VERSION = '2.2.0'
 
 export const tokenStorageKey = 'produzione.jwt'
@@ -17,6 +24,8 @@ export const previsioniFunnelRccAllowedProfiles = ['Supervisore', 'Responsabile 
 export const previsioniFunnelRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 export const previsioniFunnelBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile OU']
 export const previsioniFunnelBuSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
+export const previsioniFunnelBurccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
+export const previsioniFunnelBurccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa']
 export const previsioniUtileMensileRccAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 export const previsioniUtileMensileRccSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 export const previsioniUtileMensileBuAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
@@ -25,7 +34,7 @@ export const analisiPianoFatturazioneAllowedProfiles = ['Supervisore', 'Responsa
 export const analisiPianoFatturazioneSelectableProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione']
 export const analisiDettaglioFatturatoAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Project Manager', 'Responsabile OU']
 export const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
-export const analisiSearchCollapsiblePages = new Set<string>([
+export const analisiSearchCollapsiblePages = new Set<AppPage>([
   'commesse-andamento-mensile',
   'risorse-risultati',
   'risorse-risultati-pivot',
@@ -47,14 +56,16 @@ export const analisiSearchCollapsiblePages = new Set<string>([
   'analisi-burcc-risultato-mensile',
   'analisi-burcc-pivot-fatturato',
   'analisi-piano-fatturazione',
+  'analisi-albero-proiezioni',
   'analisi-dettaglio-fatturato',
   'previsioni-funnel',
   'previsioni-report-funnel-rcc',
   'previsioni-report-funnel-bu',
+  'previsioni-report-funnel-burcc',
   'previsioni-utile-mensile-rcc',
   'previsioni-utile-mensile-bu',
 ])
-export const datiAnnualiPivotFieldOptions: Array<{ key: string; label: string }> = [
+export const datiAnnualiPivotFieldOptions: Array<{ key: DatiAnnualiPivotFieldKey; label: string }> = [
   { key: 'anno', label: 'Anno' },
   { key: 'commessa', label: 'Commessa' },
   { key: 'businessUnit', label: 'BU' },
@@ -65,10 +76,10 @@ export const datiAnnualiPivotFieldOptions: Array<{ key: string; label: string }>
   { key: 'tipologiaCommessa', label: 'Tipo Commessa' },
   { key: 'prodotto', label: 'Prodotto' },
 ]
-export const datiAnnualiPivotFieldSet = new Set<string>(
+export const datiAnnualiPivotFieldSet = new Set<DatiAnnualiPivotFieldKey>(
   datiAnnualiPivotFieldOptions.map((option) => option.key),
 )
-export const risorsePivotFieldOptions: Array<{ key: string; label: string }> = [
+export const risorsePivotFieldOptions: Array<{ key: RisorsePivotFieldKey; label: string }> = [
   { key: 'anno', label: 'Anno' },
   { key: 'mese', label: 'Mese' },
   { key: 'risorsa', label: 'Risorsa' },
@@ -84,12 +95,12 @@ export const risorsePivotFieldOptions: Array<{ key: string; label: string }> = [
   { key: 'descrizioneCommessa', label: 'Descrizione Commessa' },
   { key: 'stato', label: 'Stato' },
 ]
-export const risorsePivotFieldSet = new Set<string>(
+export const risorsePivotFieldSet = new Set<RisorsePivotFieldKey>(
   risorsePivotFieldOptions.map((option) => option.key),
 )
 
 
-export const appInfoVoicesDefault = [
+export const appInfoVoicesDefault: AppInfoVoice[] = [
   {
     menu: 'Analisi Commesse',
     voce: 'Commesse',
@@ -206,6 +217,11 @@ export const appInfoVoicesDefault = [
     sintesi: 'Mostra il dettaglio analitico dei movimenti fatturato/futuro/ipotetico con filtri per anno, commessa, provenienza e controparte, nel rispetto dei diritti per ruolo.',
   },
   {
+    menu: 'Analisi Proiezioni',
+    voce: 'Albero Proiezioni',
+    sintesi: 'Rappresenta il dettaglio fatturato in forma gerarchica con aggregazioni progressive (Anno, RCC, BU, Cliente, Commessa) e totali a ogni livello.',
+  },
+  {
     menu: 'Previsioni',
     voce: 'Funnel',
     sintesi: 'Elenco opportunita e ordini con filtri su anno, tipo e stato documento. Permette visione operativa del portafoglio atteso.',
@@ -219,6 +235,11 @@ export const appInfoVoicesDefault = [
     menu: 'Previsioni',
     voce: 'Report Funnel BU',
     sintesi: 'Vista pivot del funnel aggregata per Business Unit, con dettaglio per tipo e percentuale successo. Include totali e confronto annuale.',
+  },
+  {
+    menu: 'Previsioni',
+    voce: 'Report Funnel BU RCC',
+    sintesi: 'Vista pivot del funnel con aggregazione incrociata BU-RCC, con totali per gruppo e dettaglio per tipo e percentuale successo.',
   },
   {
     menu: 'Processo Offerta',
