@@ -1250,16 +1250,114 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         IReadOnlyCollection<string>? allowedBusinessUnits = null,
         CancellationToken cancellationToken = default)
     {
-        return await GetPivotFunnelCoreAsync(
-            idRisorsa,
-            anno,
-            "BURCC",
-            "Aggregazione",
-            new[] { "Aggregazione" },
-            null,
-            null,
-            null,
-            cancellationToken);
+        if (string.IsNullOrWhiteSpace(connectionString) || anno <= 0)
+        {
+            return [];
+        }
+
+        var requestedBusinessUnitValue = businessUnit?.Trim();
+        var requestedRccValue = rcc?.Trim();
+        var allowedBusinessUnitSet = BuildAllowedSet(allowedBusinessUnits);
+        if (allowedBusinessUnitSet is { Count: 0 })
+        {
+            return [];
+        }
+
+        var idRisorsaParam = idRisorsa > 0
+            ? idRisorsa
+            : DefaultAnalisiIdRisorsa;
+
+        var filterClauses = new List<string>
+        {
+            $"anno = {anno}"
+        };
+        if (!string.IsNullOrWhiteSpace(requestedBusinessUnitValue))
+        {
+            filterClauses.Add($"IDBUSINESSUNIT = {SqlQuote(requestedBusinessUnitValue)}");
+        }
+        if (!string.IsNullOrWhiteSpace(requestedRccValue))
+        {
+            filterClauses.Add($"RCC = {SqlQuote(requestedRccValue)}");
+        }
+        if (allowedBusinessUnitSet is not null && allowedBusinessUnitSet.Count > 0)
+        {
+            filterClauses.Add($"IDBUSINESSUNIT in ({string.Join(", ", allowedBusinessUnitSet.Select(SqlQuote))})");
+        }
+
+        var filter = string.Join(" AND ", filterClauses);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(PivotFatturatoStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@idrisorsa", idRisorsaParam);
+            command.Parameters.AddWithValue("@tiporicerca", "FunnelPivot");
+            command.Parameters.AddWithValue("@FiltroDaApplicare", string.IsNullOrWhiteSpace(filter) ? DBNull.Value : filter);
+            command.Parameters.AddWithValue("@CampoAggregazione", "BURCC");
+
+            var rows = new List<AnalisiRccPivotFunnelRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            do
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var annoValue = ReadNullableInt(reader, "anno", "Anno") ?? anno;
+                    var businessUnitValue = ReadString(reader, "IDBUSINESSUNIT", "idbusinessunit", "BusinessUnit", "bu");
+                    var rccValue = ReadString(reader, "RCC", "rcc");
+                    if (string.IsNullOrWhiteSpace(businessUnitValue) || string.IsNullOrWhiteSpace(rccValue))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedBusinessUnitValue) &&
+                        !businessUnitValue.Equals(requestedBusinessUnitValue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(requestedRccValue) &&
+                        !rccValue.Equals(requestedRccValue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (allowedBusinessUnitSet is not null &&
+                        !allowedBusinessUnitSet.Contains(businessUnitValue))
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new AnalisiRccPivotFunnelRow(
+                        annoValue,
+                        $"{businessUnitValue.Trim()} - {rccValue.Trim()}",
+                        ReadString(reader, "tipo", "Tipo"),
+                        ReadString(reader, "documentostato", "DocumentoStato", "statoDocumento", "tipodocumento", "TipoDocumento"),
+                        ReadDecimal(reader, "percentualesuccesso", "PercentualeSuccesso"),
+                        ReadNullableInt(reader, "numero", "Numero", "conteggio_protocollo", "conteggio_protocolli") ?? 0,
+                        ReadDecimal(reader, "totale_Budget_Ricavo", "totale_budget_ricavo"),
+                        ReadDecimal(reader, "totale_Budget_costi", "totale_budget_costi"),
+                        ReadDecimal(reader, "totale_fatturato_futuro", "totale_fatturato_futuro_anno", "totale_futura_anno"),
+                        ReadDecimal(reader, "totale_emessa_anno"),
+                        ReadDecimal(reader, "totale_futura_anno"),
+                        ReadDecimal(reader, "totale_ricavi_complessivi")));
+                }
+            }
+            while (await reader.NextResultAsync(cancellationToken));
+
+            return rows
+                .OrderBy(item => item.Anno)
+                .ThenBy(item => item.Aggregazione, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Tipo, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.TipoDocumento, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<IReadOnlyCollection<ProcessoOffertaDettaglioRow>> GetProcessoOffertaDettaglioAsync(

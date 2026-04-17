@@ -112,6 +112,45 @@ export const normalizeProfileLabel = (value: string) => (
     .trim()
 )
 
+const profileOperationalPriorityMap = new Map<string, number>([
+  ['Supervisore', 0],
+  ['Responsabile Commerciale', 1],
+  ['Responsabile Produzione', 2],
+  ['Responsabile Commerciale Commessa', 3],
+  ['Responsabile OU', 4],
+  ['Risorse Umane', 5],
+  ['General Project Manager', 6],
+  ['Project Manager', 7],
+])
+
+const getProfileOperationalPriority = (value: string) => {
+  const normalized = normalizeProfileLabel(value)
+  const priority = profileOperationalPriorityMap.get(normalized)
+  return typeof priority === 'number' ? priority : Number.MAX_SAFE_INTEGER
+}
+
+export const sortProfilesByOperationalPriority = (profiles: string[]) => {
+  const normalizedDistinct = Array.from(new Set(
+    profiles
+      .map((value) => normalizeProfileLabel(value))
+      .filter((value) => value.length > 0),
+  ))
+
+  return normalizedDistinct.sort((left, right) => {
+    const priorityDiff = getProfileOperationalPriority(left) - getProfileOperationalPriority(right)
+    if (priorityDiff !== 0) {
+      return priorityDiff
+    }
+
+    return left.localeCompare(right, 'it', { sensitivity: 'base' })
+  })
+}
+
+export const selectMostOperationalProfile = (profiles: string[]) => {
+  const orderedProfiles = sortProfilesByOperationalPriority(profiles)
+  return orderedProfiles[0] ?? ''
+}
+
 export const isProcessoOffertaEsitoPositivo = (value: string) => {
   const normalized = normalizeTextForMatch(value)
   if (!normalized) {

@@ -1917,7 +1917,7 @@ public sealed class AnalisiRccController(
             var rowDtos = rowsOrdered
                 .Select(item =>
                 {
-                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.TipoDocumento, item.PercentualeSuccesso);
+                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.PercentualeSuccesso);
                     var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
                         ? count
                         : item.NumeroProtocolli;
@@ -2230,7 +2230,7 @@ public sealed class AnalisiRccController(
             var rowDtos = rowsOrdered
                 .Select(item =>
                 {
-                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.TipoDocumento, item.PercentualeSuccesso);
+                    var key = BuildPivotFunnelKey(item.Anno, item.Aggregazione, item.Tipo, item.PercentualeSuccesso);
                     var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
                         ? count
                         : item.NumeroProtocolli;
@@ -2330,6 +2330,7 @@ public sealed class AnalisiRccController(
     }
 
     [HttpGet("pivot-funnel-burcc")]
+    [HttpGet("pivot-funnel-bu-rcc")]
     [ProducesResponseType(typeof(AnalisiRccPivotFunnelResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -2568,7 +2569,7 @@ public sealed class AnalisiRccController(
                 .Select(item =>
                 {
                     var aggregazioneLabel = $"{item.BusinessUnit} - {item.Rcc}";
-                    var key = BuildPivotFunnelKey(item.Row.Anno, aggregazioneLabel, item.Row.Tipo, item.Row.TipoDocumento, item.Row.PercentualeSuccesso);
+                    var key = BuildPivotFunnelKey(item.Row.Anno, aggregazioneLabel, item.Row.Tipo, item.Row.PercentualeSuccesso);
                     var numeroProtocolli = protocolCountLookup.TryGetValue(key, out var count)
                         ? count
                         : item.Row.NumeroProtocolli;
@@ -3451,36 +3452,27 @@ public sealed class AnalisiRccController(
         IReadOnlyCollection<AnalisiRccMensileSnapshotRow> rows,
         IReadOnlyCollection<int> mesi)
     {
-        var budgetTotaleFallback = rows
-            .GroupBy(item => item.Rcc)
-            .Select(group => ResolveMonthlyBudget(group))
-            .Sum();
-
-        var righe = rows
-            .GroupBy(item => item.Rcc)
-            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group =>
+        var risultatoPesatoGrid = BuildRisultatoPesatoGrid(rows, mesi);
+        var righe = risultatoPesatoGrid.Righe
+            .Select(row =>
             {
-                var groupRows = group.ToArray();
-                var budgetFallback = ResolveMonthlyBudget(groupRows);
-                var (businessUnit, rcc) = SplitBurccAggregation(group.Key);
+                var budget = row.Budget ?? 0m;
                 return new AnalisiRccRisultatoMensileRowDto
                 {
-                    Aggregazione = group.Key,
-                    BusinessUnit = businessUnit,
-                    Rcc = rcc,
+                    Aggregazione = row.Aggregazione,
+                    BusinessUnit = row.BusinessUnit,
+                    Rcc = row.Rcc,
                     Budget = null,
-                    ValoriMensili = mesi
+                    ValoriMensili = risultatoPesatoGrid.Mesi
                         .Select(mese =>
                         {
-                            var meseRows = groupRows
-                                .Where(item => item.MeseSnapshot == mese)
-                                .ToArray();
-                            var value = ResolveMonthlyPercent(meseRows, budgetFallback);
+                            var valoreMese = row.ValoriMensili
+                                .FirstOrDefault(item => item.Mese == mese)?.Valore ?? 0m;
+                            var percentuale = budget == 0m ? 0m : valoreMese / budget;
                             return new AnalisiRccMensileValueDto
                             {
                                 Mese = mese,
-                                Valore = value
+                                Valore = percentuale
                             };
                         })
                         .ToArray()
@@ -3488,35 +3480,10 @@ public sealed class AnalisiRccController(
             })
             .ToList();
 
-        if (righe.Count > 0)
-        {
-            righe.Add(new AnalisiRccRisultatoMensileRowDto
-            {
-                Aggregazione = "Totale complessivo",
-                BusinessUnit = "Totale complessivo",
-                Rcc = null,
-                Budget = null,
-                ValoriMensili = mesi
-                    .Select(mese =>
-                    {
-                        var meseRows = rows
-                            .Where(item => item.MeseSnapshot == mese)
-                            .ToArray();
-                        var value = ResolveMonthlyPercent(meseRows, budgetTotaleFallback);
-                        return new AnalisiRccMensileValueDto
-                        {
-                            Mese = mese,
-                            Valore = value
-                        };
-                    })
-                    .ToArray()
-            });
-        }
-
         return new AnalisiRccRisultatoMensileGridDto
         {
             Titolo = "Media percentuale_pesato",
-            Mesi = mesi,
+            Mesi = risultatoPesatoGrid.Mesi,
             ValoriPercentuali = true,
             Righe = righe
         };
@@ -3645,28 +3612,26 @@ public sealed class AnalisiRccController(
         return (businessUnit, rcc);
     }
 
-    private static (int Anno, string Aggregazione, string Tipo, string TipoDocumento, decimal PercentualeSuccesso) BuildPivotFunnelKey(
+    private static (int Anno, string Aggregazione, string Tipo, decimal PercentualeSuccesso) BuildPivotFunnelKey(
         int anno,
         string? aggregazione,
         string? tipo,
-        string? tipoDocumento,
         decimal percentualeSuccesso)
     {
         return (
             anno,
             NormalizePivotFunnelText(aggregazione),
             NormalizePivotFunnelText(tipo),
-            NormalizePivotFunnelText(tipoDocumento),
             NormalizePivotFunnelPercent(percentualeSuccesso)
         );
     }
 
-    private static Dictionary<(int Anno, string Aggregazione, string Tipo, string TipoDocumento, decimal PercentualeSuccesso), int> BuildProtocolCountLookup(
+    private static Dictionary<(int Anno, string Aggregazione, string Tipo, decimal PercentualeSuccesso), int> BuildProtocolCountLookup(
         IEnumerable<AnalisiRccFunnelRow> rows,
         Func<AnalisiRccFunnelRow, string> aggregazioneSelector)
     {
         return rows
-            .GroupBy(item => BuildPivotFunnelKey(item.Anno, aggregazioneSelector(item), item.Tipo, item.StatoDocumento, item.PercentualeSuccesso))
+            .GroupBy(item => BuildPivotFunnelKey(item.Anno, aggregazioneSelector(item), item.Tipo, item.PercentualeSuccesso))
             .ToDictionary(
                 group => group.Key,
                 group => group

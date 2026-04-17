@@ -32,6 +32,19 @@ public static class ProfileCatalog
             [RisorseUmane] = RisorseUmane
         };
 
+    private static readonly IReadOnlyDictionary<string, int> OperationalPriorityMap =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            [Supervisore] = 0,
+            [ResponsabileCommerciale] = 1,
+            [ResponsabileProduzione] = 2,
+            [ResponsabileCommercialeCommessa] = 3,
+            [ResponsabileOu] = 4,
+            [RisorseUmane] = 5,
+            [GeneralProjectManager] = 6,
+            [ProjectManager] = 7
+        };
+
     public static IReadOnlyCollection<string> All { get; } =
     [
         Supervisore,
@@ -61,5 +74,27 @@ public static class ProfileCatalog
     {
         var normalized = Normalize(profile);
         return All.Contains(normalized, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static int GetOperationalPriority(string profile)
+    {
+        var normalized = Normalize(profile);
+        if (OperationalPriorityMap.TryGetValue(normalized, out var priority))
+        {
+            return priority;
+        }
+
+        return int.MaxValue;
+    }
+
+    public static IReadOnlyCollection<string> OrderByOperationalPriority(IEnumerable<string> profiles)
+    {
+        return profiles
+            .Select(Normalize)
+            .Where(IsKnown)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(GetOperationalPriority)
+            .ThenBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

@@ -27,8 +27,6 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
     previsioniReportFunnelBuPercentuale,
     previsioniReportFunnelBuPercentualeOptions,
     previsioniReportFunnelBuPivotRows,
-    previsioniReportFunnelBuRcc,
-    previsioniReportFunnelBuRccOptions,
     previsioniReportFunnelBuTipo,
     previsioniReportFunnelBuTipoOptions,
     previsioniReportFunnelBuTotaliDettaglioRows,
@@ -37,7 +35,6 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
     setPrevisioniReportFunnelBu,
     setPrevisioniReportFunnelBuAnni,
     setPrevisioniReportFunnelBuPercentuale,
-    setPrevisioniReportFunnelBuRcc,
     setPrevisioniReportFunnelBuTipo,
     statusMessageVisible,
     toggleAnalisiSearchCollapsed
@@ -106,21 +103,6 @@ export function PrevisioniReportFunnelBuPage(props: PrevisioniReportFunnelBuPage
                   </select>
                 </label>
               )}
-              <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-rcc">
-                <span>RCC</span>
-                <select
-                  id="previsioni-report-funnel-bu-rcc"
-                  value={previsioniReportFunnelBuRcc}
-                  onChange={(event) => setPrevisioniReportFunnelBuRcc(event.target.value)}
-                >
-                  <option value="">Tutti</option>
-                  {previsioniReportFunnelBuRccOptions.map((value) => (
-                    <option key={`previsioni-report-funnel-bu-rcc-${value}`} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className="analisi-rcc-year-field" htmlFor="previsioni-report-funnel-bu-tipo">
                 <span>Tipo</span>
                 <select

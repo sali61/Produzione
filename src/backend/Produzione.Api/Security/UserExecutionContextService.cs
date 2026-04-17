@@ -135,21 +135,11 @@ public sealed class UserExecutionContextService(
             values.Add(ProfileCatalog.ResponsabileOu);
         }
 
-        return values
-            .Select(ProfileCatalog.Normalize)
-            .Where(ProfileCatalog.IsKnown)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(profile => profile)
-            .ToArray();
+        return ProfileCatalog.OrderByOperationalPriority(values);
     }
 
     private static IReadOnlyCollection<string> NormalizeProfiles(IReadOnlyCollection<string> profiles)
     {
-        return profiles
-            .Select(ProfileCatalog.Normalize)
-            .Where(ProfileCatalog.IsKnown)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(profile => profile)
-            .ToArray();
+        return ProfileCatalog.OrderByOperationalPriority(profiles);
     }
 }

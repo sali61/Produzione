@@ -126,10 +126,13 @@ import {
   parseReferenceMonth,
   parseReferenceMonthStrict,
   resolveOuValue,
+  selectMostOperationalProfile,
   shouldShowUtileFineProgettoForRow,
+  sortProfilesByOperationalPriority,
 } from './modules/utils/appSharedUtils'
 import {
   buildAnalisiAlberoProiezioniRows,
+  buildPrevisioniReportFunnelBurccPivotRows,
   buildPrevisioniReportFunnelPivotRows,
   buildPrevisioniReportFunnelTotaliDettaglioRows,
   buildProcessoOffertaSuccessoRows,
@@ -395,8 +398,8 @@ function App() {
   const [previsioniReportFunnelBurccRcc, setPrevisioniReportFunnelBurccRcc] = useState('')
   const [previsioniReportFunnelBurccTipo, setPrevisioniReportFunnelBurccTipo] = useState('')
   const [previsioniReportFunnelBurccPercentuale, setPrevisioniReportFunnelBurccPercentuale] = useState('')
-  const [, setPrevisioniReportFunnelBurccOrder] = useState<'rcc-bu' | 'bu-rcc'>('rcc-bu')
-  const [, setPrevisioniReportFunnelBurccData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
+  const [previsioniReportFunnelBurccOrder, setPrevisioniReportFunnelBurccOrder] = useState<'rcc-bu' | 'bu-rcc'>('rcc-bu')
+  const [previsioniReportFunnelBurccData, setPrevisioniReportFunnelBurccData] = useState<AnalisiRccPivotFunnelResponse | null>(null)
   const [processoOffertaAnni, setProcessoOffertaAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [processoOffertaEsiti, setProcessoOffertaEsiti] = useState<string[]>([])
   const [processoOffertaPercentualeRcc, setProcessoOffertaPercentualeRcc] = useState('')
@@ -945,11 +948,7 @@ function App() {
     }
 
     const payload = (await response.json()) as AvailableProfilesResponse
-    const normalizedProfiles = Array.from(new Set(
-      (payload.profiles ?? [])
-        .map((profile) => normalizeProfileLabel(profile))
-        .filter((profile) => profile.length > 0),
-    ))
+    const normalizedProfiles = sortProfilesByOperationalPriority(payload.profiles ?? [])
 
     if (normalizedProfiles.length === 0) {
       forceLogoutForAuthorization(
@@ -961,14 +960,7 @@ function App() {
 
     setProfiles(normalizedProfiles)
     setOuScopes(payload.ouScopes)
-    setSelectedProfile((current) => {
-      const normalizedCurrent = normalizeProfileLabel(current)
-      if (normalizedCurrent && normalizedProfiles.includes(normalizedCurrent)) {
-        return normalizedCurrent
-      }
-
-      return normalizedProfiles[0] ?? ''
-    })
+    setSelectedProfile(() => selectMostOperationalProfile(normalizedProfiles))
 
     return true
   }
@@ -3393,9 +3385,6 @@ function App() {
       if (canSelectPrevisioniFunnelBu && previsioniReportFunnelBu.trim()) {
         params.set('businessUnit', previsioniReportFunnelBu.trim())
       }
-      if (previsioniReportFunnelBuRcc.trim()) {
-        params.set('rcc', previsioniReportFunnelBuRcc.trim())
-      }
       if (previsioniReportFunnelBuTipo.trim()) {
         params.set('tipo', previsioniReportFunnelBuTipo.trim())
       }
@@ -3439,21 +3428,6 @@ function App() {
           setPrevisioniReportFunnelBu((payload.aggregazioniDisponibili?.[0] ?? '').trim())
         } else if (!previsioniReportFunnelBu.trim()) {
           setPrevisioniReportFunnelBu('')
-        }
-      }
-
-      const normalizedRccFiltro = (payload.rccFiltro ?? '').trim()
-      if (normalizedRccFiltro.length > 0) {
-        setPrevisioniReportFunnelBuRcc(normalizedRccFiltro)
-      } else {
-        const currentRccFilter = previsioniReportFunnelBuRcc.trim()
-        if (currentRccFilter.length > 0) {
-          const hasCurrent = (payload.rccDisponibili ?? []).some((value) => (
-            value.localeCompare(currentRccFilter, 'it', { sensitivity: 'base' }) === 0
-          ))
-          if (!hasCurrent) {
-            setPrevisioniReportFunnelBuRcc('')
-          }
         }
       }
 
@@ -3525,9 +3499,16 @@ function App() {
         params.set('percentualeSuccesso', previsioniReportFunnelBurccPercentuale.trim().replace(',', '.'))
       }
 
-      const response = await fetch(toBackendUrl(`/api/analisi-rcc/pivot-funnel-burcc?${params.toString()}`), {
-        headers: authHeaders(token, activeImpersonation),
-      })
+      const fetchPivotFunnelBurcc = (path: string) => (
+        fetch(toBackendUrl(`${path}?${params.toString()}`), {
+          headers: authHeaders(token, activeImpersonation),
+        })
+      )
+
+      let response = await fetchPivotFunnelBurcc('/api/analisi-rcc/pivot-funnel-burcc')
+      if (response.status === 404) {
+        response = await fetchPivotFunnelBurcc('/api/analisi-rcc/pivot-funnel-bu-rcc')
+      }
 
       if (response.status === 401) {
         clearSession()
@@ -6722,7 +6703,6 @@ function App() {
   const previsioniReportFunnelRccAnnoSelezionato = previsioniReportFunnelRccAnni[0]?.trim()
     || new Date().getFullYear().toString()
   const previsioniReportFunnelBuRows = previsioniReportFunnelBuData?.righe ?? []
-  const previsioniReportFunnelBuTotaliPerAnno = previsioniReportFunnelBuData?.totaliPerAnno ?? []
   const previsioniReportFunnelBuAnnoOptions = useMemo(() => {
     const years = new Set<string>()
     sintesiFiltersCatalog.anni.forEach((option) => {
@@ -6785,8 +6765,120 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [previsioniReportFunnelBuData?.rccDisponibili, previsioniReportFunnelBuData?.rccFiltro, previsioniReportFunnelBuRcc])
+  const previsioniReportFunnelBuTipoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBuData?.tipiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    if (options.size === 0) {
+      previsioniReportFunnelBuRows.forEach((row) => {
+        const normalized = row.tipo.trim()
+        if (normalized) {
+          options.add(normalized)
+        }
+      })
+    }
+    const selected = previsioniReportFunnelBuTipo.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelBuData?.tipiDisponibili, previsioniReportFunnelBuRows, previsioniReportFunnelBuTipo])
+  const previsioniReportFunnelBuPercentualeOptions = useMemo(() => {
+    const values = new Set<number>()
+    ;(previsioniReportFunnelBuData?.percentualiSuccessoDisponibili ?? []).forEach((value) => {
+      if (Number.isFinite(value)) {
+        values.add(value)
+      }
+    })
+    if (values.size === 0) {
+      previsioniReportFunnelBuRows.forEach((row) => {
+        if (Number.isFinite(row.percentualeSuccesso)) {
+          values.add(row.percentualeSuccesso)
+        }
+      })
+    }
+    const selected = Number.parseFloat(previsioniReportFunnelBuPercentuale.trim().replace(',', '.'))
+    if (Number.isFinite(selected)) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left - right)
+  }, [previsioniReportFunnelBuData?.percentualiSuccessoDisponibili, previsioniReportFunnelBuRows, previsioniReportFunnelBuPercentuale])
   const previsioniReportFunnelBuAnnoSelezionato = previsioniReportFunnelBuAnni[0]?.trim()
     || new Date().getFullYear().toString()
+  const previsioniReportFunnelBuRowsFiltered = useMemo(() => {
+    const selectedTipo = previsioniReportFunnelBuTipo.trim()
+    const selectedPercentRaw = previsioniReportFunnelBuPercentuale.trim()
+    const selectedPercent = selectedPercentRaw.length > 0
+      ? Number.parseFloat(selectedPercentRaw.replace(',', '.'))
+      : null
+    return previsioniReportFunnelBuRows.filter((row) => {
+      const matchesTipo = selectedTipo.length === 0
+        || row.tipo.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0
+      const matchesPercent = selectedPercent === null
+        || (Number.isFinite(selectedPercent) && Math.abs(row.percentualeSuccesso - selectedPercent) < 0.0001)
+      return matchesTipo && matchesPercent
+    })
+  }, [previsioniReportFunnelBuPercentuale, previsioniReportFunnelBuRows, previsioniReportFunnelBuTipo])
+  const previsioniReportFunnelBuTotaliPerAnno = useMemo(() => {
+    if (previsioniReportFunnelBuRowsFiltered.length === 0) {
+      return []
+    }
+    const grouped = new Map<number, {
+      anno: number
+      numeroProtocolli: number
+      percentualeSuccessoNumeratore: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleFuturaAnno: number
+      totaleEmessaAnno: number
+      totaleRicaviComplessivi: number
+    }>()
+
+    previsioniReportFunnelBuRowsFiltered.forEach((row) => {
+      const bucket = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numeroProtocolli: 0,
+        percentualeSuccessoNumeratore: 0,
+        totaleBudgetRicavo: 0,
+        totaleBudgetCosti: 0,
+        totaleFatturatoFuturo: 0,
+        totaleFuturaAnno: 0,
+        totaleEmessaAnno: 0,
+        totaleRicaviComplessivi: 0,
+      }
+
+      bucket.numeroProtocolli += row.numeroProtocolli
+      bucket.percentualeSuccessoNumeratore += row.percentualeSuccesso * row.numeroProtocolli
+      bucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      bucket.totaleBudgetCosti += row.totaleBudgetCosti
+      bucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      bucket.totaleFuturaAnno += row.totaleFuturaAnno
+      bucket.totaleEmessaAnno += row.totaleEmessaAnno
+      bucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+      grouped.set(row.anno, bucket)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        anno: row.anno,
+        numeroProtocolli: row.numeroProtocolli,
+        percentualeSuccesso: row.numeroProtocolli > 0
+          ? row.percentualeSuccessoNumeratore / row.numeroProtocolli
+          : 0,
+        totaleBudgetRicavo: row.totaleBudgetRicavo,
+        totaleBudgetCosti: row.totaleBudgetCosti,
+        totaleFatturatoFuturo: row.totaleFatturatoFuturo,
+        totaleFuturaAnno: row.totaleFuturaAnno,
+        totaleEmessaAnno: row.totaleEmessaAnno,
+        totaleRicaviComplessivi: row.totaleRicaviComplessivi,
+      }))
+  }, [previsioniReportFunnelBuRowsFiltered])
   const previsioniReportFunnelRccRowsFiltered = useMemo(() => {
     const selectedTipo = previsioniReportFunnelRccTipo.trim()
     const selectedPercentRaw = previsioniReportFunnelRccPercentuale.trim()
@@ -6862,19 +6954,238 @@ function App() {
       }))
   }, [previsioniReportFunnelRccRowsFiltered])
   const previsioniReportFunnelBuPivotRows = useMemo(
-    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelBuRows),
-    [previsioniReportFunnelBuRows],
+    () => buildPrevisioniReportFunnelPivotRows(previsioniReportFunnelBuRowsFiltered),
+    [previsioniReportFunnelBuRowsFiltered],
   )
   const previsioniReportFunnelRccHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelRccRows) > 1
-  const previsioniReportFunnelBuHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelBuRows) > 1
+  const previsioniReportFunnelBuHasMultipleAggregazioni = countPrevisioniReportFunnelAggregazioni(previsioniReportFunnelBuRowsFiltered) > 1
   const previsioniReportFunnelRccTotaliDettaglioRows = useMemo(
     () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelRccRowsFiltered),
     [previsioniReportFunnelRccRowsFiltered],
   )
   const previsioniReportFunnelBuTotaliDettaglioRows = useMemo(
-    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelBuRows),
-    [previsioniReportFunnelBuRows],
+    () => buildPrevisioniReportFunnelTotaliDettaglioRows(previsioniReportFunnelBuRowsFiltered),
+    [previsioniReportFunnelBuRowsFiltered],
   )
+  const previsioniReportFunnelBurccRows = previsioniReportFunnelBurccData?.righe ?? []
+  const previsioniReportFunnelBurccAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    sintesiFiltersCatalog.anni.forEach((option) => {
+      const value = option.value.trim()
+      if (value) {
+        years.add(value)
+      }
+    })
+    previsioniReportFunnelBurccAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    ;(previsioniReportFunnelBurccData?.anni ?? []).forEach((value) => {
+      if (Number.isFinite(value) && value > 0) {
+        years.add(value.toString())
+      }
+    })
+    if (years.size === 0) {
+      const currentYear = new Date().getFullYear()
+      years.add(currentYear.toString())
+      years.add((currentYear - 1).toString())
+    }
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [previsioniReportFunnelBurccAnni, previsioniReportFunnelBurccData?.anni, sintesiFiltersCatalog.anni])
+  const previsioniReportFunnelBurccBusinessUnitOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBurccData?.aggregazioniDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniReportFunnelBurccBusinessUnit.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniReportFunnelBurccData?.aggregazioneFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [
+    previsioniReportFunnelBurccBusinessUnit,
+    previsioniReportFunnelBurccData?.aggregazioniDisponibili,
+    previsioniReportFunnelBurccData?.aggregazioneFiltro,
+  ])
+  const previsioniReportFunnelBurccRccOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBurccData?.rccDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniReportFunnelBurccRcc.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniReportFunnelBurccData?.rccFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelBurccData?.rccDisponibili, previsioniReportFunnelBurccData?.rccFiltro, previsioniReportFunnelBurccRcc])
+  const previsioniReportFunnelBurccTipoOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniReportFunnelBurccData?.tipiDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    if (options.size === 0) {
+      previsioniReportFunnelBurccRows.forEach((row) => {
+        const normalized = row.tipo.trim()
+        if (normalized) {
+          options.add(normalized)
+        }
+      })
+    }
+    const selected = previsioniReportFunnelBurccTipo.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniReportFunnelBurccData?.tipiDisponibili, previsioniReportFunnelBurccRows, previsioniReportFunnelBurccTipo])
+  const previsioniReportFunnelBurccPercentualeOptions = useMemo(() => {
+    const values = new Set<number>()
+    ;(previsioniReportFunnelBurccData?.percentualiSuccessoDisponibili ?? []).forEach((value) => {
+      if (Number.isFinite(value)) {
+        values.add(value)
+      }
+    })
+    if (values.size === 0) {
+      previsioniReportFunnelBurccRows.forEach((row) => {
+        if (Number.isFinite(row.percentualeSuccesso)) {
+          values.add(row.percentualeSuccesso)
+        }
+      })
+    }
+    const selected = Number.parseFloat(previsioniReportFunnelBurccPercentuale.trim().replace(',', '.'))
+    if (Number.isFinite(selected)) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left - right)
+  }, [
+    previsioniReportFunnelBurccData?.percentualiSuccessoDisponibili,
+    previsioniReportFunnelBurccPercentuale,
+    previsioniReportFunnelBurccRows,
+  ])
+  const previsioniReportFunnelBurccAnnoSelezionato = previsioniReportFunnelBurccAnni[0]?.trim()
+    || new Date().getFullYear().toString()
+  const previsioniReportFunnelBurccRowsFiltered = useMemo(() => {
+    const selectedBusinessUnit = previsioniReportFunnelBurccBusinessUnit.trim()
+    const selectedRcc = previsioniReportFunnelBurccRcc.trim()
+    const selectedTipo = previsioniReportFunnelBurccTipo.trim()
+    const selectedPercentRaw = previsioniReportFunnelBurccPercentuale.trim()
+    const selectedPercent = selectedPercentRaw.length > 0
+      ? Number.parseFloat(selectedPercentRaw.replace(',', '.'))
+      : null
+
+    const splitAggregazione = (value: string) => {
+      const normalized = value.trim()
+      const separator = ' - '
+      const separatorIndex = normalized.indexOf(separator)
+      if (separatorIndex < 0) {
+        return {
+          businessUnit: normalized,
+          rcc: '',
+        }
+      }
+      return {
+        businessUnit: normalized.slice(0, separatorIndex).trim(),
+        rcc: normalized.slice(separatorIndex + separator.length).trim(),
+      }
+    }
+
+    return previsioniReportFunnelBurccRows.filter((row) => {
+      const aggregated = splitAggregazione(row.aggregazione)
+      const matchesBusinessUnit = selectedBusinessUnit.length === 0
+        || aggregated.businessUnit.localeCompare(selectedBusinessUnit, 'it', { sensitivity: 'base' }) === 0
+      const matchesRcc = selectedRcc.length === 0
+        || aggregated.rcc.localeCompare(selectedRcc, 'it', { sensitivity: 'base' }) === 0
+      const matchesTipo = selectedTipo.length === 0
+        || row.tipo.localeCompare(selectedTipo, 'it', { sensitivity: 'base' }) === 0
+      const matchesPercent = selectedPercent === null
+        || (Number.isFinite(selectedPercent) && Math.abs(row.percentualeSuccesso - selectedPercent) < 0.0001)
+      return matchesBusinessUnit && matchesRcc && matchesTipo && matchesPercent
+    })
+  }, [
+    previsioniReportFunnelBurccBusinessUnit,
+    previsioniReportFunnelBurccPercentuale,
+    previsioniReportFunnelBurccRcc,
+    previsioniReportFunnelBurccRows,
+    previsioniReportFunnelBurccTipo,
+  ])
+  const previsioniReportFunnelBurccPivotRows = useMemo(
+    () => buildPrevisioniReportFunnelBurccPivotRows(previsioniReportFunnelBurccRowsFiltered, previsioniReportFunnelBurccOrder),
+    [previsioniReportFunnelBurccOrder, previsioniReportFunnelBurccRowsFiltered],
+  )
+  const previsioniReportFunnelBurccTotaliPerAnnoFiltered = useMemo(() => {
+    if (previsioniReportFunnelBurccRowsFiltered.length === 0) {
+      return []
+    }
+    const grouped = new Map<number, {
+      anno: number
+      numeroProtocolli: number
+      percentualeSuccessoNumeratore: number
+      totaleBudgetRicavo: number
+      totaleBudgetCosti: number
+      totaleFatturatoFuturo: number
+      totaleFuturaAnno: number
+      totaleEmessaAnno: number
+      totaleRicaviComplessivi: number
+    }>()
+
+    previsioniReportFunnelBurccRowsFiltered.forEach((row) => {
+      const bucket = grouped.get(row.anno) ?? {
+        anno: row.anno,
+        numeroProtocolli: 0,
+        percentualeSuccessoNumeratore: 0,
+        totaleBudgetRicavo: 0,
+        totaleBudgetCosti: 0,
+        totaleFatturatoFuturo: 0,
+        totaleFuturaAnno: 0,
+        totaleEmessaAnno: 0,
+        totaleRicaviComplessivi: 0,
+      }
+
+      bucket.numeroProtocolli += row.numeroProtocolli
+      bucket.percentualeSuccessoNumeratore += row.percentualeSuccesso * row.numeroProtocolli
+      bucket.totaleBudgetRicavo += row.totaleBudgetRicavo
+      bucket.totaleBudgetCosti += row.totaleBudgetCosti
+      bucket.totaleFatturatoFuturo += row.totaleFatturatoFuturo
+      bucket.totaleFuturaAnno += row.totaleFuturaAnno
+      bucket.totaleEmessaAnno += row.totaleEmessaAnno
+      bucket.totaleRicaviComplessivi += row.totaleRicaviComplessivi
+      grouped.set(row.anno, bucket)
+    })
+
+    return [...grouped.values()]
+      .sort((left, right) => left.anno - right.anno)
+      .map((row) => ({
+        anno: row.anno,
+        numeroProtocolli: row.numeroProtocolli,
+        percentualeSuccesso: row.numeroProtocolli > 0
+          ? row.percentualeSuccessoNumeratore / row.numeroProtocolli
+          : 0,
+        totaleBudgetRicavo: row.totaleBudgetRicavo,
+        totaleBudgetCosti: row.totaleBudgetCosti,
+        totaleFatturatoFuturo: row.totaleFatturatoFuturo,
+        totaleFuturaAnno: row.totaleFuturaAnno,
+        totaleEmessaAnno: row.totaleEmessaAnno,
+        totaleRicaviComplessivi: row.totaleRicaviComplessivi,
+      }))
+  }, [previsioniReportFunnelBurccRowsFiltered])
   const processoOffertaOfferteRows = processoOffertaOfferteData?.items ?? []
   const processoOffertaSintesiRccRows = processoOffertaSintesiRccData?.righe ?? []
   const processoOffertaSintesiBuRows = processoOffertaSintesiBuData?.righe ?? []
@@ -7969,6 +8280,9 @@ function App() {
                                             activePage === 'previsioni-report-funnel-bu'
                                               ? previsioniReportFunnelBuPivotRows.length
                                               : (
+                                                activePage === 'previsioni-report-funnel-burcc'
+                                                  ? previsioniReportFunnelBurccPivotRows.length
+                                                  : (
                                                 activePage === 'previsioni-utile-mensile-rcc'
                                                   ? previsioniUtileMensileRccRows.length
                                                   : (
@@ -7978,6 +8292,7 @@ function App() {
                                                         isProcessoOffertaPage
                                                           ? processoOffertaRowsCount
                                                           : 0
+                                                  )
                                               )
                                           )
                                       )
@@ -9195,6 +9510,36 @@ function App() {
         filenamePrefix = 'Previsioni_ReportFunnelBU'
         break
       }
+      case 'previsioni-report-funnel-burcc': {
+        appendSheet(previsioniReportFunnelBurccPivotRows.map((row) => ({
+          Anno: row.anno,
+          Livello: row.livello,
+          BU: row.businessUnit,
+          RCC: row.rcc,
+          Tipo: row.tipo,
+          PercentualeSuccesso: row.percentualeSuccesso,
+          NumeroProtocolli: row.numeroProtocolli,
+          BudgetRicavo: row.totaleBudgetRicavo,
+          BudgetCosti: row.totaleBudgetCosti,
+          FatturatoFuturo: row.totaleFatturatoFuturo,
+          FuturaAnno: row.totaleFuturaAnno,
+          EmessaAnno: row.totaleEmessaAnno,
+          TotaleAnno: row.totaleRicaviComplessivi,
+        })), 'ReportFunnel')
+        appendSheet(previsioniReportFunnelBurccTotaliPerAnnoFiltered.map((row) => ({
+          Anno: row.anno,
+          NumeroProtocolli: row.numeroProtocolli,
+          PercentualeSuccesso: row.percentualeSuccesso,
+          BudgetRicavo: row.totaleBudgetRicavo,
+          BudgetCosti: row.totaleBudgetCosti,
+          FatturatoFuturo: row.totaleFatturatoFuturo,
+          FuturaAnno: row.totaleFuturaAnno,
+          EmessaAnno: row.totaleEmessaAnno,
+          TotaleAnno: row.totaleRicaviComplessivi,
+        })), 'TotaliPerAnno')
+        filenamePrefix = 'Previsioni_ReportFunnelBURCC'
+        break
+      }
       case 'previsioni-utile-mensile-rcc': {
         appendSheet(previsioniUtileMensileRccRows.map((row) => ({
           Anno: row.anno,
@@ -9561,9 +9906,11 @@ function App() {
     analisiRccRccOptions,
     canAccessPrevisioniUtileMensileBuPage,
     canAccessPrevisioniUtileMensileRccPage,
+    canAccessPrevisioniFunnelBurccPage,
     canAccessRisultatiRisorseMenu,
     canAccessProcessoOffertaPage,
     canExportAnalisiPage,
+    canSelectPrevisioniFunnelBurcc,
     canSelectPrevisioniUtileMensileBu,
     canSelectPrevisioniUtileMensileRcc,
     currentProfile,
@@ -9605,8 +9952,18 @@ function App() {
     previsioniReportFunnelBuAnnoSelezionato,
     previsioniReportFunnelBuHasMultipleAggregazioni,
     previsioniReportFunnelBuOptions,
+    previsioniReportFunnelBuPercentuale,
+    previsioniReportFunnelBuPercentualeOptions,
     previsioniReportFunnelBuRccOptions,
+    previsioniReportFunnelBuTipo,
+    previsioniReportFunnelBuTipoOptions,
     previsioniReportFunnelBuTotaliDettaglioRows,
+    previsioniReportFunnelBurccAnnoOptions,
+    previsioniReportFunnelBurccAnnoSelezionato,
+    previsioniReportFunnelBurccBusinessUnitOptions,
+    previsioniReportFunnelBurccPercentualeOptions,
+    previsioniReportFunnelBurccRccOptions,
+    previsioniReportFunnelBurccTipoOptions,
     previsioniReportFunnelRccAnnoOptions,
     previsioniReportFunnelRccAnnoSelezionato,
     previsioniReportFunnelRccHasMultipleAggregazioni,
@@ -9701,6 +10058,14 @@ function App() {
     setPrevisioniUtileMensileRccAnno,
     setPrevisioniUtileMensileRccMeseRiferimento,
     setPrevisioniUtileMensileRccProduzione,
+    setPrevisioniReportFunnelBuPercentuale,
+    setPrevisioniReportFunnelBuTipo,
+    setPrevisioniReportFunnelBurccAnni,
+    setPrevisioniReportFunnelBurccBusinessUnit,
+    setPrevisioniReportFunnelBurccOrder,
+    setPrevisioniReportFunnelBurccPercentuale,
+    setPrevisioniReportFunnelBurccRcc,
+    setPrevisioniReportFunnelBurccTipo,
     setProcessoOffertaAnni,
     setProcessoOffertaEsiti,
     setProcessoOffertaPercentualeBu,
@@ -9997,9 +10362,19 @@ function App() {
     previsioniFunnelTotals,
     previsioniReportFunnelBu,
     previsioniReportFunnelBuData,
+    previsioniReportFunnelBuPercentuale,
     previsioniReportFunnelBuPivotRows,
     previsioniReportFunnelBuRcc,
+    previsioniReportFunnelBuTipo,
     previsioniReportFunnelBuTotaliPerAnno,
+    previsioniReportFunnelBurccBusinessUnit,
+    previsioniReportFunnelBurccData,
+    previsioniReportFunnelBurccOrder,
+    previsioniReportFunnelBurccPercentuale,
+    previsioniReportFunnelBurccPivotRows,
+    previsioniReportFunnelBurccRcc,
+    previsioniReportFunnelBurccTipo,
+    previsioniReportFunnelBurccTotaliPerAnno: previsioniReportFunnelBurccTotaliPerAnnoFiltered,
     previsioniReportFunnelRcc,
     previsioniReportFunnelRccData,
     previsioniReportFunnelRccPercentuale,
@@ -10043,7 +10418,15 @@ function App() {
     setPrevisioniFunnelTipo,
     setPrevisioniReportFunnelBu,
     setPrevisioniReportFunnelBuAnni,
+    setPrevisioniReportFunnelBuPercentuale,
     setPrevisioniReportFunnelBuRcc,
+    setPrevisioniReportFunnelBuTipo,
+    setPrevisioniReportFunnelBurccAnni,
+    setPrevisioniReportFunnelBurccBusinessUnit,
+    setPrevisioniReportFunnelBurccOrder,
+    setPrevisioniReportFunnelBurccPercentuale,
+    setPrevisioniReportFunnelBurccRcc,
+    setPrevisioniReportFunnelBurccTipo,
     setPrevisioniReportFunnelRcc,
     setPrevisioniReportFunnelRccAnni,
     setPrevisioniReportFunnelRccPercentuale,
@@ -10064,6 +10447,7 @@ function App() {
     canAccessDatiContabiliMenu,
     canAccessPrevisioniMenu,
     canAccessPrevisioniFunnelBuPage,
+    canAccessPrevisioniFunnelBurccPage,
     canAccessPrevisioniFunnelRccPage,
     canAccessPrevisioniUtileMensileBuPage,
     canAccessPrevisioniUtileMensileRccPage,
