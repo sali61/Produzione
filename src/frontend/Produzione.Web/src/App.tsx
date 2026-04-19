@@ -1,11 +1,13 @@
-﻿import { Fragment, type ChangeEvent, useEffect, useMemo, useState } from 'react'
+import { Fragment, type ChangeEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { AppMainContent } from './modules/components/layout/AppMainContent'
 import { AppTopBar } from './modules/components/layout/AppTopBar'
 import { AppInfoModal } from './modules/components/modals/AppInfoModal'
+import { CommessaInviaSintesiModal } from './modules/components/modals/CommessaInviaSintesiModal'
 import { ImpersonationModal } from './modules/components/modals/ImpersonationModal'
 import { UserInfoModal } from './modules/components/modals/UserInfoModal'
+import { CommessaSintesiMailService } from './modules/services/commessaSintesiMailService'
 import {
   analisiBuAllowedProfiles,
   analisiBuPivotBuSelectableProfiles,
@@ -61,10 +63,13 @@ import type {
   AvailableProfilesResponse,
   CommessaAvanzamentoRow,
   CommessaFatturaMovimentoRow,
+  CommessaSintesiMailSendRequest,
+  CommessaSintesiMailSendResponse,
   CommessaRisorseValutazioneRow,
   CommessaSintesiRow,
   CommesseAndamentoMensileResponse,
   CommesseAnomaleResponse,
+  CommesseDettaglioSintesiMailPreviewResponse,
   CommesseDatiAnnualiPivotData,
   CommesseDatiAnnualiPivotRow,
   CommesseDettaglioResponse,
@@ -280,6 +285,12 @@ function App() {
   const [detailSaving, setDetailSaving] = useState(false)
   const [detailStatusMessage, setDetailStatusMessage] = useState('')
   const [detailRouteProcessed, setDetailRouteProcessed] = useState(false)
+  const [detailSintesiMailModalOpen, setDetailSintesiMailModalOpen] = useState(false)
+  const [detailSintesiMailPreview, setDetailSintesiMailPreview] = useState<CommesseDettaglioSintesiMailPreviewResponse | null>(null)
+  const [detailSintesiMailPreviewLoading, setDetailSintesiMailPreviewLoading] = useState(false)
+  const [detailSintesiMailSending, setDetailSintesiMailSending] = useState(false)
+  const [detailSintesiMailStatusMessage, setDetailSintesiMailStatusMessage] = useState('')
+  const [detailSintesiMailErrorMessage, setDetailSintesiMailErrorMessage] = useState('')
   const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
   const [detailRicavoPrevistoInput, setDetailRicavoPrevistoInput] = useState('')
   const [detailOreRestantiInput, setDetailOreRestantiInput] = useState('')
@@ -837,6 +848,15 @@ function App() {
 
     return ''
   }
+
+  const commessaSintesiMailService = useMemo(
+    () => new CommessaSintesiMailService({
+      toBackendUrl,
+      authHeaders,
+      readApiMessage,
+    }),
+    [toBackendUrl],
+  )
 
   const forceLogoutForAuthorization = (reason: string, message: string) => {
     setStatusMessage(message)
@@ -3848,6 +3868,8 @@ function App() {
 
     setDetailLoading(true)
     setDetailSaving(false)
+    setDetailSintesiMailModalOpen(false)
+    resetDetailSintesiMailState()
     setDetailCommessa(normalizedCommessa)
     setDetailData(null)
     setDetailPercentRaggiuntoInput('')
@@ -3902,6 +3924,130 @@ function App() {
       )
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const resetDetailSintesiMailState = () => {
+    setDetailSintesiMailPreview(null)
+    setDetailSintesiMailPreviewLoading(false)
+    setDetailSintesiMailSending(false)
+    setDetailSintesiMailStatusMessage('')
+    setDetailSintesiMailErrorMessage('')
+  }
+
+  const loadDetailSintesiMailPreview = async (commessa = detailData?.commessa || detailCommessa) => {
+    const normalizedCommessa = (commessa ?? '').trim()
+    if (!normalizedCommessa || !token.trim() || !currentProfile.trim()) {
+      setDetailSintesiMailPreview(null)
+      setDetailSintesiMailErrorMessage('Sessione o commessa non disponibili per la preview invio sintesi.')
+      return
+    }
+
+    setDetailSintesiMailPreviewLoading(true)
+    setDetailSintesiMailErrorMessage('')
+    setDetailSintesiMailStatusMessage('')
+
+    try {
+      const previewResult = await commessaSintesiMailService.loadPreview({
+        token,
+        impersonationUsername: activeImpersonation,
+        profile: currentProfile,
+        commessa: normalizedCommessa,
+      })
+
+      if (previewResult.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (!previewResult.ok || !previewResult.data) {
+        setDetailSintesiMailPreview(null)
+        setDetailSintesiMailErrorMessage(
+          previewResult.message || `Errore caricamento destinatari invio sintesi (${previewResult.status}).`,
+        )
+        return
+      }
+
+      setDetailSintesiMailPreview(previewResult.data)
+      setDetailSintesiMailStatusMessage(
+        `Destinatari individuati: ${previewResult.data.recipients.length} risorse.`,
+      )
+    } catch {
+      setDetailSintesiMailPreview(null)
+      setDetailSintesiMailErrorMessage('Errore inatteso durante il caricamento preview invio sintesi.')
+    } finally {
+      setDetailSintesiMailPreviewLoading(false)
+    }
+  }
+
+  const openDetailSintesiMailModal = () => {
+    const commessa = (detailData?.commessa || detailCommessa || '').trim()
+    if (!commessa) {
+      setDetailStatusMessage("Commessa non disponibile per l'invio sintesi.")
+      return
+    }
+
+    resetDetailSintesiMailState()
+    setDetailSintesiMailModalOpen(true)
+    void loadDetailSintesiMailPreview(commessa)
+  }
+
+  const closeDetailSintesiMailModal = () => {
+    setDetailSintesiMailModalOpen(false)
+    resetDetailSintesiMailState()
+  }
+
+  const sendDetailSintesiMail = async (request: CommessaSintesiMailSendRequest) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setDetailSintesiMailErrorMessage('Sessione non disponibile: eseguire nuovamente il login.')
+      return
+    }
+
+    setDetailSintesiMailSending(true)
+    setDetailSintesiMailErrorMessage('')
+    setDetailSintesiMailStatusMessage('')
+    try {
+      const sendResult = await commessaSintesiMailService.send({
+        token,
+        impersonationUsername: activeImpersonation,
+        profile: currentProfile,
+        request,
+      })
+
+      if (sendResult.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (!sendResult.ok || !sendResult.data) {
+        setDetailSintesiMailErrorMessage(
+          sendResult.message || `Errore invio sintesi commessa (${sendResult.status}).`,
+        )
+        return
+      }
+
+      const payload: CommessaSintesiMailSendResponse = sendResult.data
+      if (!payload.success) {
+        setDetailSintesiMailErrorMessage(
+          payload.message || 'Invio sintesi commessa non riuscito.',
+        )
+        return
+      }
+
+      setDetailSintesiMailStatusMessage(
+        payload.message || 'Invio sintesi commessa completato.',
+      )
+      setDetailStatusMessage(
+        payload.message || 'Invio sintesi commessa completato.',
+      )
+      setDetailSintesiMailModalOpen(false)
+      resetDetailSintesiMailState()
+    } catch {
+      setDetailSintesiMailErrorMessage("Errore inatteso durante l'invio sintesi commessa.")
+    } finally {
+      setDetailSintesiMailSending(false)
     }
   }
 
@@ -9750,6 +9896,78 @@ function App() {
     setStatusMessage(`Export Excel completato: ${filename}`)
   }
 
+  const exportDettaglioPdf = async () => {
+    if (!detailData || !detailCommessa.trim()) {
+      setStatusMessage('Nessun dettaglio commessa disponibile da esportare in PDF.')
+      return
+    }
+
+    const currentProfile = selectedProfile.trim()
+    if (!currentProfile) {
+      setStatusMessage('Seleziona un profilo prima di esportare il PDF.')
+      return
+    }
+
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('commessa', detailCommessa.trim())
+
+      const response = await fetch(toBackendUrl(`/api/commesse/dettaglio/pdf?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setStatusMessage(message || 'Profilo non autorizzato all\'export PDF del dettaglio commessa.')
+        return
+      }
+
+      if (response.status === 404) {
+        const message = await readApiMessage(response)
+        setStatusMessage(message || 'Commessa non trovata per export PDF.')
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setStatusMessage(message || `Errore export PDF (${response.status}).`)
+        return
+      }
+
+      const blob = await response.blob()
+      if (blob.size <= 0) {
+        setStatusMessage('Export PDF non riuscito: file vuoto.')
+        return
+      }
+
+      const disposition = response.headers.get('content-disposition') ?? ''
+      const fileNameMatch = disposition.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i)
+      const fileName = fileNameMatch && fileNameMatch[1]
+        ? decodeURIComponent(fileNameMatch[1].replaceAll('"', '').trim())
+        : `Produzione_Dettaglio_${detailCommessa.trim()}_${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.pdf`
+
+      const blobUrl = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = blobUrl
+      anchor.download = fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.URL.revokeObjectURL(blobUrl)
+
+      setStatusMessage(`Export PDF completato: ${fileName}`)
+    } catch {
+      setStatusMessage('Errore inatteso durante l\'export PDF del dettaglio commessa.')
+    }
+  }
+
   const exportDettaglioExcel = () => {
     if (!detailData || !detailCommessa.trim()) {
       setStatusMessage('Nessun dettaglio commessa disponibile da esportare in Excel.')
@@ -10190,7 +10408,9 @@ function App() {
     detailVenditeTotaleImporto,
     expandAllProducts,
     exportCommesseDatiAnnualiExcel,
+    exportDettaglioPdf,
     exportDettaglioExcel,
+    openDetailSintesiMailModal,
     exportSintesiExcel,
     formatDate,
     formatPercentRatio,
@@ -10556,11 +10776,29 @@ function App() {
         stopImpersonation={stopImpersonation}
         onClose={() => setImpersonationModalOpen(false)}
       />
+
+      <CommessaInviaSintesiModal
+        open={detailSintesiMailModalOpen}
+        commessa={detailData?.commessa || detailCommessa}
+        loading={detailSintesiMailPreviewLoading}
+        sending={detailSintesiMailSending}
+        preview={detailSintesiMailPreview}
+        statusMessage={detailSintesiMailStatusMessage}
+        errorMessage={detailSintesiMailErrorMessage}
+        onClose={closeDetailSintesiMailModal}
+        onReloadPreview={() => {
+          void loadDetailSintesiMailPreview(detailData?.commessa || detailCommessa)
+        }}
+        onSend={(request) => {
+          void sendDetailSintesiMail(request)
+        }}
+      />
     </div>
   )
 }
 
 export default App
+
 
 
 

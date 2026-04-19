@@ -4,10 +4,14 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Produzione.Application;
 using Produzione.Api.Options;
+using Produzione.Api.Services;
 using Produzione.Api.Security;
 using Produzione.Infrastructure;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.WebHost.UseUrls(builder.Configuration["ApplicationUrls:Https"] ?? "https://localhost:7643");
 
@@ -16,6 +20,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<UserExecutionContextService>();
+builder.Services.AddScoped<ICommessaSintesiMailService, CommessaSintesiMailService>();
 
 builder.Services.AddCors(options =>
 {

@@ -50,6 +50,8 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     detailVenditeDateSortIndicator,
     detailVenditeSorted,
     detailVenditeTotaleImporto,
+    openDetailSintesiMailModal,
+    exportDettaglioPdf,
     exportDettaglioExcel,
     formatDate,
     formatNumber,
@@ -85,10 +87,26 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                     <button
                       type="button"
                       className="ghost-button"
+                      onClick={exportDettaglioPdf}
+                      disabled={detailLoading || !detailData}
+                    >
+                      Export PDF
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
                       onClick={exportDettaglioExcel}
                       disabled={detailLoading || !detailData}
                     >
                       Export Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={openDetailSintesiMailModal}
+                      disabled={detailLoading || !detailData?.commessa}
+                    >
+                      Invia sintesi
                     </button>
                     <button
                       type="button"

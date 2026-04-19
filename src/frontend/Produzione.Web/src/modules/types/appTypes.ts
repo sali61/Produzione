@@ -1014,6 +1014,52 @@ export type CommesseDettaglioResponse = {
   oreSpeseRisorse?: CommessaOreSpeseRisorsaRow[]
 }
 
+export type CommessaSintesiMailRecipient = {
+  idRisorsa?: number | null
+  nomeRisorsa: string
+  netUserName: string
+  email: string
+  ruoli: string[]
+  associatoCommessa: boolean
+}
+
+export type CommessaSintesiMailRoleOption = {
+  roleCode: string
+  label: string
+  available: boolean
+  emails: string[]
+}
+
+export type CommesseDettaglioSintesiMailPreviewResponse = {
+  profile: string
+  commessa: string
+  simulatedTargetEmail: string
+  suggestedSubject: string
+  suggestedBodyHtml: string
+  roleOptions: CommessaSintesiMailRoleOption[]
+  recipients: CommessaSintesiMailRecipient[]
+}
+
+export type CommessaSintesiMailSendRequest = {
+  commessa: string
+  ruoli: string[]
+  includeAssociatiCommessa: boolean
+  oggetto: string
+  corpoHtml: string
+  corpoTesto: string
+}
+
+export type CommessaSintesiMailSendResponse = {
+  success: boolean
+  message: string
+  simulatedTargetEmail: string
+  selectedRoles: string[]
+  includeAssociatiCommessa: boolean
+  intendedRecipients: CommessaSintesiMailRecipient[]
+  intendedEmails: string[]
+  sentAtUtc?: string | null
+}
+
 export type CommessaFatturaMovimentoRow = {
   dataMovimento?: string | null
   numeroDocumento: string

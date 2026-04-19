@@ -12,6 +12,9 @@ public interface ICommesseFilterRepository
     Task<CommessaAnagraficaRow?> GetCommessaAnagraficaAsync(UserContext user, string profile, string commessa, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<CommessaOptionRow>> SearchCommesseAsync(UserContext user, string profile, string? search, int take, CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<CommessaOptionRow>> SearchProdottiCommesseAsync(UserContext user, string profile, string? search, int take, CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaSintesiMailCandidateRow>> GetCommessaSintesiMailCandidatesAsync(
+        string commessa,
+        CancellationToken cancellationToken = default);
     Task<CommesseSintesiFilters> GetSintesiFiltersAsync(
         UserContext user,
         string profile,

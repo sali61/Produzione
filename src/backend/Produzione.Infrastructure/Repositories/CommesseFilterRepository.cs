@@ -274,6 +274,146 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             r.id;
         """;
     private const string DettaglioCommesseFatturatoStoredProcedure = "produzione.spDettaglioCommesseFatturato";
+    private const string CommessaSintesiMailCandidatesQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id DESC
+        );
+
+        ;WITH CommessaRef AS
+        (
+            SELECT TOP (1)
+                CAST(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) AS NVARCHAR(128)) AS Commessa,
+                CAST(ISNULL(c.idPM, 0) AS INT) AS IdPm,
+                CAST(ISNULL(c.idRCC, 0) AS INT) AS IdRcc,
+                CAST(LTRIM(RTRIM(ISNULL(c.PM, N''))) AS NVARCHAR(256)) AS NomePm,
+                CAST(LTRIM(RTRIM(ISNULL(c.RCC, N''))) AS NVARCHAR(256)) AS NomeRcc,
+                CAST(LTRIM(RTRIM(ISNULL(c.NetUserNamePM, N''))) AS NVARCHAR(256)) AS NetUserNamePm,
+                CAST(LTRIM(RTRIM(ISNULL(c.NetUserNameRCC, N''))) AS NVARCHAR(256)) AS NetUserNameRcc,
+                CAST(LTRIM(RTRIM(ISNULL(c.idBusinessUnit, N''))) AS NVARCHAR(128)) AS BusinessUnit
+            FROM cdg_qryComessaPmRcc c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) = @CommessaUpper
+            ORDER BY c.data_commessa DESC
+        ),
+        BaseCandidates AS
+        (
+            SELECT
+                CAST(N'PM' AS NVARCHAR(32)) AS RoleCode,
+                CAST(COALESCE(NULLIF(rpm.id, 0), NULLIF(cr.IdPm, 0)) AS INT) AS IdRisorsa,
+                CAST(
+                    COALESCE(
+                        NULLIF(LTRIM(RTRIM(ISNULL(rpm.[Nome Risorsa], N''))), N''),
+                        NULLIF(cr.NomePm, N''),
+                        N''
+                    )
+                AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(
+                    COALESCE(
+                        NULLIF(LTRIM(RTRIM(ISNULL(rpm.NetUserName, N''))), N''),
+                        NULLIF(cr.NetUserNamePm, N''),
+                        N''
+                    )
+                AS NVARCHAR(256)) AS NetUserName
+            FROM CommessaRef cr
+            LEFT JOIN dbo.Risorse rpm
+                ON rpm.id = cr.IdPm
+
+            UNION ALL
+
+            SELECT
+                CAST(N'RCC' AS NVARCHAR(32)) AS RoleCode,
+                CAST(COALESCE(NULLIF(rrcc.id, 0), NULLIF(cr.IdRcc, 0)) AS INT) AS IdRisorsa,
+                CAST(
+                    COALESCE(
+                        NULLIF(LTRIM(RTRIM(ISNULL(rrcc.[Nome Risorsa], N''))), N''),
+                        NULLIF(cr.NomeRcc, N''),
+                        N''
+                    )
+                AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(
+                    COALESCE(
+                        NULLIF(LTRIM(RTRIM(ISNULL(rrcc.NetUserName, N''))), N''),
+                        NULLIF(cr.NetUserNameRcc, N''),
+                        N''
+                    )
+                AS NVARCHAR(256)) AS NetUserName
+            FROM CommessaRef cr
+            LEFT JOIN dbo.Risorse rrcc
+                ON rrcc.id = cr.IdRcc
+
+            UNION ALL
+
+            SELECT
+                CAST(N'ROU' AS NVARCHAR(32)) AS RoleCode,
+                CAST(r.id AS INT) AS IdRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+            FROM CommessaRef cr
+            INNER JOIN [orga].[vw_OU_OrganigrammaAncestor] ou
+                ON ou.sigla COLLATE DATABASE_DEFAULT = cr.BusinessUnit COLLATE DATABASE_DEFAULT
+            INNER JOIN dbo.Risorse r
+                ON r.id = ou.id_responsabile_ou_ancestor
+            WHERE ou.id_responsabile_ou_ancestor IS NOT NULL
+              AND r.DataFine IS NULL
+
+            UNION ALL
+
+            SELECT
+                CAST(
+                    CASE
+                        WHEN tr.NomeRuolo = N'PRES' THEN N'RC'
+                        ELSE tr.NomeRuolo
+                    END
+                AS NVARCHAR(32)) AS RoleCode,
+                CAST(r.id AS INT) AS IdRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+            FROM dbo.TipiRuolo tr
+            INNER JOIN dbo.RuoliAziendaliRisorse rar
+                ON rar.IdRuolo = tr.ID
+            INNER JOIN dbo.Risorse r
+                ON r.id = rar.IdRisorsa
+            WHERE rar.dataFine IS NULL
+              AND tr.NomeRuolo IN (N'RC', N'RP', N'CDG', N'PRES')
+              AND r.DataFine IS NULL
+
+            UNION ALL
+
+            SELECT
+                CAST(N'ASSOCIATI' AS NVARCHAR(32)) AS RoleCode,
+                CAST(r.id AS INT) AS IdRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+            FROM dbo.[Attività] a
+            INNER JOIN dbo.Risorse r
+                ON r.id = a.IDRisorsa
+            WHERE @IdCommessa IS NOT NULL
+              AND a.CodiceCommessa = @IdCommessa
+              AND a.IDRisorsa IS NOT NULL
+            GROUP BY
+                r.id,
+                r.[Nome Risorsa],
+                r.NetUserName
+        )
+        SELECT DISTINCT
+            CAST(ISNULL(c.RoleCode, N'') AS NVARCHAR(32)) AS RoleCode,
+            CAST(c.IdRisorsa AS INT) AS IdRisorsa,
+            CAST(ISNULL(c.NomeRisorsa, N'') AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(ISNULL(c.NetUserName, N'') AS NVARCHAR(256)) AS NetUserName
+        FROM BaseCandidates c
+        WHERE ISNULL(c.RoleCode, N'') <> N''
+          AND (
+                ISNULL(LTRIM(RTRIM(ISNULL(c.NetUserName, N''))), N'') <> N''
+                OR ISNULL(c.IdRisorsa, 0) > 0
+              )
+        ORDER BY
+            c.RoleCode,
+            c.NomeRisorsa,
+            c.NetUserName;
+        """;
     private const string CommessaRequisitiOreQuery = """
         DECLARE @IdCommessa INT =
         (
@@ -1198,6 +1338,292 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
     {
         var visibility = ResolveVisibility(profile);
         return await SearchCommesseByQueryAsync(ProdottiCommesseBaseQuery, user, visibility, search, take, cancellationToken);
+    }
+
+    private const string CommessaSintesiMailPmRccQuery = """
+        ;WITH CommessaRef AS
+        (
+            SELECT TOP (1)
+                CAST(ISNULL(c.idPM, 0) AS INT) AS IdPm,
+                CAST(ISNULL(c.idRCC, 0) AS INT) AS IdRcc,
+                CAST(LTRIM(RTRIM(ISNULL(c.PM, N''))) AS NVARCHAR(256)) AS NomePm,
+                CAST(LTRIM(RTRIM(ISNULL(c.RCC, N''))) AS NVARCHAR(256)) AS NomeRcc,
+                CAST(LTRIM(RTRIM(ISNULL(c.NetUserNamePM, N''))) AS NVARCHAR(256)) AS NetUserNamePm,
+                CAST(LTRIM(RTRIM(ISNULL(c.NetUserNameRCC, N''))) AS NVARCHAR(256)) AS NetUserNameRcc
+            FROM cdg_qryComessaPmRcc c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) = @CommessaUpper
+            ORDER BY c.data_commessa DESC
+        )
+        SELECT
+            CAST(N'PM' AS NVARCHAR(32)) AS RoleCode,
+            CAST(COALESCE(NULLIF(rpm.id, 0), NULLIF(cr.IdPm, 0)) AS INT) AS IdRisorsa,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(rpm.[Nome Risorsa], N''))), N''),
+                    NULLIF(cr.NomePm, N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(rpm.NetUserName, N''))), N''),
+                    NULLIF(cr.NetUserNamePm, N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS NetUserName
+        FROM CommessaRef cr
+        LEFT JOIN dbo.Risorse rpm
+            ON rpm.id = cr.IdPm
+
+        UNION ALL
+
+        SELECT
+            CAST(N'RCC' AS NVARCHAR(32)) AS RoleCode,
+            CAST(COALESCE(NULLIF(rrcc.id, 0), NULLIF(cr.IdRcc, 0)) AS INT) AS IdRisorsa,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(rrcc.[Nome Risorsa], N''))), N''),
+                    NULLIF(cr.NomeRcc, N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(rrcc.NetUserName, N''))), N''),
+                    NULLIF(cr.NetUserNameRcc, N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS NetUserName
+        FROM CommessaRef cr
+        LEFT JOIN dbo.Risorse rrcc
+            ON rrcc.id = cr.IdRcc;
+        """;
+
+    private const string CommessaSintesiMailRouQuery = """
+        ;WITH CommessaRef AS
+        (
+            SELECT TOP (1)
+                CAST(LTRIM(RTRIM(ISNULL(c.idBusinessUnit, N''))) AS NVARCHAR(128)) AS BusinessUnit
+            FROM cdg_qryComessaPmRcc c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) = @CommessaUpper
+            ORDER BY c.data_commessa DESC
+        )
+        SELECT DISTINCT
+            CAST(N'ROU' AS NVARCHAR(32)) AS RoleCode,
+            CAST(r.id AS INT) AS IdRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+        FROM CommessaRef cr
+        INNER JOIN [orga].[vw_OU_OrganigrammaAncestor] ou
+            ON ou.sigla COLLATE DATABASE_DEFAULT = cr.BusinessUnit COLLATE DATABASE_DEFAULT
+        INNER JOIN dbo.Risorse r
+            ON r.id = ou.id_responsabile_ou_ancestor
+        WHERE ou.id_responsabile_ou_ancestor IS NOT NULL
+          AND r.DataFine IS NULL;
+        """;
+
+    private const string CommessaSintesiMailRuoliGlobaliQuery = """
+        SELECT DISTINCT
+            CAST(
+                CASE
+                    WHEN tr.NomeRuolo = N'PRES' THEN N'RC'
+                    ELSE tr.NomeRuolo
+                END
+            AS NVARCHAR(32)) AS RoleCode,
+            CAST(r.id AS INT) AS IdRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+        FROM dbo.TipiRuolo tr
+        INNER JOIN dbo.RuoliAziendaliRisorse rar
+            ON rar.IdRuolo = tr.ID
+        INNER JOIN dbo.Risorse r
+            ON r.id = rar.IdRisorsa
+        WHERE rar.dataFine IS NULL
+          AND tr.NomeRuolo IN (N'RC', N'RP', N'CDG', N'PRES')
+          AND r.DataFine IS NULL;
+        """;
+
+    private const string CommessaSintesiMailAssociatiQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id DESC
+        );
+
+        SELECT
+            CAST(N'ASSOCIATI' AS NVARCHAR(32)) AS RoleCode,
+            CAST(r.id AS INT) AS IdRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+        FROM dbo.[Attività] a
+        INNER JOIN dbo.Risorse r
+            ON r.id = a.IDRisorsa
+        WHERE @IdCommessa IS NOT NULL
+          AND a.CodiceCommessa = @IdCommessa
+          AND a.IDRisorsa IS NOT NULL
+        GROUP BY
+            r.id,
+            r.[Nome Risorsa],
+            r.NetUserName;
+        """;
+
+    private const string CommessaSintesiMailRisorseByIdQuery = """
+        SELECT
+            CAST(r.id AS INT) AS IdRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
+            CAST(LTRIM(RTRIM(ISNULL(r.NetUserName, N''))) AS NVARCHAR(256)) AS NetUserName
+        FROM dbo.Risorse r
+        WHERE r.id IN ({0});
+        """;
+
+    public async Task<IReadOnlyCollection<CommessaSintesiMailCandidateRow>> GetCommessaSintesiMailCandidatesAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return Array.Empty<CommessaSintesiMailCandidateRow>();
+        }
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var commessaUpper = NormalizeCommessaKey(commessa);
+        var rows = new List<CommessaSintesiMailCandidateRow>();
+
+        await AppendCommessaSintesiMailCandidatesByQueryAsync(connection, CommessaSintesiMailPmRccQuery, commessaUpper, rows, cancellationToken);
+        await AppendCommessaSintesiMailCandidatesByQueryAsync(connection, CommessaSintesiMailRouQuery, commessaUpper, rows, cancellationToken);
+        await AppendCommessaSintesiMailCandidatesByQueryAsync(connection, CommessaSintesiMailRuoliGlobaliQuery, commessaUpper, rows, cancellationToken);
+        await AppendCommessaSintesiMailCandidatesByQueryAsync(connection, CommessaSintesiMailAssociatiQuery, commessaUpper, rows, cancellationToken);
+        await EnrichCommessaSintesiMailCandidatesFromRisorseAsync(connection, rows, cancellationToken);
+
+        return rows
+            .Where(candidate =>
+                !string.IsNullOrWhiteSpace(candidate.RoleCode) &&
+                (!string.IsNullOrWhiteSpace(candidate.NetUserName) || candidate.IdRisorsa.HasValue))
+            .GroupBy(
+                candidate => new
+                {
+                    RoleCode = candidate.RoleCode.Trim().ToUpperInvariant(),
+                    IdRisorsa = candidate.IdRisorsa ?? 0,
+                    NomeRisorsa = (candidate.NomeRisorsa ?? string.Empty).Trim(),
+                    NetUserName = (candidate.NetUserName ?? string.Empty).Trim()
+                })
+            .Select(group => group.First())
+            .OrderBy(candidate => candidate.RoleCode, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(candidate => candidate.NomeRisorsa, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(candidate => candidate.NetUserName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static async Task AppendCommessaSintesiMailCandidatesByQueryAsync(
+        SqlConnection connection,
+        string query,
+        string commessaUpper,
+        ICollection<CommessaSintesiMailCandidateRow> target,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var command = new SqlCommand(query, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessaUpper);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                target.Add(new CommessaSintesiMailCandidateRow(
+                    ReadString(reader, ordinals, "RoleCode"),
+                    ReadNullableInt(reader, ordinals, "IdRisorsa"),
+                    ReadString(reader, ordinals, "NomeRisorsa"),
+                    ReadString(reader, ordinals, "NetUserName")));
+            }
+        }
+        catch
+        {
+            // Query opzionale: il fallimento di una singola sorgente (es. permessi su una vista)
+            // non deve azzerare tutti i destinatari disponibili.
+        }
+    }
+
+    private static async Task EnrichCommessaSintesiMailCandidatesFromRisorseAsync(
+        SqlConnection connection,
+        IList<CommessaSintesiMailCandidateRow> target,
+        CancellationToken cancellationToken)
+    {
+        var ids = target
+            .Where(candidate => candidate.IdRisorsa.HasValue && candidate.IdRisorsa.Value > 0)
+            .Select(candidate => candidate.IdRisorsa!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            return;
+        }
+
+        var parameterNames = ids
+            .Select((_, index) => $"@IdRisorsa{index}")
+            .ToArray();
+        var query = string.Format(CommessaSintesiMailRisorseByIdQuery, string.Join(", ", parameterNames));
+
+        var lookup = new Dictionary<int, (string NomeRisorsa, string NetUserName)>();
+        try
+        {
+            await using var command = new SqlCommand(query, connection);
+            command.CommandType = CommandType.Text;
+            for (var index = 0; index < ids.Length; index += 1)
+            {
+                command.Parameters.AddWithValue(parameterNames[index], ids[index]);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = ReadNullableInt(reader, ordinals, "IdRisorsa");
+                if (!id.HasValue || id.Value <= 0)
+                {
+                    continue;
+                }
+
+                lookup[id.Value] = (
+                    ReadString(reader, ordinals, "NomeRisorsa"),
+                    ReadString(reader, ordinals, "NetUserName"));
+            }
+        }
+        catch
+        {
+            return;
+        }
+
+        for (var index = 0; index < target.Count; index += 1)
+        {
+            var current = target[index];
+            if (!current.IdRisorsa.HasValue || current.IdRisorsa.Value <= 0)
+            {
+                continue;
+            }
+
+            if (!lookup.TryGetValue(current.IdRisorsa.Value, out var risorsa))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(current.NetUserName) && !string.IsNullOrWhiteSpace(current.NomeRisorsa))
+            {
+                continue;
+            }
+
+            target[index] = current with
+            {
+                NomeRisorsa = string.IsNullOrWhiteSpace(current.NomeRisorsa) ? risorsa.NomeRisorsa : current.NomeRisorsa,
+                NetUserName = string.IsNullOrWhiteSpace(current.NetUserName) ? risorsa.NetUserName : current.NetUserName
+            };
+        }
     }
 
     private async Task<IReadOnlyCollection<CommessaOptionRow>> SearchCommesseByQueryAsync(

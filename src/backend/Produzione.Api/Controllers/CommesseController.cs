@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Produzione.Api.Reports;
 using Produzione.Api.Security;
+using Produzione.Api.Services;
 using Produzione.Application.Abstractions.Persistence;
 using Produzione.Application.Common.Profiles;
 using Produzione.Application.Contracts.Commesse;
@@ -15,6 +17,7 @@ namespace Produzione.Api.Controllers;
 public sealed class CommesseController(
     UserExecutionContextService executionContextService,
     ICommesseFilterRepository commesseFilterRepository,
+    ICommessaSintesiMailService commessaSintesiMailService,
     ILogger<CommesseController> logger) : ControllerBase
 {
     private static readonly string[] AllowedProfiles =
@@ -883,17 +886,391 @@ public sealed class CommesseController(
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
     {
+        var buildResult = await BuildDettaglioResponseAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (buildResult.ErrorResponse is not null)
+        {
+            return buildResult.ErrorResponse;
+        }
+
+        return Ok(buildResult.Response);
+    }
+
+    [HttpGet("dettaglio/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioPdf(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        var buildResult = await BuildDettaglioResponseAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (buildResult.ErrorResponse is not null)
+        {
+            return buildResult.ErrorResponse;
+        }
+
+        if (buildResult.Response is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante la generazione report PDF."
+            });
+        }
+
         try
         {
-            if (string.IsNullOrWhiteSpace(commessa))
+            var bytes = CommesseDettaglioPdfReportGenerator.Generate(buildResult.Response);
+            var safeCommessa = SanitizeFileName(buildResult.Response.Commessa);
+            var fileName = $"Produzione_Dettaglio_{safeCommessa}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+            return File(bytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/pdf.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
             {
-                return BadRequest(new { message = "Parametro commessa obbligatorio." });
+                message = "Errore interno durante la generazione del PDF."
+            });
+        }
+    }
+
+    [HttpPost("dettaglio/avanzamento")]
+    [ProducesResponseType(typeof(CommessaAvanzamentoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SalvaAvanzamento(
+        [FromQuery] string profile,
+        [FromBody] CommessaAvanzamentoSaveRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+            {
+                return BadRequest(new { message = "Commessa obbligatoria." });
             }
 
             var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
             if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
             {
                 return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var normalizedCommessa = request.Commessa.Trim();
+            var commessaExists = await commesseFilterRepository.CommessaExistsAsync(normalizedCommessa, cancellationToken);
+            if (!commessaExists)
+            {
+                return NotFound(new
+                {
+                    message = $"Commessa '{normalizedCommessa}' non trovata."
+                });
+            }
+
+            var hasAccess = await commesseFilterRepository.CanAccessCommessaAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                normalizedCommessa,
+                cancellationToken);
+            if (!hasAccess)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{profileResult}' non autorizzato alla commessa '{normalizedCommessa}'."
+                });
+            }
+
+            var dataRiferimento = request.DataRiferimento.Date;
+            if (dataRiferimento == DateTime.MinValue.Date)
+            {
+                var now = DateTime.Now;
+                dataRiferimento = new DateTime(now.Year, now.Month, 1).AddDays(-1).Date;
+            }
+
+            var percentuale = Math.Clamp(request.PercentualeRaggiunto, 0m, 100m);
+            var oreFuture = request.OreFuture;
+            if (oreFuture == 0m && request.OreRestanti != 0m)
+            {
+                oreFuture = request.OreRestanti;
+            }
+
+            var saved = await commesseFilterRepository.SaveCommessaAvanzamentoAsync(
+                contextData.EffectiveUser,
+                normalizedCommessa,
+                percentuale,
+                request.ImportoRiferimento,
+                oreFuture,
+                request.OreRestanti,
+                request.CostoPersonaleFuturo,
+                dataRiferimento,
+                cancellationToken);
+
+            if (saved is null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "Salvataggio avanzamento non riuscito."
+                });
+            }
+
+            return Ok(new CommessaAvanzamentoDto
+            {
+                Id = saved.Id,
+                IdCommessa = saved.IdCommessa,
+                PercentualeRaggiunto = saved.PercentualeRaggiunto,
+                ImportoRiferimento = saved.ImportoRiferimento,
+                OreFuture = saved.OreFuture,
+                OreRestanti = saved.OreRestanti,
+                CostoPersonaleFuturo = saved.CostoPersonaleFuturo,
+                DataRiferimento = saved.DataRiferimento,
+                DataSalvataggio = saved.DataSalvataggio,
+                IdAutore = saved.IdAutore
+            });
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/avanzamento.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/avanzamento.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il salvataggio avanzamento."
+            });
+        }
+    }
+
+    [HttpGet("dettaglio/sintesi-mail/preview")]
+    [ProducesResponseType(typeof(CommesseDettaglioSintesiMailPreviewResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioSintesiMailPreview(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+            if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+            {
+                return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var preview = await commessaSintesiMailService.BuildPreviewAsync(
+                validation.Profile,
+                validation.Commessa,
+                cancellationToken);
+
+            return Ok(preview);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/sintesi-mail/preview.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/sintesi-mail/preview.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il caricamento destinatari sintesi commessa."
+            });
+        }
+    }
+
+    [HttpPost("dettaglio/sintesi-mail/send")]
+    [ProducesResponseType(typeof(CommessaSintesiMailSendResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioSintesiMailSend(
+        [FromQuery] string profile,
+        [FromBody] CommessaSintesiMailSendRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+            {
+                return BadRequest(new { message = "Commessa obbligatoria." });
+            }
+
+            var selectedRoles = (request.Ruoli ?? Array.Empty<string>())
+                .Select(role => role?.Trim() ?? string.Empty)
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (selectedRoles.Length == 0 && !request.IncludeAssociatiCommessa)
+            {
+                return BadRequest(new
+                {
+                    message = "Selezionare almeno un ruolo o l'opzione utenti associati alla commessa."
+                });
+            }
+
+            var validation = await ValidateCommessaAccessAsync(profile, request.Commessa, actAsUsername, cancellationToken);
+            if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+            {
+                return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            request.Commessa = validation.Commessa;
+            var commessaDetailUrl = BuildCommessaDetailLink(
+                Request,
+                validation.Profile,
+                validation.Commessa,
+                actAsUsername);
+
+            byte[]? dettaglioPdfBytes = null;
+            string? dettaglioPdfFileName = null;
+            try
+            {
+                var dettaglioResult = await BuildDettaglioResponseAsync(
+                    validation.Profile,
+                    validation.Commessa,
+                    actAsUsername,
+                    cancellationToken);
+
+                if (dettaglioResult.Response is not null)
+                {
+                    dettaglioPdfBytes = CommesseDettaglioPdfReportGenerator.Generate(dettaglioResult.Response);
+                    var safeCommessa = SanitizeFileName(dettaglioResult.Response.Commessa);
+                    dettaglioPdfFileName = $"Produzione_Dettaglio_{safeCommessa}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Impossibile generare allegato PDF per invio sintesi commessa {Commessa}. L'invio proseguira' senza allegato.",
+                    validation.Commessa);
+            }
+
+            var sendOptions = new CommessaSintesiMailSendOptions(
+                CommessaDetailUrl: commessaDetailUrl,
+                PdfAttachment: dettaglioPdfBytes,
+                PdfAttachmentFileName: dettaglioPdfFileName);
+
+            var sendResult = await commessaSintesiMailService.SendAsync(
+                validation.Profile,
+                request,
+                sendOptions,
+                cancellationToken);
+            if (!sendResult.Success)
+            {
+                return BadRequest(new
+                {
+                    message = sendResult.Message,
+                    payload = sendResult
+                });
+            }
+
+            return Ok(sendResult);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/sintesi-mail/send.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/sintesi-mail/send.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante l'invio della sintesi commessa."
+            });
+        }
+    }
+
+    private async Task<(bool IsValid, UserExecutionContextData? Context, string? Profile, string Commessa, IActionResult? ErrorResponse)> ValidateCommessaAccessAsync(
+        string profile,
+        string commessa,
+        string? actAsUsername,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(commessa))
+        {
+            return (false, null, null, string.Empty, BadRequest(new
+            {
+                message = "Parametro commessa obbligatorio."
+            }));
+        }
+
+        var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+        if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+        {
+            return (false, null, null, string.Empty, errorResponse ?? Problem("Errore interno nella validazione profilo."));
+        }
+
+        var normalizedCommessa = commessa.Trim();
+        var commessaExists = await commesseFilterRepository.CommessaExistsAsync(normalizedCommessa, cancellationToken);
+        if (!commessaExists)
+        {
+            return (false, null, null, normalizedCommessa, NotFound(new
+            {
+                message = $"Commessa '{normalizedCommessa}' non trovata."
+            }));
+        }
+
+        var hasAccess = await commesseFilterRepository.CanAccessCommessaAsync(
+            contextData.EffectiveUser,
+            profileResult,
+            normalizedCommessa,
+            cancellationToken);
+        if (!hasAccess)
+        {
+            return (false, null, null, normalizedCommessa, StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = $"Profilo '{profileResult}' non autorizzato alla commessa '{normalizedCommessa}'."
+            }));
+        }
+
+        return (true, contextData, profileResult, normalizedCommessa, null);
+    }
+
+    private async Task<(CommesseDettaglioResponseDto? Response, IActionResult? ErrorResponse)> BuildDettaglioResponseAsync(
+        string profile,
+        string commessa,
+        string? actAsUsername,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(commessa))
+            {
+                return (null, BadRequest(new { message = "Parametro commessa obbligatorio." }));
+            }
+
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return (null, errorResponse ?? Problem("Errore interno nella validazione profilo."));
             }
 
             var normalizedCommessa = commessa.Trim();
@@ -921,10 +1298,10 @@ public sealed class CommesseController(
                 var commessaExists = await commesseFilterRepository.CommessaExistsAsync(normalizedCommessa, cancellationToken);
                 if (!commessaExists)
                 {
-                    return NotFound(new
+                    return (null, NotFound(new
                     {
                         message = $"Commessa '{normalizedCommessa}' non trovata."
-                    });
+                    }));
                 }
 
                 var hasAccess = await commesseFilterRepository.CanAccessCommessaAsync(
@@ -934,10 +1311,10 @@ public sealed class CommesseController(
                     cancellationToken);
                 if (!hasAccess)
                 {
-                    return StatusCode(StatusCodes.Status403Forbidden, new
+                    return (null, StatusCode(StatusCodes.Status403Forbidden, new
                     {
                         message = $"Profilo '{profileResult}' non autorizzato alla commessa '{normalizedCommessa}'."
-                    });
+                    }));
                 }
             }
 
@@ -1211,137 +1588,85 @@ public sealed class CommesseController(
                     .ToArray()
             };
 
-            return Ok(response);
+            return (response, null);
         }
         catch (SqlException ex)
         {
-            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio.");
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            logger.LogError(ex, "Errore SQL durante build dettaglio commessa.");
+            return (null, StatusCode(StatusCodes.Status503ServiceUnavailable, new
             {
                 message = "Database Xenia non raggiungibile da Produzione.Api."
-            });
+            }));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio.");
-            return StatusCode(StatusCodes.Status500InternalServerError, new
+            logger.LogError(ex, "Errore inatteso durante build dettaglio commessa.");
+            return (null, StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Errore interno durante il recupero dettaglio commessa."
-            });
+            }));
         }
     }
 
-    [HttpPost("dettaglio/avanzamento")]
-    [ProducesResponseType(typeof(CommessaAvanzamentoDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> SalvaAvanzamento(
-        [FromQuery] string profile,
-        [FromBody] CommessaAvanzamentoSaveRequestDto request,
-        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
-        CancellationToken cancellationToken = default)
+    private static string BuildCommessaDetailLink(
+        HttpRequest request,
+        string profile,
+        string commessa,
+        string? actAsUsername)
     {
-        try
+        var origin = request.Headers.Origin.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(origin))
         {
-            if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+            var referer = request.Headers.Referer.FirstOrDefault();
+            if (Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
             {
-                return BadRequest(new { message = "Commessa obbligatoria." });
+                origin = $"{refererUri.Scheme}://{refererUri.Authority}";
             }
-
-            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
-            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
-            {
-                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
-            }
-
-            var normalizedCommessa = request.Commessa.Trim();
-            var commessaExists = await commesseFilterRepository.CommessaExistsAsync(normalizedCommessa, cancellationToken);
-            if (!commessaExists)
-            {
-                return NotFound(new
-                {
-                    message = $"Commessa '{normalizedCommessa}' non trovata."
-                });
-            }
-
-            var hasAccess = await commesseFilterRepository.CanAccessCommessaAsync(
-                contextData.EffectiveUser,
-                profileResult,
-                normalizedCommessa,
-                cancellationToken);
-            if (!hasAccess)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    message = $"Profilo '{profileResult}' non autorizzato alla commessa '{normalizedCommessa}'."
-                });
-            }
-
-            var dataRiferimento = request.DataRiferimento.Date;
-            if (dataRiferimento == DateTime.MinValue.Date)
-            {
-                var now = DateTime.Now;
-                dataRiferimento = new DateTime(now.Year, now.Month, 1).AddDays(-1).Date;
-            }
-
-            var percentuale = Math.Clamp(request.PercentualeRaggiunto, 0m, 100m);
-            var oreFuture = request.OreFuture;
-            if (oreFuture == 0m && request.OreRestanti != 0m)
-            {
-                oreFuture = request.OreRestanti;
-            }
-
-            var saved = await commesseFilterRepository.SaveCommessaAvanzamentoAsync(
-                contextData.EffectiveUser,
-                normalizedCommessa,
-                percentuale,
-                request.ImportoRiferimento,
-                oreFuture,
-                request.OreRestanti,
-                request.CostoPersonaleFuturo,
-                dataRiferimento,
-                cancellationToken);
-
-            if (saved is null)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    message = "Salvataggio avanzamento non riuscito."
-                });
-            }
-
-            return Ok(new CommessaAvanzamentoDto
-            {
-                Id = saved.Id,
-                IdCommessa = saved.IdCommessa,
-                PercentualeRaggiunto = saved.PercentualeRaggiunto,
-                ImportoRiferimento = saved.ImportoRiferimento,
-                OreFuture = saved.OreFuture,
-                OreRestanti = saved.OreRestanti,
-                CostoPersonaleFuturo = saved.CostoPersonaleFuturo,
-                DataRiferimento = saved.DataRiferimento,
-                DataSalvataggio = saved.DataSalvataggio,
-                IdAutore = saved.IdAutore
-            });
         }
-        catch (SqlException ex)
+
+        if (string.IsNullOrWhiteSpace(origin))
         {
-            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/avanzamento.");
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "Database Xenia non raggiungibile da Produzione.Api."
-            });
+            origin = "https://localhost:5643";
         }
-        catch (Exception ex)
+
+        var builder = new UriBuilder(origin.TrimEnd('/'))
         {
-            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/avanzamento.");
-            return StatusCode(StatusCodes.Status500InternalServerError, new
-            {
-                message = "Errore interno durante il salvataggio avanzamento."
-            });
+            Path = "/",
+            Query = string.Empty
+        };
+
+        var queryParts = new List<string>
+        {
+            $"page={Uri.EscapeDataString("commessa-dettaglio")}",
+            $"commessa={Uri.EscapeDataString(commessa ?? string.Empty)}",
+            $"profile={Uri.EscapeDataString(profile ?? string.Empty)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(actAsUsername))
+        {
+            queryParts.Add($"actAs={Uri.EscapeDataString(actAsUsername.Trim())}");
         }
+
+        builder.Query = string.Join("&", queryParts);
+        return builder.Uri.ToString();
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "commessa";
+        }
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var sanitized = new string(value
+            .Trim()
+            .Select(ch => invalid.Contains(ch) ? '_' : ch)
+            .ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized)
+            ? "commessa"
+            : sanitized;
     }
 
     private Task<(bool IsValid, UserExecutionContextData? Context, IActionResult? ErrorResponse, string? Profile)> ResolveContextAndProfileAsync(
