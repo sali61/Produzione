@@ -23,4 +23,6 @@ public sealed class CommesseDettaglioResponseDto
     public IReadOnlyCollection<CommessaRequisitoOreSummaryDto> RequisitiOre { get; set; } = Array.Empty<CommessaRequisitoOreSummaryDto>();
     public IReadOnlyCollection<CommessaRequisitoOreRisorsaDto> RequisitiOreRisorse { get; set; } = Array.Empty<CommessaRequisitoOreRisorsaDto>();
     public IReadOnlyCollection<CommessaOreSpeseRisorsaDto> OreSpeseRisorse { get; set; } = Array.Empty<CommessaOreSpeseRisorsaDto>();
+    public CommesseDettaglioConfiguraResponseDto? ConfigurazioneCommessa { get; set; }
+    public CommesseDettaglioSegnalazioniResponseDto? SegnalazioniCommessa { get; set; }
 }

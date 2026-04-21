@@ -21,6 +21,7 @@ import { CommessaDettaglioPage } from '../../pages/analisiCommesse/CommessaDetta
 import { CommesseAndamentoMensilePage } from '../../pages/analisiCommesse/CommesseAndamentoMensilePage'
 import { CommesseAnomalePage } from '../../pages/analisiCommesse/CommesseAnomalePage'
 import { CommesseDatiAnnualiAggregatiPage } from '../../pages/analisiCommesse/CommesseDatiAnnualiAggregatiPage'
+import { CommesseSegnalazioniPage } from '../../pages/analisiCommesse/CommesseSegnalazioniPage'
 import { SintesiOverviewPage } from '../../pages/analisiCommesse/SintesiOverviewPage'
 
 type AppMainContentProps = any
@@ -51,6 +52,10 @@ export function AppMainContent(props: AppMainContentProps) {
 
       {activePage === 'commesse-anomale' && (
         <CommesseAnomalePage {...analisiCommessePageProps} />
+      )}
+
+      {activePage === 'commesse-segnalazioni' && (
+        <CommesseSegnalazioniPage {...analisiCommessePageProps} />
       )}
 
       {activePage === 'commesse-dati-annuali-aggregati' && (

@@ -895,6 +895,87 @@ public sealed class CommesseController(
         }
     }
 
+    [HttpGet("segnalazioni")]
+    [ProducesResponseType(typeof(CommesseSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Segnalazioni(
+        [FromQuery] string profile,
+        [FromQuery] int? stato = null,
+        [FromQuery] int? idRisorsaDestinataria = null,
+        [FromQuery] int take = 5000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var rows = await commesseFilterRepository.SearchSegnalazioniCommesseAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                stato,
+                idRisorsaDestinataria,
+                Math.Clamp(take, 1, 100000),
+                cancellationToken);
+
+            var response = new CommesseSegnalazioniResponseDto
+            {
+                Profile = profileResult,
+                Count = rows.Count,
+                Segnalazioni = rows
+                    .Select(row => new CommessaSegnalazioneAnalisiRowDto
+                    {
+                        Id = row.Id,
+                        IdCommessa = row.IdCommessa,
+                        Commessa = row.Commessa,
+                        IdTipoSegnalazione = row.IdTipoSegnalazione,
+                        TipoCodice = row.TipoCodice,
+                        TipoDescrizione = row.TipoDescrizione,
+                        Titolo = row.Titolo,
+                        Testo = row.Testo,
+                        Priorita = row.Priorita,
+                        Stato = row.Stato,
+                        ImpattaCliente = row.ImpattaCliente,
+                        DataEvento = row.DataEvento,
+                        DataInserimento = row.DataInserimento,
+                        IdRisorsaInserimento = row.IdRisorsaInserimento,
+                        NomeRisorsaInserimento = row.NomeRisorsaInserimento,
+                        DataUltimaModifica = row.DataUltimaModifica,
+                        IdRisorsaUltimaModifica = row.IdRisorsaUltimaModifica,
+                        NomeRisorsaUltimaModifica = row.NomeRisorsaUltimaModifica,
+                        DataChiusura = row.DataChiusura,
+                        IdRisorsaDestinataria = row.IdRisorsaDestinataria,
+                        NomeRisorsaDestinataria = row.NomeRisorsaDestinataria
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/segnalazioni.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/segnalazioni.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero delle segnalazioni commesse."
+            });
+        }
+    }
+
     [HttpGet("dettaglio")]
     [ProducesResponseType(typeof(CommesseDettaglioResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -2428,6 +2509,8 @@ public sealed class CommesseController(
                 normalizedCommessa,
                 dataFineConsuntivoAttivita,
                 cancellationToken);
+            var configurazioneTask = BuildDettaglioConfiguraResponseAsync(profileResult, normalizedCommessa, cancellationToken);
+            var segnalazioniTask = BuildSegnalazioniResponseAsync(profileResult, normalizedCommessa, true, null, cancellationToken);
 
             var orePrevisteTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OrePreviste > 0m ? item.OrePreviste : item.DurataRequisito);
             var oreSpeseTotali = requisitiOreDettaglio.Requisiti.Sum(item => item.OreSpese);
@@ -2615,7 +2698,9 @@ public sealed class CommesseController(
                         NomeRisorsa = item.NomeRisorsa,
                         OreSpeseTotali = item.OreSpeseTotali
                     })
-                    .ToArray()
+                    .ToArray(),
+                ConfigurazioneCommessa = await configurazioneTask,
+                SegnalazioniCommessa = await segnalazioniTask
             };
 
             return (response, null);
@@ -2636,6 +2721,53 @@ public sealed class CommesseController(
                 message = "Errore interno durante il recupero dettaglio commessa."
             }));
         }
+    }
+
+    private async Task<CommesseDettaglioConfiguraResponseDto?> BuildDettaglioConfiguraResponseAsync(
+        string profile,
+        string commessa,
+        CancellationToken cancellationToken)
+    {
+        var configData = await commesseFilterRepository.GetCommessaConfigAsync(commessa, cancellationToken);
+        if (configData is null)
+        {
+            return null;
+        }
+
+        var tipiTask = commesseFilterRepository.GetTipiCommessaAttiviAsync(cancellationToken);
+        var prodottiTask = commesseFilterRepository.GetProdottiAttiviAsync(cancellationToken);
+        await Task.WhenAll(tipiTask, prodottiTask);
+
+        var permissions = GetCommessaConfigPermissions(profile);
+
+        return new CommesseDettaglioConfiguraResponseDto
+        {
+            Profile = profile,
+            Commessa = commessa,
+            CanEdit = permissions.CanEditAny,
+            CanEditTipologiaCommessa = permissions.CanEditTipologiaCommessa,
+            CanEditProdotto = permissions.CanEditProdotto,
+            CanEditBudgetImportoInvestimento = permissions.CanEditBudgetImportoInvestimento,
+            CanEditBudgetOreInvestimento = permissions.CanEditBudgetOreInvestimento,
+            CanEditPrezzoVenditaInizialeRcc = permissions.CanEditPrezzoVenditaInizialeRcc,
+            CanEditPrezzoVenditaFinaleRcc = permissions.CanEditPrezzoVenditaFinaleRcc,
+            CanEditStimaInizialeOrePm = permissions.CanEditStimaInizialeOrePm,
+            IdTipoCommessa = configData.IdTipoCommessa,
+            TipologiaCommessa = configData.TipologiaCommessa,
+            IdProdotto = configData.IdProdotto,
+            Prodotto = configData.Prodotto,
+            BudgetImportoInvestimento = configData.BudgetImportoInvestimento,
+            BudgetOreInvestimento = configData.BudgetOreInvestimento,
+            PrezzoVenditaInizialeRcc = configData.PrezzoVenditaInizialeRcc,
+            PrezzoVenditaFinaleRcc = configData.PrezzoVenditaFinaleRcc,
+            StimaInizialeOrePm = configData.StimaInizialeOrePm,
+            TipiCommessa = tipiTask.Result
+                .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                .ToArray(),
+            Prodotti = prodottiTask.Result
+                .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                .ToArray()
+        };
     }
 
     private static string BuildCommessaDetailLink(

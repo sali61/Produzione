@@ -46,6 +46,7 @@ export type AppPage =
   | 'commesse-sintesi'
   | 'commesse-andamento-mensile'
   | 'commesse-anomale'
+  | 'commesse-segnalazioni'
   | 'commesse-dati-annuali-aggregati'
   | 'risorse-risultati'
   | 'risorse-risultati-pivot'
@@ -845,6 +846,37 @@ export type CommesseAnomaleResponse = {
   profile: string
   count: number
   items: CommessaAnomalaRow[]
+}
+
+export type CommessaSegnalazioneAnalisiRow = {
+  id: number
+  idCommessa: number
+  commessa: string
+  idTipoSegnalazione: number
+  tipoCodice: string
+  tipoDescrizione: string
+  titolo: string
+  testo: string
+  priorita: number
+  stato: number
+  impattaCliente: boolean
+  dataEvento?: string | null
+  dataInserimento?: string | null
+  idRisorsaInserimento?: number | null
+  nomeRisorsaInserimento: string
+  dataUltimaModifica?: string | null
+  idRisorsaUltimaModifica?: number | null
+  nomeRisorsaUltimaModifica: string
+  dataChiusura?: string | null
+  idRisorsaDestinataria?: number | null
+  nomeRisorsaDestinataria: string
+}
+
+export type CommesseSegnalazioniResponse = {
+  profile: string
+  count: number
+  segnalazioni: CommessaSegnalazioneAnalisiRow[]
+  thread: CommessaSegnalazioneMessaggio[]
 }
 
 export type DatiAnnualiPivotFieldKey =

@@ -5,7 +5,7 @@ import type {
   RisorsePivotFieldKey,
 } from '../types/appTypes'
 
-export const APP_UI_VERSION = '2.2.0'
+export const APP_UI_VERSION = '3.0.0'
 
 export const tokenStorageKey = 'produzione.jwt'
 export const redirectGuardKey = 'produzione.sso.redirecting'
@@ -287,5 +287,6 @@ export const appInfoVoicesDefault: AppInfoVoice[] = [
     sintesi: 'Elenco fatture passive con filtri su anno, provenienza e contesto commessa. Include importi complessivi e contabilita di dettaglio.',
   },
 ]
+
 
 

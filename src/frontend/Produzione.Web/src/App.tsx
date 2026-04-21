@@ -75,6 +75,7 @@ import type {
   CommesseDatiAnnualiPivotRow,
   CommesseDettaglioResponse,
   CommesseOptionsResponse,
+  CommesseSegnalazioniResponse,
   CommesseRisorseFilterOption,
   CommesseRisorseFiltersResponse,
   CommesseRisorsePivotRow,
@@ -256,7 +257,7 @@ function App() {
   const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const [activePage, setActivePage] = useState<AppPage>('none')
-  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-anomale' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
+  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-anomale' | 'commesse-segnalazioni' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
   const [activeImpersonation, setActiveImpersonation] = useState('')
   const [impersonationInput, setImpersonationInput] = useState('')
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -394,6 +395,9 @@ function App() {
   const [commesseAnomaleData, setCommesseAnomaleData] = useState<CommesseAnomaleResponse | null>(null)
   const [commesseAnomaleFiltroAnomalia, setCommesseAnomaleFiltroAnomalia] = useState('')
   const [commesseAnomaleFiltroRcc, setCommesseAnomaleFiltroRcc] = useState('')
+  const [commesseSegnalazioniData, setCommesseSegnalazioniData] = useState<CommesseSegnalazioniResponse | null>(null)
+  const [commesseSegnalazioniFiltroStato, setCommesseSegnalazioniFiltroStato] = useState('')
+  const [commesseSegnalazioniFiltroAssegnatario, setCommesseSegnalazioniFiltroAssegnatario] = useState('')
   const [commesseDatiAnnualiAnni, setCommesseDatiAnnualiAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseDatiAnnualiSelectedFields, setCommesseDatiAnnualiSelectedFields] = useState<DatiAnnualiPivotFieldKey[]>(['anno'])
   const [commesseDatiAnnualiMacroTipologie, setCommesseDatiAnnualiMacroTipologie] = useState<string[]>([])
@@ -779,6 +783,9 @@ function App() {
     setCommesseAndamentoMensilePm('')
     setCommesseAndamentoMensileData(null)
     setCommesseAnomaleData(null)
+    setCommesseSegnalazioniData(null)
+    setCommesseSegnalazioniFiltroStato('')
+    setCommesseSegnalazioniFiltroAssegnatario('')
     setCommesseDatiAnnualiAnni([new Date().getFullYear().toString()])
     setCommesseDatiAnnualiSelectedFields(['anno'])
     setCommesseDatiAnnualiMacroTipologie([])
@@ -2749,6 +2756,62 @@ function App() {
     }
   }
 
+  const loadCommesseSegnalazioni = async () => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      params.set('take', '10000')
+      if (commesseSegnalazioniFiltroStato.trim()) {
+        params.set('stato', commesseSegnalazioniFiltroStato.trim())
+      }
+      if (commesseSegnalazioniFiltroAssegnatario.trim()) {
+        const selected = commesseSegnalazioniData?.segnalazioni.find((item) => (
+          (item.nomeRisorsaDestinataria ?? '').trim().localeCompare(commesseSegnalazioniFiltroAssegnatario.trim(), 'it', { sensitivity: 'base' }) === 0
+            && (item.idRisorsaDestinataria ?? 0) > 0
+        ))
+        if (selected?.idRisorsaDestinataria) {
+          params.set('idRisorsaDestinataria', selected.idRisorsaDestinataria.toString())
+        }
+      }
+
+      const response = await fetch(toBackendUrl(`/api/commesse/segnalazioni?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setCommesseSegnalazioniData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per Segnalazioni.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setCommesseSegnalazioniData(null)
+        setStatusMessage(message || `Errore caricamento Segnalazioni (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseSegnalazioniResponse
+      setCommesseSegnalazioniData(payload)
+      setStatusMessage(`Segnalazioni caricate: ${payload.count} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
   const loadCommesseDatiAnnualiAggregati = async () => {
     if (!token.trim() || !currentProfile.trim()) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -4095,6 +4158,7 @@ function App() {
       activePage === 'commesse-sintesi' ||
       activePage === 'commesse-andamento-mensile' ||
       activePage === 'commesse-anomale' ||
+      activePage === 'commesse-segnalazioni' ||
       activePage === 'commesse-dati-annuali-aggregati' ||
       activePage === 'prodotti-sintesi' ||
       activePage === 'dati-contabili-vendita' ||
@@ -4145,6 +4209,13 @@ function App() {
     if (lastSintesiPage === 'commesse-anomale') {
       if (!commesseAnomaleData && !analisiRccLoading) {
         void loadCommesseAnomale()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'commesse-segnalazioni') {
+      if (!commesseSegnalazioniData && !analisiRccLoading) {
+        void loadCommesseSegnalazioni()
       }
       return
     }
@@ -4242,6 +4313,11 @@ function App() {
         setCommesseAnomaleFiltroAnomalia('')
         setCommesseAnomaleFiltroRcc('')
         setCommesseAnomaleData(null)
+        break
+      case 'commesse-segnalazioni':
+        setCommesseSegnalazioniFiltroStato('')
+        setCommesseSegnalazioniFiltroAssegnatario('')
+        setCommesseSegnalazioniData(null)
         break
       case 'commesse-dati-annuali-aggregati':
         setCommesseDatiAnnualiAnni([currentYear])
@@ -4386,6 +4462,7 @@ function App() {
     activateCommesseAndamentoMensilePage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
+    activateCommesseSegnalazioniPage,
     addCommesseDatiAnnualiSelectedFields,
     removeCommesseDatiAnnualiSelectedFields,
     moveCommesseDatiAnnualiField,
@@ -4460,6 +4537,7 @@ function App() {
     loadCommesseAndamentoMensile,
     loadCommesseAnomale,
     loadCommesseDatiAnnualiAggregati,
+    loadCommesseSegnalazioni,
     loadPrevisioniFunnel,
     loadPrevisioniReportFunnelBu,
     loadPrevisioniReportFunnelBurcc,
@@ -4607,6 +4685,7 @@ function App() {
       activePage === 'commessa-dettaglio' ||
       activePage === 'commesse-andamento-mensile' ||
       activePage === 'commesse-anomale' ||
+      activePage === 'commesse-segnalazioni' ||
       activePage === 'commesse-dati-annuali-aggregati'
     )
     if (isAnalisiCommessePage && !canAccessAnalisiCommesseMenu) {
@@ -5797,6 +5876,58 @@ function App() {
   }, [commesseAnomaleFiltroAnomalia, commesseAnomaleFiltroRcc, commesseAnomaleRowsRaw])
   const commesseAnomaleDataLoaded = commesseAnomaleData !== null
   const commesseAnomaleRowsRawCount = commesseAnomaleRowsRaw.length
+  const commesseSegnalazioniRowsRaw = commesseSegnalazioniData?.segnalazioni ?? []
+  const commesseSegnalazioniStatoOptions = useMemo(() => {
+    const values = new Set<string>()
+    commesseSegnalazioniRowsRaw.forEach((row) => {
+      const normalized = row.stato > 0 ? row.stato.toString() : ''
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    const selected = commesseSegnalazioniFiltroStato.trim()
+    if (selected) {
+      values.add(selected)
+    }
+    return [...values]
+      .sort((left, right) => Number(left) - Number(right))
+      .map((value) => ({
+        value,
+        label:
+          value === '1' ? 'Aperta'
+            : value === '2' ? 'In lavorazione'
+              : value === '3' ? 'In attesa'
+                : value === '4' ? 'Chiusa'
+                  : value,
+      }))
+  }, [commesseSegnalazioniFiltroStato, commesseSegnalazioniRowsRaw])
+  const commesseSegnalazioniAssegnatarioOptions = useMemo(() => {
+    const values = new Set<string>()
+    commesseSegnalazioniRowsRaw.forEach((row) => {
+      const normalized = normalizeFilterText(row.nomeRisorsaDestinataria ?? '')
+      if (normalized) {
+        values.add(normalized)
+      }
+    })
+    const selected = normalizeFilterText(commesseSegnalazioniFiltroAssegnatario)
+    if (selected) {
+      values.add(selected)
+    }
+    return [...values].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [commesseSegnalazioniFiltroAssegnatario, commesseSegnalazioniRowsRaw])
+  const commesseSegnalazioniRows = useMemo(() => {
+    const statoKey = commesseSegnalazioniFiltroStato.trim()
+    const assegnatarioKey = normalizeFilterText(commesseSegnalazioniFiltroAssegnatario).toLocaleLowerCase('it-IT')
+
+    return commesseSegnalazioniRowsRaw.filter((row) => {
+      const matchesStato = !statoKey || row.stato.toString() === statoKey
+      const rowAssegnatarioKey = normalizeFilterText(row.nomeRisorsaDestinataria ?? '').toLocaleLowerCase('it-IT')
+      const matchesAssegnatario = !assegnatarioKey || rowAssegnatarioKey === assegnatarioKey
+      return matchesStato && matchesAssegnatario
+    })
+  }, [commesseSegnalazioniFiltroAssegnatario, commesseSegnalazioniFiltroStato, commesseSegnalazioniRowsRaw])
+  const commesseSegnalazioniDataLoaded = commesseSegnalazioniData !== null
+  const commesseSegnalazioniRowsRawCount = commesseSegnalazioniRowsRaw.length
   const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
   const commesseAndamentoMensileTotals = useMemo(() => (
     commesseAndamentoMensileRows.reduce((acc, row) => ({
@@ -8392,6 +8523,9 @@ function App() {
     isCommesseAnomalePage
       ? commesseAnomaleRows.length
       : (
+    activePage === 'commesse-segnalazioni'
+      ? commesseSegnalazioniRows.length
+      : (
     activePage === 'commesse-andamento-mensile'
       ? commesseAndamentoMensileRows.length
       : (
@@ -8457,6 +8591,7 @@ function App() {
                                               )
                                           )
                                       )
+      )
                                           )
                                   )
                               )
@@ -9232,6 +9367,22 @@ function App() {
 
     let filenamePrefix = 'Analisi'
     switch (activePage) {
+      case 'commesse-segnalazioni': {
+        appendSheet(commesseSegnalazioniRows.map((row) => ({
+          Tipo: row.tipoDescrizione || row.tipoCodice,
+          Titolo: row.titolo,
+          Testo: row.testo,
+          Priorita: row.priorita,
+          Stato: row.stato,
+          ImpattaCliente: row.impattaCliente ? 'Si' : 'No',
+          Autore: row.nomeRisorsaInserimento,
+          DataModifica: row.dataUltimaModifica,
+          AssegnataA: row.nomeRisorsaDestinataria,
+          Commessa: row.commessa,
+        })), 'CommesseSegnalazioni')
+        filenamePrefix = 'Commesse_Segnalazioni'
+        break
+      }
       case 'commesse-anomale': {
         appendSheet(commesseAnomaleRows.map((row) => ({
           Anomalia: row.tipoAnomalia,
@@ -10384,6 +10535,13 @@ function App() {
     commesseAnomaleRccOptions,
     commesseAnomaleRows,
     commesseAnomaleRowsRawCount,
+    commesseSegnalazioniAssegnatarioOptions,
+    commesseSegnalazioniDataLoaded,
+    commesseSegnalazioniFiltroAssegnatario,
+    commesseSegnalazioniFiltroStato,
+    commesseSegnalazioniRows,
+    commesseSegnalazioniRowsRawCount,
+    commesseSegnalazioniStatoOptions,
     commesseDatiAnnualiAnni,
     commesseDatiAnnualiAnnoOptions,
     commesseDatiAnnualiAvailableFieldOptions,
@@ -10451,6 +10609,8 @@ function App() {
     setCommesseAndamentoMensileTipologia,
     setCommesseAnomaleFiltroAnomalia,
     setCommesseAnomaleFiltroRcc,
+    setCommesseSegnalazioniFiltroAssegnatario,
+    setCommesseSegnalazioniFiltroStato,
     setCommesseDatiAnnualiAnni,
     setCommesseDatiAnnualiAvailableSelection,
     setCommesseDatiAnnualiBusinessUnit,
@@ -10780,6 +10940,7 @@ function App() {
     activateCommesseAndamentoMensilePage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
+    activateCommesseSegnalazioniPage,
     activateDatiContabiliAcquistiPage,
     activateDatiContabiliVenditaPage,
     activatePrevisioniFunnelPage,

@@ -50,6 +50,7 @@ export function AppTopBar(props: AppTopBarProps) {
     activateCommesseAndamentoMensilePage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
+    activateCommesseSegnalazioniPage,
     activateDatiContabiliAcquistiPage,
     activateDatiContabiliVenditaPage,
     activatePrevisioniFunnelPage,
@@ -120,6 +121,9 @@ export function AppTopBar(props: AppTopBarProps) {
               )}
               <button type="button" className="menu-action" onClick={activateCommesseAnomalePage}>
                 Commesse Anomale
+              </button>
+              <button type="button" className="menu-action" onClick={activateCommesseSegnalazioniPage}>
+                Segnalazioni
               </button>
             </div>
           </div>

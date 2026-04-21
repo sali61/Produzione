@@ -413,6 +413,76 @@ public static class CommesseDettaglioPdfReportGenerator
                         "Personale - Ore spese da ogni risorsa",
                         ["Risorsa", "Ore spese totali"],
                         oreSpeseRisorseRows);
+
+                    var configurazione = detail.ConfigurazioneCommessa;
+                    if (configurazione is not null)
+                    {
+                        AddSectionTable(
+                            column,
+                            "Configurazione commessa",
+                            ["Budget importo investimento", "Budget ore investimento", "Prezzo vendita iniziale RCC", "Prezzo vendita finale RCC", "Stima iniziale ore PM"],
+                            [
+                                [
+                                    FormatDecimal(configurazione.BudgetImportoInvestimento),
+                                    FormatDecimal(configurazione.BudgetOreInvestimento),
+                                    FormatDecimal(configurazione.PrezzoVenditaInizialeRcc),
+                                    FormatDecimal(configurazione.PrezzoVenditaFinaleRcc),
+                                    FormatDecimal(configurazione.StimaInizialeOrePm)
+                                ]
+                            ]);
+                    }
+
+                    var segnalazioni = detail.SegnalazioniCommessa;
+                    if (segnalazioni is not null)
+                    {
+                        var segnalazioniRows = segnalazioni.Segnalazioni
+                            .OrderByDescending(item => item.DataUltimaModifica ?? item.DataInserimento ?? item.DataEvento)
+                            .ThenByDescending(item => item.Id)
+                            .Select(item => (IReadOnlyList<string>)
+                            [
+                                Safe(item.TipoDescrizione),
+                                Safe(item.Titolo),
+                                Safe(item.Testo),
+                                FormatPriorita(item.Priorita),
+                                FormatStato(item.Stato),
+                                item.ImpattaCliente ? "Si" : "No",
+                                Safe(string.IsNullOrWhiteSpace(item.NomeRisorsaUltimaModifica) ? item.NomeRisorsaInserimento : item.NomeRisorsaUltimaModifica),
+                                FormatDateTime(item.DataUltimaModifica ?? item.DataInserimento ?? item.DataEvento),
+                                Safe(item.NomeRisorsaDestinataria)
+                            ])
+                            .ToArray();
+
+                        AddSectionTable(
+                            column,
+                            "Segnalazioni - Elenco",
+                            ["Tipo", "Titolo", "Testo", "Priorità", "Stato", "Impatta cliente", "Autore", "Data modifica", "Assegnata a"],
+                            segnalazioniRows);
+
+                        var threadRows = segnalazioni.Thread
+                            .OrderBy(item => item.IdSegnalazione)
+                            .ThenBy(item => item.Livello)
+                            .ThenBy(item => item.DataUltimaModifica ?? item.DataInserimento)
+                            .ThenBy(item => item.Id)
+                            .Select(item =>
+                            {
+                                var parent = segnalazioni.Segnalazioni.FirstOrDefault(segnalazione => segnalazione.Id == item.IdSegnalazione);
+                                return (IReadOnlyList<string>)
+                                [
+                                    parent is null ? item.IdSegnalazione.ToString(ItCulture) : $"{parent.Id} - {Safe(parent.Titolo)}",
+                                    item.Livello.ToString(ItCulture),
+                                    Safe(item.Testo),
+                                    Safe(string.IsNullOrWhiteSpace(item.NomeRisorsaUltimaModifica) ? item.NomeRisorsaInserimento : item.NomeRisorsaUltimaModifica),
+                                    FormatDateTime(item.DataUltimaModifica ?? item.DataInserimento)
+                                ];
+                            })
+                            .ToArray();
+
+                        AddSectionTable(
+                            column,
+                            "Segnalazioni - Thread",
+                            ["Segnalazione", "Livello", "Messaggio", "Autore", "Data modifica"],
+                            threadRows);
+                    }
                 });
 
                 page.Footer()
@@ -530,6 +600,28 @@ public static class CommesseDettaglioPdfReportGenerator
 
     private static string FormatDate(DateTime? value)
         => value?.ToString("dd/MM/yyyy", ItCulture) ?? string.Empty;
+
+    private static string FormatDateTime(DateTime? value)
+        => value?.ToString("dd/MM/yyyy HH:mm", ItCulture) ?? string.Empty;
+
+    private static string FormatPriorita(int value)
+        => value switch
+        {
+            1 => "Alta",
+            2 => "Media",
+            3 => "Bassa",
+            _ => value.ToString(ItCulture)
+        };
+
+    private static string FormatStato(int value)
+        => value switch
+        {
+            1 => "Aperta",
+            2 => "In lavorazione",
+            3 => "In attesa",
+            4 => "Chiusa",
+            _ => value.ToString(ItCulture)
+        };
 
     private static string Safe(string? value)
         => value?.Trim() ?? string.Empty;

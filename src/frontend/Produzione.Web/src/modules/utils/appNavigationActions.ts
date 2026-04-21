@@ -28,6 +28,7 @@ export function buildAppNavigationActions(ctx: any) {
     loadCommesseAndamentoMensile,
     loadCommesseAnomale,
     loadCommesseDatiAnnualiAggregati,
+    loadCommesseSegnalazioni,
     loadPrevisioniFunnel,
     loadPrevisioniReportFunnelBu,
     loadPrevisioniReportFunnelBurcc,
@@ -123,6 +124,17 @@ export function buildAppNavigationActions(ctx: any) {
 
     void loadSintesiFilters(token, activeImpersonation, currentProfile, [], 'commesse')
     void loadCommesseDatiAnnualiAggregati()
+  }
+
+  const activateCommesseSegnalazioniPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('commesse-segnalazioni')
+    setActivePage('commesse-segnalazioni')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadCommesseSegnalazioni()
   }
 
   const addCommesseDatiAnnualiSelectedFields = () => {
@@ -576,6 +588,11 @@ export function buildAppNavigationActions(ctx: any) {
       return
     }
 
+    if (activePage === 'commesse-segnalazioni') {
+      void loadCommesseSegnalazioni()
+      return
+    }
+
     if (activePage === 'commesse-dati-annuali-aggregati') {
       void loadCommesseDatiAnnualiAggregati()
       return
@@ -761,6 +778,7 @@ export function buildAppNavigationActions(ctx: any) {
     activateCommesseAndamentoMensilePage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
+    activateCommesseSegnalazioniPage,
     addCommesseDatiAnnualiSelectedFields,
     removeCommesseDatiAnnualiSelectedFields,
     moveCommesseDatiAnnualiField,
