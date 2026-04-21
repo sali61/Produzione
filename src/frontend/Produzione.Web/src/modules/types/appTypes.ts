@@ -40,7 +40,7 @@ export type AppHealthResponse = {
 }
 
 export type MenuKey = 'sintesi' | 'risorse' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
-export type DetailTabKey = 'storico' | 'dati-contabili' | 'commerciale' | 'personale'
+export type DetailTabKey = 'storico' | 'dati-contabili' | 'commerciale' | 'personale' | 'configura' | 'segnalazioni'
 export type AppPage =
   | 'none'
   | 'commesse-sintesi'
@@ -1012,6 +1012,151 @@ export type CommesseDettaglioResponse = {
   requisitiOre?: CommessaRequisitoOreSummaryRow[]
   requisitiOreRisorse?: CommessaRequisitoOreRisorsaRow[]
   oreSpeseRisorse?: CommessaOreSpeseRisorsaRow[]
+}
+
+export type CommessaDettaglioConfiguraResponse = {
+  profile: string
+  commessa: string
+  canEdit: boolean
+  canEditTipologiaCommessa: boolean
+  canEditProdotto: boolean
+  canEditBudgetImportoInvestimento: boolean
+  canEditBudgetOreInvestimento: boolean
+  canEditPrezzoVenditaInizialeRcc: boolean
+  canEditPrezzoVenditaFinaleRcc: boolean
+  canEditStimaInizialeOrePm: boolean
+  idTipoCommessa?: number | null
+  tipologiaCommessa: string
+  idProdotto?: number | null
+  prodotto: string
+  budgetImportoInvestimento: number
+  budgetOreInvestimento: number
+  prezzoVenditaInizialeRcc: number
+  prezzoVenditaFinaleRcc: number
+  stimaInizialeOrePm: number
+  tipiCommessa: Array<{ id: number; label: string }>
+  prodotti: Array<{ id: number; label: string }>
+}
+
+export type CommessaDettaglioConfiguraSaveRequest = {
+  commessa: string
+  idTipoCommessa?: number | null
+  idProdotto?: number | null
+  budgetImportoInvestimento: number
+  budgetOreInvestimento: number
+  prezzoVenditaInizialeRcc: number
+  prezzoVenditaFinaleRcc: number
+  stimaInizialeOrePm: number
+}
+
+export type CommessaSegnalazioneTipo = {
+  id: number
+  codice: string
+  descrizione: string
+  impattaClienteDefault: boolean
+  ordineVisualizzazione: number
+}
+
+export type CommessaSegnalazione = {
+  id: number
+  idCommessa: number
+  idTipoSegnalazione: number
+  tipoCodice: string
+  tipoDescrizione: string
+  titolo: string
+  testo: string
+  priorita: number
+  stato: number
+  impattaCliente: boolean
+  dataEvento?: string | null
+  dataInserimento?: string | null
+  idRisorsaInserimento?: number | null
+  nomeRisorsaInserimento: string
+  dataUltimaModifica?: string | null
+  idRisorsaUltimaModifica?: number | null
+  nomeRisorsaUltimaModifica: string
+  dataChiusura?: string | null
+  idRisorsaDestinataria?: number | null
+  nomeRisorsaDestinataria: string
+}
+
+export type CommessaSegnalazioneMessaggio = {
+  id: number
+  idSegnalazione: number
+  idMessaggioPadre?: number | null
+  livello: number
+  testo: string
+  dataInserimento?: string | null
+  idRisorsaInserimento?: number | null
+  nomeRisorsaInserimento: string
+  dataUltimaModifica?: string | null
+  idRisorsaUltimaModifica?: number | null
+  nomeRisorsaUltimaModifica: string
+}
+
+export type CommessaSegnalazioneDestinatarioOption = {
+  roleCode: string
+  roleLabel: string
+  idRisorsa: number
+  nomeRisorsa: string
+  netUserName: string
+  email: string
+}
+
+export type CommesseDettaglioSegnalazioniResponse = {
+  profile: string
+  commessa: string
+  idCommessa: number
+  tipiSegnalazione: CommessaSegnalazioneTipo[]
+  destinatari: CommessaSegnalazioneDestinatarioOption[]
+  segnalazioni: CommessaSegnalazione[]
+  thread: CommessaSegnalazioneMessaggio[]
+}
+
+export type CommessaSegnalazioneCreateRequest = {
+  commessa: string
+  idTipoSegnalazione: number
+  titolo: string
+  testo: string
+  priorita: number
+  impattaCliente: boolean
+  dataEvento?: string | null
+  idRisorsaDestinataria?: number | null
+}
+
+export type CommessaSegnalazioneUpdateRequest = {
+  idSegnalazione: number
+  idTipoSegnalazione: number
+  titolo: string
+  testo: string
+  priorita: number
+  impattaCliente: boolean
+  dataEvento?: string | null
+  idRisorsaDestinataria?: number | null
+}
+
+export type CommessaSegnalazioneStatoRequest = {
+  idSegnalazione: number
+  stato: number
+}
+
+export type CommessaSegnalazioneDeleteRequest = {
+  idSegnalazione: number
+}
+
+export type CommessaSegnalazioneMessaggioCreateRequest = {
+  idSegnalazione: number
+  idMessaggioPadre?: number | null
+  testo: string
+}
+
+export type CommessaSegnalazioneMessaggioUpdateRequest = {
+  idMessaggio: number
+  testo: string
+}
+
+export type CommessaSegnalazioneMessaggioDeleteRequest = {
+  idMessaggio: number
 }
 
 export type CommessaSintesiMailRecipient = {

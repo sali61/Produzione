@@ -30,14 +30,18 @@ function Get-ListeningPidByPort {
 function Get-BackendPidsByCommandLine {
     $matches = @()
     try {
-        $processes = Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" -ErrorAction Stop
+        $processes = Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe' OR Name = 'Produzione.Api.exe'" -ErrorAction Stop
         foreach ($process in $processes) {
             $commandLine = $process.CommandLine
             if ([string]::IsNullOrWhiteSpace($commandLine)) {
                 continue
             }
 
-            if ($commandLine -like "*Produzione.Api.csproj*" -or $commandLine -like "*Produzione.Api.dll*") {
+            if (
+                $commandLine -like "*Produzione.Api.csproj*" -or
+                $commandLine -like "*Produzione.Api.dll*" -or
+                $commandLine -like "*Produzione.Api.exe*"
+            ) {
                 $matches += [int]$process.ProcessId
             }
         }
@@ -205,11 +209,8 @@ function Start-Backend {
     $escapedProjectPath = $projectPath.Replace('"', '""')
     $escapedOutLog = $outLog.Replace('"', '""')
     $escapedErrLog = $errLog.Replace('"', '""')
-    $commandLine = "cmd.exe /d /c ""dotnet run --project `"$escapedProjectPath`" 1>> `"$escapedOutLog`" 2>> `"$escapedErrLog`""""
-    $createResult = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $commandLine }
-    if ($createResult.ReturnValue -ne 0) {
-        throw "Impossibile avviare il backend (Win32_Process.Create ReturnValue=$($createResult.ReturnValue))."
-    }
+    $launchCommand = 'start "" /b cmd.exe /d /c "set ASPNETCORE_ENVIRONMENT=Development&& dotnet run --no-build --project ""{1}"" 1>> ""{2}"" 2>> ""{3}"""' -f $Port, $escapedProjectPath, $escapedOutLog, $escapedErrLog
+    & cmd.exe /d /c $launchCommand | Out-Null
 
     $opened = Wait-PortState -ListenPort $Port -ShouldBeOpen:$true -TimeoutSeconds 60
     if (-not $opened) {

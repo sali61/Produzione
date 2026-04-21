@@ -174,13 +174,11 @@ export function restoreSintesiStateForProfile(ctx: any) {
 
 export function processDetailRouteRequest(ctx: any) {
   const {
-    activeImpersonation,
     currentProfile,
     detailRouteProcessed,
-    profiles,
+    openCommessaDetail,
     routeRequest,
     setDetailRouteProcessed,
-    setSelectedProfile,
     token,
   } = ctx
 
@@ -188,21 +186,23 @@ export function processDetailRouteRequest(ctx: any) {
     return
   }
 
-  if (routeRequest.profile) {
-    const matchedProfile = profiles.find((profile: string) => (
-      profile.localeCompare(routeRequest.profile, 'it', { sensitivity: 'base' }) === 0
-    ))
+  const isCommessaDetailRoute = (
+    (routeRequest.page ?? '').localeCompare('commessa-dettaglio', 'it', { sensitivity: 'base' }) === 0 &&
+    (routeRequest.commessa ?? '').trim().length > 0
+  )
 
-    if (matchedProfile && matchedProfile !== currentProfile) {
-      setSelectedProfile(matchedProfile)
-      return
-    }
+  if (isCommessaDetailRoute && typeof openCommessaDetail === 'function') {
+    openCommessaDetail((routeRequest.commessa ?? '').trim())
+    setDetailRouteProcessed(true)
+    return
   }
 
   if (routeRequest.page || routeRequest.commessa) {
     const url = new URL(window.location.href)
     url.searchParams.delete('page')
     url.searchParams.delete('commessa')
+    url.searchParams.delete('profile')
+    url.searchParams.delete('actAs')
     window.history.replaceState({}, document.title, url.toString())
   }
 

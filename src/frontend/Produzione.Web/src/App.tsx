@@ -7,7 +7,11 @@ import { AppInfoModal } from './modules/components/modals/AppInfoModal'
 import { CommessaInviaSintesiModal } from './modules/components/modals/CommessaInviaSintesiModal'
 import { ImpersonationModal } from './modules/components/modals/ImpersonationModal'
 import { UserInfoModal } from './modules/components/modals/UserInfoModal'
+import { useCommessaDettaglioMailHandlers } from './modules/pages/analisiCommesse/hooks/useCommessaDettaglioMailHandlers'
+import { useCommessaDettaglioState } from './modules/pages/analisiCommesse/hooks/useCommessaDettaglioState'
+import { useCommessaDettaglioWorkflowHandlers } from './modules/pages/analisiCommesse/hooks/useCommessaDettaglioWorkflowHandlers'
 import { CommessaSintesiMailService } from './modules/services/commessaSintesiMailService'
+import { CommessaDettaglioWorkflowsService } from './modules/services/commessaDettaglioWorkflowsService'
 import {
   analisiBuAllowedProfiles,
   analisiBuPivotBuSelectableProfiles,
@@ -63,13 +67,10 @@ import type {
   AvailableProfilesResponse,
   CommessaAvanzamentoRow,
   CommessaFatturaMovimentoRow,
-  CommessaSintesiMailSendRequest,
-  CommessaSintesiMailSendResponse,
   CommessaRisorseValutazioneRow,
   CommessaSintesiRow,
   CommesseAndamentoMensileResponse,
   CommesseAnomaleResponse,
-  CommesseDettaglioSintesiMailPreviewResponse,
   CommesseDatiAnnualiPivotData,
   CommesseDatiAnnualiPivotRow,
   CommesseDettaglioResponse,
@@ -85,7 +86,6 @@ import type {
   DatiContabiliAcquistoRow,
   DatiContabiliVenditaResponse,
   DatiContabiliVenditaRow,
-  DetailTabKey,
   FilterOption,
   MenuKey,
   ProcessoOffertaOfferteResponse,
@@ -279,25 +279,64 @@ function App() {
   const [sintesiLoadingFilters, setSintesiLoadingFilters] = useState(false)
   const [sintesiFilterLoadingDetail, setSintesiFilterLoadingDetail] = useState('')
   const [sintesiLoadingData, setSintesiLoadingData] = useState(false)
-  const [detailCommessa, setDetailCommessa] = useState('')
-  const [detailData, setDetailData] = useState<CommesseDettaglioResponse | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [detailSaving, setDetailSaving] = useState(false)
-  const [detailStatusMessage, setDetailStatusMessage] = useState('')
-  const [detailRouteProcessed, setDetailRouteProcessed] = useState(false)
-  const [detailSintesiMailModalOpen, setDetailSintesiMailModalOpen] = useState(false)
-  const [detailSintesiMailPreview, setDetailSintesiMailPreview] = useState<CommesseDettaglioSintesiMailPreviewResponse | null>(null)
-  const [detailSintesiMailPreviewLoading, setDetailSintesiMailPreviewLoading] = useState(false)
-  const [detailSintesiMailSending, setDetailSintesiMailSending] = useState(false)
-  const [detailSintesiMailStatusMessage, setDetailSintesiMailStatusMessage] = useState('')
-  const [detailSintesiMailErrorMessage, setDetailSintesiMailErrorMessage] = useState('')
-  const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
-  const [detailRicavoPrevistoInput, setDetailRicavoPrevistoInput] = useState('')
-  const [detailOreRestantiInput, setDetailOreRestantiInput] = useState('')
-  const [detailVenditeDateSortDirection, setDetailVenditeDateSortDirection] = useState<SortDirection>('asc')
-  const [detailAcquistiDateSortDirection, setDetailAcquistiDateSortDirection] = useState<SortDirection>('asc')
-  const [detailActiveTab, setDetailActiveTab] = useState<DetailTabKey>('storico')
-  const [selectedRequisitoId, setSelectedRequisitoId] = useState<number | null>(null)
+  const {
+    detailCommessa,
+    setDetailCommessa,
+    detailData,
+    setDetailData,
+    detailLoading,
+    setDetailLoading,
+    detailSaving,
+    setDetailSaving,
+    detailStatusMessage,
+    setDetailStatusMessage,
+    detailRouteProcessed,
+    setDetailRouteProcessed,
+    detailSintesiMailModalOpen,
+    setDetailSintesiMailModalOpen,
+    detailSintesiMailPreview,
+    setDetailSintesiMailPreview,
+    detailSintesiMailPreviewLoading,
+    setDetailSintesiMailPreviewLoading,
+    detailSintesiMailSending,
+    setDetailSintesiMailSending,
+    detailSintesiMailStatusMessage,
+    setDetailSintesiMailStatusMessage,
+    detailSintesiMailErrorMessage,
+    setDetailSintesiMailErrorMessage,
+    detailPercentRaggiuntoInput,
+    setDetailPercentRaggiuntoInput,
+    detailRicavoPrevistoInput,
+    setDetailRicavoPrevistoInput,
+    detailOreRestantiInput,
+    setDetailOreRestantiInput,
+    detailVenditeDateSortDirection,
+    setDetailVenditeDateSortDirection,
+    detailAcquistiDateSortDirection,
+    setDetailAcquistiDateSortDirection,
+    detailActiveTab,
+    setDetailActiveTab,
+    detailConfiguraData,
+    setDetailConfiguraData,
+    detailConfiguraLoading,
+    setDetailConfiguraLoading,
+    detailConfiguraSaving,
+    setDetailConfiguraSaving,
+    detailConfiguraStatusMessage,
+    setDetailConfiguraStatusMessage,
+    detailSegnalazioniData,
+    setDetailSegnalazioniData,
+    detailSegnalazioniLoading,
+    setDetailSegnalazioniLoading,
+    detailSegnalazioniSaving,
+    setDetailSegnalazioniSaving,
+    detailSegnalazioniStatusMessage,
+    setDetailSegnalazioniStatusMessage,
+    detailSegnalazioniIncludeChiuse,
+    setDetailSegnalazioniIncludeChiuse,
+    selectedRequisitoId,
+    setSelectedRequisitoId,
+  } = useCommessaDettaglioState()
   const [collapsedProductKeys, setCollapsedProductKeys] = useState<string[]>([])
   const [analisiRccAnno, setAnalisiRccAnno] = useState(new Date().getFullYear().toString())
   const [analisiRccRcc, setAnalisiRccRcc] = useState('')
@@ -431,11 +470,30 @@ function App() {
   const authPortalBaseUrl = (import.meta.env.VITE_AUTH_PORTAL_URL ?? 'https://localhost:5043').replace(/\/$/, '')
   const routeRequest = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
+    const normalized = new Map<string, string>()
+
+    params.forEach((value, rawKey) => {
+      const key = (rawKey ?? '')
+        .replace(/^amp;/i, '')
+        .trim()
+        .toLowerCase()
+      if (!key || normalized.has(key)) {
+        return
+      }
+
+      const cleanValue = (value ?? '')
+        .replace(/&amp;/gi, '&')
+        .replace(/<\/?[^>]+>/g, '')
+        .replace(/^amp;/i, '')
+        .trim()
+      normalized.set(key, cleanValue)
+    })
+
     return {
-      page: (params.get('page') ?? '').trim(),
-      commessa: (params.get('commessa') ?? '').trim(),
-      profile: (params.get('profile') ?? '').trim(),
-      actAs: (params.get('actAs') ?? '').trim(),
+      page: (normalized.get('page') ?? '').trim(),
+      commessa: (normalized.get('commessa') ?? '').trim(),
+      profile: (normalized.get('profile') ?? '').trim(),
+      actAs: (normalized.get('actas') ?? '').trim(),
     }
   }, [])
   const toBackendUrl = (path: string) => `${backendBaseUrl}${path}`
@@ -657,6 +715,15 @@ function App() {
     setDetailRicavoPrevistoInput('')
     setDetailOreRestantiInput('')
     setDetailActiveTab('storico')
+    setDetailConfiguraData(null)
+    setDetailConfiguraLoading(false)
+    setDetailConfiguraSaving(false)
+    setDetailConfiguraStatusMessage('')
+    setDetailSegnalazioniData(null)
+    setDetailSegnalazioniLoading(false)
+    setDetailSegnalazioniSaving(false)
+    setDetailSegnalazioniStatusMessage('')
+    setDetailSegnalazioniIncludeChiuse(true)
     setSelectedRequisitoId(null)
     setCollapsedProductKeys([])
     setAnalisiRccAnno(new Date().getFullYear().toString())
@@ -851,6 +918,15 @@ function App() {
 
   const commessaSintesiMailService = useMemo(
     () => new CommessaSintesiMailService({
+      toBackendUrl,
+      authHeaders,
+      readApiMessage,
+    }),
+    [toBackendUrl],
+  )
+
+  const commessaDettaglioWorkflowsService = useMemo(
+    () => new CommessaDettaglioWorkflowsService({
       toBackendUrl,
       authHeaders,
       readApiMessage,
@@ -3876,6 +3952,11 @@ function App() {
     setDetailRicavoPrevistoInput('')
     setDetailOreRestantiInput('')
     setDetailActiveTab('storico')
+    setDetailConfiguraData(null)
+    setDetailConfiguraStatusMessage('')
+    setDetailSegnalazioniData(null)
+    setDetailSegnalazioniStatusMessage('')
+    setDetailSegnalazioniIncludeChiuse(true)
     setSelectedRequisitoId(null)
     try {
       const params = new URLSearchParams()
@@ -3927,129 +4008,65 @@ function App() {
     }
   }
 
-  const resetDetailSintesiMailState = () => {
-    setDetailSintesiMailPreview(null)
-    setDetailSintesiMailPreviewLoading(false)
-    setDetailSintesiMailSending(false)
-    setDetailSintesiMailStatusMessage('')
-    setDetailSintesiMailErrorMessage('')
-  }
+  const {
+    loadDetailConfigura,
+    saveDetailConfigura,
+    loadDetailSegnalazioni,
+    apriDetailSegnalazione,
+    modificaDetailSegnalazione,
+    cambiaStatoDetailSegnalazione,
+    chiudiDetailSegnalazione,
+    riapriDetailSegnalazione,
+    eliminaDetailSegnalazione,
+    inserisciDetailSegnalazioneMessaggio,
+    modificaDetailSegnalazioneMessaggio,
+    eliminaDetailSegnalazioneMessaggio,
+  } = useCommessaDettaglioWorkflowHandlers({
+    token,
+    currentProfile,
+    activeImpersonation,
+    detailData,
+    detailCommessa,
+    detailSegnalazioniIncludeChiuse,
+    commessaDettaglioWorkflowsService,
+    clearSession,
+    redirectToCentralAuth,
+    setDetailData,
+    setDetailStatusMessage,
+    setDetailConfiguraData,
+    setDetailConfiguraLoading,
+    setDetailConfiguraSaving,
+    setDetailConfiguraStatusMessage,
+    setDetailSegnalazioniData,
+    setDetailSegnalazioniLoading,
+    setDetailSegnalazioniSaving,
+    setDetailSegnalazioniStatusMessage,
+    setDetailSegnalazioniIncludeChiuse,
+  })
 
-  const loadDetailSintesiMailPreview = async (commessa = detailData?.commessa || detailCommessa) => {
-    const normalizedCommessa = (commessa ?? '').trim()
-    if (!normalizedCommessa || !token.trim() || !currentProfile.trim()) {
-      setDetailSintesiMailPreview(null)
-      setDetailSintesiMailErrorMessage('Sessione o commessa non disponibili per la preview invio sintesi.')
-      return
-    }
-
-    setDetailSintesiMailPreviewLoading(true)
-    setDetailSintesiMailErrorMessage('')
-    setDetailSintesiMailStatusMessage('')
-
-    try {
-      const previewResult = await commessaSintesiMailService.loadPreview({
-        token,
-        impersonationUsername: activeImpersonation,
-        profile: currentProfile,
-        commessa: normalizedCommessa,
-      })
-
-      if (previewResult.status === 401) {
-        clearSession()
-        redirectToCentralAuth('stale_token')
-        return
-      }
-
-      if (!previewResult.ok || !previewResult.data) {
-        setDetailSintesiMailPreview(null)
-        setDetailSintesiMailErrorMessage(
-          previewResult.message || `Errore caricamento destinatari invio sintesi (${previewResult.status}).`,
-        )
-        return
-      }
-
-      setDetailSintesiMailPreview(previewResult.data)
-      setDetailSintesiMailStatusMessage(
-        `Destinatari individuati: ${previewResult.data.recipients.length} risorse.`,
-      )
-    } catch {
-      setDetailSintesiMailPreview(null)
-      setDetailSintesiMailErrorMessage('Errore inatteso durante il caricamento preview invio sintesi.')
-    } finally {
-      setDetailSintesiMailPreviewLoading(false)
-    }
-  }
-
-  const openDetailSintesiMailModal = () => {
-    const commessa = (detailData?.commessa || detailCommessa || '').trim()
-    if (!commessa) {
-      setDetailStatusMessage("Commessa non disponibile per l'invio sintesi.")
-      return
-    }
-
-    resetDetailSintesiMailState()
-    setDetailSintesiMailModalOpen(true)
-    void loadDetailSintesiMailPreview(commessa)
-  }
-
-  const closeDetailSintesiMailModal = () => {
-    setDetailSintesiMailModalOpen(false)
-    resetDetailSintesiMailState()
-  }
-
-  const sendDetailSintesiMail = async (request: CommessaSintesiMailSendRequest) => {
-    if (!token.trim() || !currentProfile.trim()) {
-      setDetailSintesiMailErrorMessage('Sessione non disponibile: eseguire nuovamente il login.')
-      return
-    }
-
-    setDetailSintesiMailSending(true)
-    setDetailSintesiMailErrorMessage('')
-    setDetailSintesiMailStatusMessage('')
-    try {
-      const sendResult = await commessaSintesiMailService.send({
-        token,
-        impersonationUsername: activeImpersonation,
-        profile: currentProfile,
-        request,
-      })
-
-      if (sendResult.status === 401) {
-        clearSession()
-        redirectToCentralAuth('stale_token')
-        return
-      }
-
-      if (!sendResult.ok || !sendResult.data) {
-        setDetailSintesiMailErrorMessage(
-          sendResult.message || `Errore invio sintesi commessa (${sendResult.status}).`,
-        )
-        return
-      }
-
-      const payload: CommessaSintesiMailSendResponse = sendResult.data
-      if (!payload.success) {
-        setDetailSintesiMailErrorMessage(
-          payload.message || 'Invio sintesi commessa non riuscito.',
-        )
-        return
-      }
-
-      setDetailSintesiMailStatusMessage(
-        payload.message || 'Invio sintesi commessa completato.',
-      )
-      setDetailStatusMessage(
-        payload.message || 'Invio sintesi commessa completato.',
-      )
-      setDetailSintesiMailModalOpen(false)
-      resetDetailSintesiMailState()
-    } catch {
-      setDetailSintesiMailErrorMessage("Errore inatteso durante l'invio sintesi commessa.")
-    } finally {
-      setDetailSintesiMailSending(false)
-    }
-  }
+  const {
+    resetDetailSintesiMailState,
+    loadDetailSintesiMailPreview,
+    openDetailSintesiMailModal,
+    closeDetailSintesiMailModal,
+    sendDetailSintesiMail,
+  } = useCommessaDettaglioMailHandlers({
+    token,
+    currentProfile,
+    activeImpersonation,
+    detailData,
+    detailCommessa,
+    commessaSintesiMailService,
+    clearSession,
+    redirectToCentralAuth,
+    setDetailStatusMessage,
+    setDetailSintesiMailModalOpen,
+    setDetailSintesiMailPreview,
+    setDetailSintesiMailPreviewLoading,
+    setDetailSintesiMailSending,
+    setDetailSintesiMailStatusMessage,
+    setDetailSintesiMailErrorMessage,
+  })
 
   const openCommessaDetail = (commessa: string) => {
     const normalizedCommessa = commessa.trim()
@@ -4563,23 +4580,19 @@ function App() {
 
   useEffect(() => {
     processDetailRouteRequest({
-      activeImpersonation,
       currentProfile,
       detailRouteProcessed,
-      profiles,
+      openCommessaDetail,
       routeRequest,
       setDetailRouteProcessed,
-      setSelectedProfile,
       token,
     })
   }, [
     token,
     currentProfile,
-    profiles,
-    activeImpersonation,
+    openCommessaDetail,
     routeRequest.page,
     routeRequest.commessa,
-    routeRequest.profile,
     detailRouteProcessed,
   ])
 
@@ -7729,6 +7742,8 @@ function App() {
   )
 
   const detailAnagrafica = detailData?.anagrafica ?? null
+  const detailCommessaStato = detailAnagrafica?.stato?.trim().toUpperCase() ?? ''
+  const detailCommessaChiusa = detailCommessaStato === 'NF' || detailCommessaStato === 'T'
   const detailCurrentYear = detailData?.currentYear ?? 0
   const detailCurrentMonth = detailData?.currentMonth ?? 0
   const detailAggregatoAnnoCorrente = detailData?.annoCorrenteProgressivo ?? null
@@ -8667,6 +8682,10 @@ function App() {
     if (!detailData?.commessa) {
       return
     }
+    if (detailCommessaChiusa) {
+      setDetailStatusMessage("Commessa chiusa: avanzamento non modificabile.")
+      return
+    }
 
     if (!token.trim() || !currentProfile.trim()) {
       setDetailStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -8831,6 +8850,36 @@ function App() {
     detailOreFuture,
     percentFormatter,
     numberFormatter,
+  ])
+
+  useEffect(() => {
+    if (activePage !== 'commessa-dettaglio') {
+      return
+    }
+
+    const normalizedCommessa = (detailData?.commessa ?? detailCommessa ?? '').trim()
+    if (!normalizedCommessa || !token.trim() || !currentProfile.trim()) {
+      return
+    }
+
+    if (detailActiveTab === 'configura' && !detailConfiguraData && !detailConfiguraLoading) {
+      void loadDetailConfigura(normalizedCommessa)
+    }
+
+    if (!detailSegnalazioniData && !detailSegnalazioniLoading) {
+      void loadDetailSegnalazioni({
+        commessa: normalizedCommessa,
+        includeChiuse: detailSegnalazioniIncludeChiuse,
+      })
+    }
+  }, [
+    activePage,
+    detailActiveTab,
+    detailData?.commessa,
+    detailCommessa,
+    token,
+    currentProfile,
+    detailSegnalazioniIncludeChiuse,
   ])
 
   const toggleSort = (column: SortColumn) => {
@@ -10363,66 +10412,13 @@ function App() {
     datiContabiliProvenienzaOptions,
     datiContabiliVenditaSearched,
     datiContabiliVenditaSortedRows,
-    detailAcquistiDateSortIndicator,
-    detailAcquistiSorted,
-    detailAcquistiTotaleImporto,
-    detailActiveTab,
-    detailAnagrafica,
-    detailAvanzamentoStorico,
-    detailCommessa,
-    detailConsuntivoMesePrecedente,
-    detailCostiFuturiAggregati,
-    detailCostiPassatiRiconciliati,
-    detailCostoPersonaleFuturoProiezione,
-    detailCurrentYear,
-    detailData,
-    detailLastDayPreviousMonth,
-    detailLoading,
-    detailOfferteSorted,
-    detailOrdiniAggregati,
-    detailOrdiniPercentualeQuantita,
-    detailOrdiniSorted,
-    detailOreFuture,
-    detailOreRestantiInput,
-    detailOreRestantiProiezione,
-    detailOreSpeseRisorseRows,
-    detailOreSpeseRisorseTotal,
-    detailPercentRaggiuntoInput,
-    detailRequisitiOreRisorseRows,
-    detailRequisitiOreRows,
-    detailRequisitiOreTotals,
-    detailRicaviAnniSuccessivi,
-    detailRicaviFuturiAggregati,
-    detailRicavoMaturatoAlMesePrecedente,
-    detailRicavoPrevisto,
-    detailRicavoPrevistoInput,
-    detailSaving,
-    detailSintesiRows,
-    detailStatusMessage,
-    detailTotals,
-    detailUtileConsuntivatoRiconciliato,
-    detailUtileFineProgetto,
-    detailUtileRicalcolatoMesePrecedente,
-    detailVenditeDateSortIndicator,
-    detailVenditeSorted,
-    detailVenditeTotaleImporto,
     expandAllProducts,
     exportCommesseDatiAnnualiExcel,
-    exportDettaglioPdf,
-    exportDettaglioExcel,
-    openDetailSintesiMailModal,
     exportSintesiExcel,
     formatDate,
     formatPercentRatio,
     formatPercentValue,
     getDefaultReferenceMonth,
-    handleDetailOreRestantiInputBlur,
-    handleDetailOreRestantiInputChange,
-    handleDetailPercentRaggiuntoInputBlur,
-    handleDetailPercentRaggiuntoInputChange,
-    handleDetailRicavoPrevistoInputBlur,
-    handleDetailRicavoPrevistoInputChange,
-    handleSaveDetailPercentRaggiunto,
     handleSintesiSubmit,
     hasCollapsedProducts,
     hasProductGroups,
@@ -10466,7 +10462,6 @@ function App() {
     setCommesseDatiAnnualiSelectedSelection,
     setCommesseDatiAnnualiTipologia,
     setCommessaSearch,
-    setDetailActiveTab,
     setSintesiFiltersCollapsed,
     setSintesiFiltersForm,
     setSintesiMode,
@@ -10485,13 +10480,99 @@ function App() {
     sintesiTitle,
     sortedRows,
     sortIndicator,
-    toggleDetailAcquistiDateSort,
-    toggleDetailVenditeDateSort,
     toggleProductCollapse,
-    toggleRequisitoDettaglio,
     toggleSort,
     totaleUtileFineProgettoValorizzato,
     totals,
+  } as const
+  const commessaDettaglioPageProps = {
+    backToSintesi,
+    detailAcquistiDateSortIndicator,
+    detailAcquistiSorted,
+    detailAcquistiTotaleImporto,
+    detailActiveTab,
+    detailAnagrafica,
+    detailAvanzamentoStorico,
+    detailCommessa,
+    detailCommessaChiusa,
+    detailConfiguraData,
+    detailConfiguraLoading,
+    detailConfiguraSaving,
+    detailConfiguraStatusMessage,
+    detailConsuntivoMesePrecedente,
+    detailCostiFuturiAggregati,
+    detailCostiPassatiRiconciliati,
+    detailCostoPersonaleFuturoProiezione,
+    detailCurrentUserId: user?.idRisorsa ?? 0,
+    detailCurrentYear,
+    detailData,
+    detailLastDayPreviousMonth,
+    detailLoading,
+    detailOfferteSorted,
+    detailOrdiniAggregati,
+    detailOrdiniPercentualeQuantita,
+    detailOrdiniSorted,
+    detailOreFuture,
+    detailOreRestantiInput,
+    detailOreRestantiProiezione,
+    detailOreSpeseRisorseRows,
+    detailOreSpeseRisorseTotal,
+    detailPercentRaggiuntoInput,
+    detailRequisitiOreRisorseRows,
+    detailRequisitiOreRows,
+    detailRequisitiOreTotals,
+    detailRicaviAnniSuccessivi,
+    detailRicaviFuturiAggregati,
+    detailRicavoMaturatoAlMesePrecedente,
+    detailRicavoPrevisto,
+    detailRicavoPrevistoInput,
+    detailSaving,
+    detailSegnalazioniData,
+    detailSegnalazioniIncludeChiuse,
+    detailSegnalazioniLoading,
+    detailSegnalazioniSaving,
+    detailSegnalazioniStatusMessage,
+    detailSintesiRows,
+    detailStatusMessage,
+    detailTotals,
+    detailUtileConsuntivatoRiconciliato,
+    detailUtileFineProgetto,
+    detailUtileRicalcolatoMesePrecedente,
+    detailVenditeDateSortIndicator,
+    detailVenditeSorted,
+    detailVenditeTotaleImporto,
+    openDetailSintesiMailModal,
+    exportDettaglioPdf,
+    exportDettaglioExcel,
+    formatDate,
+    formatNumber,
+    formatPercentRatio,
+    formatPercentValue,
+    inserisciDetailSegnalazioneMessaggio,
+    handleDetailOreRestantiInputBlur,
+    handleDetailOreRestantiInputChange,
+    handleDetailPercentRaggiuntoInputBlur,
+    handleDetailPercentRaggiuntoInputChange,
+    handleDetailRicavoPrevistoInputBlur,
+    handleDetailRicavoPrevistoInputChange,
+    loadDetailConfigura,
+    loadDetailSegnalazioni,
+    saveDetailConfigura,
+    modificaDetailSegnalazione,
+    modificaDetailSegnalazioneMessaggio,
+    eliminaDetailSegnalazioneMessaggio,
+    apriDetailSegnalazione,
+    cambiaStatoDetailSegnalazione,
+    chiudiDetailSegnalazione,
+    eliminaDetailSegnalazione,
+    riapriDetailSegnalazione,
+    handleSaveDetailPercentRaggiunto,
+    selectedRequisitoId,
+    setDetailActiveTab,
+    setDetailSegnalazioniIncludeChiuse,
+    toggleDetailAcquistiDateSort,
+    toggleDetailVenditeDateSort,
+    toggleRequisitoDettaglio,
   } as const
   const analisiProiezioniPageProps = {
     ...remainingPagesProps,
@@ -10728,6 +10809,7 @@ function App() {
   const appMainContentProps = {
     activePage,
     analisiCommessePageProps,
+    commessaDettaglioPageProps,
     analisiProiezioniPageProps,
     remainingPagesProps,
     statusMessageVisible,

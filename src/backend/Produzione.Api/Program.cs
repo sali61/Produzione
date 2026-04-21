@@ -1,5 +1,7 @@
+using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Produzione.Application;
@@ -14,6 +16,24 @@ var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = LicenseType.Community;
 
 builder.WebHost.UseUrls(builder.Configuration["ApplicationUrls:Https"] ?? "https://localhost:7643");
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+
+    var dataProtectionKeysPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        "App_Data",
+        "DataProtection-Keys");
+    Directory.CreateDirectory(dataProtectionKeysPath);
+
+    builder.Services
+        .AddDataProtection()
+        .SetApplicationName("Produzione.Api")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

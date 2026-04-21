@@ -3,6 +3,7 @@ using System.Net.Mail;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Net.Mime;
 using Microsoft.Extensions.Configuration;
 using Produzione.Application.Abstractions.Persistence;
 using Produzione.Application.Contracts.Commesse;
@@ -158,12 +159,12 @@ public sealed class CommessaSintesiMailService(
         }
 
         var mailSubject = (request.Oggetto ?? string.Empty).Trim();
-        var bodyHtml = BuildFinalBodyHtml(
-            request.CorpoHtml,
-            request.CorpoTesto,
-            normalizedCommessa,
-            options?.CommessaDetailUrl);
-        var bodyText = StripHtml(bodyHtml);
+            var bodyHtml = BuildFinalBodyHtml(
+                request.CorpoHtml,
+                request.CorpoTesto,
+                normalizedCommessa,
+                options?.CommessaDetailUrl);
+            var bodyText = BuildPlainTextBody(bodyHtml);
 
         if (!TryReadMailSettings(configuration, out var mailSettings, out var mailConfigError))
         {
@@ -189,8 +190,7 @@ public sealed class CommessaSintesiMailService(
                     ? $"[Produzione] Sintesi commessa {normalizedCommessa}"
                     : mailSubject,
                 SubjectEncoding = Encoding.UTF8,
-                BodyEncoding = Encoding.UTF8,
-                IsBodyHtml = true
+                BodyEncoding = Encoding.UTF8
             };
 
             foreach (var email in intendedEmails)
@@ -198,22 +198,24 @@ public sealed class CommessaSintesiMailService(
                 mailMessage.To.Add(email);
             }
 
-            if (!string.IsNullOrWhiteSpace(bodyHtml))
-            {
-                mailMessage.Body = bodyHtml;
-                if (!string.IsNullOrWhiteSpace(bodyText))
-                {
-                    mailMessage.AlternateViews.Add(
-                        AlternateView.CreateAlternateViewFromString(
-                            bodyText,
-                            Encoding.UTF8,
-                            "text/plain"));
-                }
-            }
-            else
-            {
-                mailMessage.Body = bodyText;
-            }
+            // Invia esplicitamente entrambe le versioni (plain + html) per evitare che
+            // alcuni client renderizzino il markup HTML come testo.
+            var normalizedHtmlBody = string.IsNullOrWhiteSpace(bodyHtml)
+                ? ConvertPlainTextToHtml(bodyText)
+                : EnsureHtmlDocument(bodyHtml);
+
+            mailMessage.IsBodyHtml = false;
+            mailMessage.Body = bodyText;
+            mailMessage.AlternateViews.Add(
+                AlternateView.CreateAlternateViewFromString(
+                    bodyText,
+                    Encoding.UTF8,
+                    MediaTypeNames.Text.Plain));
+            mailMessage.AlternateViews.Add(
+                AlternateView.CreateAlternateViewFromString(
+                    normalizedHtmlBody,
+                    Encoding.UTF8,
+                    MediaTypeNames.Text.Html));
 
             if (options?.PdfAttachment is { Length: > 0 })
             {
@@ -317,9 +319,12 @@ public sealed class CommessaSintesiMailService(
 
         if (string.IsNullOrWhiteSpace(sender))
         {
-            settings = default;
-            error = "Configurazione mail mancante: valorizzare Mail:Sender.";
-            return false;
+            sender = "SistemaProduzione@xeniaprogetti.it";
+        }
+        else
+        {
+            // Il mittente per questo workflow resta sempre la mailbox di sistema.
+            sender = "SistemaProduzione@xeniaprogetti.it";
         }
 
         settings = new MailSettings(
@@ -533,7 +538,7 @@ public sealed class CommessaSintesiMailService(
             normalizedBodyHtml = SanitizeBodyHtml(requestedBodyHtml);
 
             // Alcuni client/editor inviano HTML entity-encoded (es. &lt;p&gt;).
-            var decodedHtml = System.Net.WebUtility.HtmlDecode(normalizedBodyHtml);
+            var decodedHtml = DecodeHtmlRepeatedly(normalizedBodyHtml);
             if (!string.IsNullOrWhiteSpace(decodedHtml) &&
                 decodedHtml.Contains('<', StringComparison.Ordinal) &&
                 decodedHtml.Contains('>', StringComparison.Ordinal))
@@ -554,7 +559,7 @@ public sealed class CommessaSintesiMailService(
             normalizedBodyHtml = BuildSuggestedBodyHtml(commessa);
         }
 
-        var normalizedLink = (commessaDetailUrl ?? string.Empty).Trim();
+        var normalizedLink = DecodeHtmlRepeatedly((commessaDetailUrl ?? string.Empty).Trim());
         if (!string.IsNullOrWhiteSpace(normalizedLink))
         {
             var containsLink = normalizedBodyHtml.Contains(normalizedLink, StringComparison.OrdinalIgnoreCase);
@@ -569,6 +574,23 @@ public sealed class CommessaSintesiMailService(
         return normalizedBodyHtml.Trim();
     }
 
+    private static string DecodeHtmlRepeatedly(string value)
+    {
+        var current = value ?? string.Empty;
+        for (var i = 0; i < 3; i += 1)
+        {
+            var decoded = System.Net.WebUtility.HtmlDecode(current);
+            if (string.Equals(decoded, current, StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            current = decoded;
+        }
+
+        return current;
+    }
+
     private static string ConvertPlainTextToHtml(string plainText)
     {
         var normalized = (plainText ?? string.Empty).Trim();
@@ -580,6 +602,44 @@ public sealed class CommessaSintesiMailService(
         var encoded = System.Net.WebUtility.HtmlEncode(normalized);
         var withLineBreaks = Regex.Replace(encoded, @"\r\n|\r|\n", "<br/>");
         return $"<p>{withLineBreaks}</p>";
+    }
+
+    private static string EnsureHtmlDocument(string htmlBody)
+    {
+        var normalized = (htmlBody ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (normalized.Contains("<html", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized;
+        }
+
+        return $"""
+            <!doctype html>
+            <html lang="it">
+            <head>
+              <meta charset="utf-8" />
+            </head>
+            <body>
+            {normalized}
+            </body>
+            </html>
+            """;
+    }
+
+    private static string BuildPlainTextBody(string htmlBody)
+    {
+        var plain = StripHtml(htmlBody);
+        if (string.IsNullOrWhiteSpace(plain))
+        {
+            return string.Empty;
+        }
+
+        // Evita link con "&amp;" quando il client usa la vista plain text.
+        return plain.Replace("&amp;", "&", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string StripHtml(string html)

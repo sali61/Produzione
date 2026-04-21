@@ -20,6 +20,27 @@ public sealed class CommesseController(
     ICommessaSintesiMailService commessaSintesiMailService,
     ILogger<CommesseController> logger) : ControllerBase
 {
+    private static readonly string[] SegnalazioniDestinatariRoleOrder =
+    [
+        "RCC",
+        "RP",
+        "PM",
+        "ROU",
+        "RC",
+        "CDG"
+    ];
+
+    private static readonly IReadOnlyDictionary<string, string> SegnalazioniDestinatariRoleLabels =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["RCC"] = "Responsabile Commerciale Commessa (RCC)",
+            ["RP"] = "Responsabile Produzione (RP)",
+            ["PM"] = "Project Manager (PM)",
+            ["ROU"] = "Responsabile OU (ROU)",
+            ["RC"] = "Responsabile Commerciale (RC)",
+            ["CDG"] = "Controllo di Gestione (CDG)"
+        };
+
     private static readonly string[] AllowedProfiles =
     [
         ProfileCatalog.Supervisore,
@@ -988,6 +1009,23 @@ public sealed class CommesseController(
                 });
             }
 
+            var anagrafica = await commesseFilterRepository.GetCommessaAnagraficaAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                normalizedCommessa,
+                cancellationToken);
+            var statoCommessa = anagrafica?.Stato?.Trim();
+            var isCommessaChiusa =
+                string.Equals(statoCommessa, "NF", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(statoCommessa, "T", StringComparison.OrdinalIgnoreCase);
+            if (isCommessaChiusa)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Commessa '{normalizedCommessa}' chiusa (stato {statoCommessa}): avanzamento non modificabile."
+                });
+            }
+
             var dataRiferimento = request.DataRiferimento.Date;
             if (dataRiferimento == DateTime.MinValue.Date)
             {
@@ -1140,9 +1178,7 @@ public sealed class CommesseController(
             request.Commessa = validation.Commessa;
             var commessaDetailUrl = BuildCommessaDetailLink(
                 Request,
-                validation.Profile,
-                validation.Commessa,
-                actAsUsername);
+                validation.Commessa);
 
             byte[]? dettaglioPdfBytes = null;
             string? dettaglioPdfFileName = null;
@@ -1206,6 +1242,1000 @@ public sealed class CommesseController(
                 message = "Errore interno durante l'invio della sintesi commessa."
             });
         }
+    }
+
+    [HttpGet("dettaglio/configura")]
+    [ProducesResponseType(typeof(CommesseDettaglioConfiguraResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioConfigura(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+            if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+            {
+                return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var configData = await commesseFilterRepository.GetCommessaConfigAsync(validation.Commessa, cancellationToken);
+            if (configData is null)
+            {
+                return NotFound(new { message = $"Configurazione commessa '{validation.Commessa}' non trovata." });
+            }
+
+            var tipiTask = commesseFilterRepository.GetTipiCommessaAttiviAsync(cancellationToken);
+            var prodottiTask = commesseFilterRepository.GetProdottiAttiviAsync(cancellationToken);
+            await Task.WhenAll(tipiTask, prodottiTask);
+            var permissions = GetCommessaConfigPermissions(validation.Profile);
+
+            return Ok(new CommesseDettaglioConfiguraResponseDto
+            {
+                Profile = validation.Profile,
+                Commessa = validation.Commessa,
+                CanEdit = permissions.CanEditAny,
+                CanEditTipologiaCommessa = permissions.CanEditTipologiaCommessa,
+                CanEditProdotto = permissions.CanEditProdotto,
+                CanEditBudgetImportoInvestimento = permissions.CanEditBudgetImportoInvestimento,
+                CanEditBudgetOreInvestimento = permissions.CanEditBudgetOreInvestimento,
+                CanEditPrezzoVenditaInizialeRcc = permissions.CanEditPrezzoVenditaInizialeRcc,
+                CanEditPrezzoVenditaFinaleRcc = permissions.CanEditPrezzoVenditaFinaleRcc,
+                CanEditStimaInizialeOrePm = permissions.CanEditStimaInizialeOrePm,
+                IdTipoCommessa = configData.IdTipoCommessa,
+                TipologiaCommessa = configData.TipologiaCommessa,
+                IdProdotto = configData.IdProdotto,
+                Prodotto = configData.Prodotto,
+                BudgetImportoInvestimento = configData.BudgetImportoInvestimento,
+                BudgetOreInvestimento = configData.BudgetOreInvestimento,
+                PrezzoVenditaInizialeRcc = configData.PrezzoVenditaInizialeRcc,
+                PrezzoVenditaFinaleRcc = configData.PrezzoVenditaFinaleRcc,
+                StimaInizialeOrePm = configData.StimaInizialeOrePm,
+                TipiCommessa = tipiTask.Result
+                    .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                    .ToArray(),
+                Prodotti = prodottiTask.Result
+                    .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                    .ToArray()
+            });
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/configura.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/configura.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il caricamento configurazione commessa."
+            });
+        }
+    }
+
+    [HttpPost("dettaglio/configura")]
+    [ProducesResponseType(typeof(CommesseDettaglioConfiguraResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioConfiguraSalva(
+        [FromQuery] string profile,
+        [FromBody] CommessaDettaglioConfiguraSaveRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+            {
+                return BadRequest(new { message = "Commessa obbligatoria." });
+            }
+
+            var validation = await ValidateCommessaAccessAsync(profile, request.Commessa, actAsUsername, cancellationToken);
+            if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+            {
+                return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var permissions = GetCommessaConfigPermissions(validation.Profile);
+            if (!permissions.CanEditAny)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"Profilo '{validation.Profile}' non autorizzato alla modifica della configurazione commessa."
+                });
+            }
+
+            var currentConfig = await commesseFilterRepository.GetCommessaConfigAsync(validation.Commessa, cancellationToken);
+            if (currentConfig is null)
+            {
+                return NotFound(new { message = $"Configurazione commessa '{validation.Commessa}' non trovata." });
+            }
+
+            var idTipoCommessa = request.IdTipoCommessa.HasValue && request.IdTipoCommessa.Value > 0
+                ? request.IdTipoCommessa.Value
+                : (int?)null;
+            var idProdotto = request.IdProdotto.HasValue && request.IdProdotto.Value > 0
+                ? request.IdProdotto.Value
+                : (int?)null;
+
+            var tipiTask = commesseFilterRepository.GetTipiCommessaAttiviAsync(cancellationToken);
+            var prodottiTask = commesseFilterRepository.GetProdottiAttiviAsync(cancellationToken);
+            await Task.WhenAll(tipiTask, prodottiTask);
+
+            var tipiAttivi = tipiTask.Result;
+            var prodottiAttivi = prodottiTask.Result;
+
+            if (permissions.CanEditTipologiaCommessa
+                && idTipoCommessa.HasValue
+                && !tipiAttivi.Any(item => item.Id == idTipoCommessa.Value))
+            {
+                return BadRequest(new
+                {
+                    message = "Tipologia commessa non valida o non attiva."
+                });
+            }
+
+            if (permissions.CanEditProdotto
+                && idProdotto.HasValue
+                && !prodottiAttivi.Any(item => item.Id == idProdotto.Value))
+            {
+                return BadRequest(new
+                {
+                    message = "Prodotto non valido o obsoleto."
+                });
+            }
+
+            var idTipoCommessaToSave = permissions.CanEditTipologiaCommessa ? idTipoCommessa : currentConfig.IdTipoCommessa;
+            var idProdottoToSave = permissions.CanEditProdotto ? idProdotto : currentConfig.IdProdotto;
+            var budgetImportoInvestimentoToSave = permissions.CanEditBudgetImportoInvestimento
+                ? request.BudgetImportoInvestimento
+                : currentConfig.BudgetImportoInvestimento;
+            var budgetOreInvestimentoToSave = permissions.CanEditBudgetOreInvestimento
+                ? request.BudgetOreInvestimento
+                : currentConfig.BudgetOreInvestimento;
+            var prezzoVenditaInizialeRccToSave = permissions.CanEditPrezzoVenditaInizialeRcc
+                ? request.PrezzoVenditaInizialeRcc
+                : currentConfig.PrezzoVenditaInizialeRcc;
+            var prezzoVenditaFinaleRccToSave = permissions.CanEditPrezzoVenditaFinaleRcc
+                ? request.PrezzoVenditaFinaleRcc
+                : currentConfig.PrezzoVenditaFinaleRcc;
+            var stimaInizialeOrePmToSave = permissions.CanEditStimaInizialeOrePm
+                ? request.StimaInizialeOrePm
+                : currentConfig.StimaInizialeOrePm;
+
+            var saved = await commesseFilterRepository.SaveCommessaConfigAsync(
+                validation.Commessa,
+                idTipoCommessaToSave,
+                idProdottoToSave,
+                budgetImportoInvestimentoToSave,
+                budgetOreInvestimentoToSave,
+                prezzoVenditaInizialeRccToSave,
+                prezzoVenditaFinaleRccToSave,
+                stimaInizialeOrePmToSave,
+                cancellationToken);
+
+            if (saved is null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "Salvataggio configurazione commessa non riuscito."
+                });
+            }
+
+            return Ok(new CommesseDettaglioConfiguraResponseDto
+            {
+                Profile = validation.Profile,
+                Commessa = validation.Commessa,
+                CanEdit = permissions.CanEditAny,
+                CanEditTipologiaCommessa = permissions.CanEditTipologiaCommessa,
+                CanEditProdotto = permissions.CanEditProdotto,
+                CanEditBudgetImportoInvestimento = permissions.CanEditBudgetImportoInvestimento,
+                CanEditBudgetOreInvestimento = permissions.CanEditBudgetOreInvestimento,
+                CanEditPrezzoVenditaInizialeRcc = permissions.CanEditPrezzoVenditaInizialeRcc,
+                CanEditPrezzoVenditaFinaleRcc = permissions.CanEditPrezzoVenditaFinaleRcc,
+                CanEditStimaInizialeOrePm = permissions.CanEditStimaInizialeOrePm,
+                IdTipoCommessa = saved.IdTipoCommessa,
+                TipologiaCommessa = saved.TipologiaCommessa,
+                IdProdotto = saved.IdProdotto,
+                Prodotto = saved.Prodotto,
+                BudgetImportoInvestimento = saved.BudgetImportoInvestimento,
+                BudgetOreInvestimento = saved.BudgetOreInvestimento,
+                PrezzoVenditaInizialeRcc = saved.PrezzoVenditaInizialeRcc,
+                PrezzoVenditaFinaleRcc = saved.PrezzoVenditaFinaleRcc,
+                StimaInizialeOrePm = saved.StimaInizialeOrePm,
+                TipiCommessa = tipiAttivi
+                    .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                    .ToArray(),
+                Prodotti = prodottiAttivi
+                    .Select(item => new CommessaConfigOptionDto { Id = item.Id, Label = item.Label })
+                    .ToArray()
+            });
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/configura (save).");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/configura (save).");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il salvataggio configurazione commessa."
+            });
+        }
+    }
+
+    [HttpGet("dettaglio/segnalazioni")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DettaglioSegnalazioni(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromQuery] bool includeChiuse = true,
+        [FromQuery] int? idSegnalazioneThread = null,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+            if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+            {
+                return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var response = await BuildSegnalazioniResponseAsync(
+                validation.Profile,
+                validation.Commessa,
+                includeChiuse,
+                idSegnalazioneThread,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/dettaglio/segnalazioni.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/dettaglio/segnalazioni.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il caricamento segnalazioni commessa."
+            });
+        }
+    }
+
+    [HttpPost("dettaglio/segnalazioni/apri")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniApri(
+        [FromQuery] string profile,
+        [FromBody] CommessaSegnalazioneCreateRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Commessa))
+        {
+            return BadRequest(new { message = "Commessa obbligatoria." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, request.Commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var success = await commesseFilterRepository.ApriSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            validation.Commessa,
+            request.IdTipoSegnalazione,
+            request.Titolo ?? string.Empty,
+            request.Testo ?? string.Empty,
+            request.Priorita <= 0 ? 2 : request.Priorita,
+            request.ImpattaCliente,
+            (request.DataEvento ?? DateTime.Today).Date,
+            request.IdRisorsaDestinataria,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Apertura segnalazione non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, null, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPut("dettaglio/segnalazioni/modifica")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniModifica(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneUpdateRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati segnalazione non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione chiusa: riaprire prima di modificare testata o messaggi." });
+        }
+
+        if (!IsOwner(segnalazione.IdRisorsaInserimento, validation.Context.EffectiveUser))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo l'autore puo modificare la segnalazione." });
+        }
+
+        var success = await commesseFilterRepository.ModificaSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            request.IdTipoSegnalazione,
+            request.Titolo ?? string.Empty,
+            request.Testo ?? string.Empty,
+            request.Priorita <= 0 ? 2 : request.Priorita,
+            request.ImpattaCliente,
+            (request.DataEvento ?? DateTime.Today).Date,
+            request.IdRisorsaDestinataria,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Modifica segnalazione non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, request.IdSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpDelete("dettaglio/segnalazioni")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniElimina(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneDeleteRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati eliminazione segnalazione non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (!IsOwner(segnalazione.IdRisorsaInserimento, validation.Context.EffectiveUser))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo l'autore puo eliminare la segnalazione." });
+        }
+
+        var thread = await commesseFilterRepository.GetThreadSegnalazioneCommessaAsync(request.IdSegnalazione, cancellationToken);
+        if (thread.Count > 0)
+        {
+            return BadRequest(new { message = "Segnalazione non eliminabile: sono presenti messaggi collegati." });
+        }
+
+        var success = await commesseFilterRepository.EliminaSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Eliminazione segnalazione non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, null, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("dettaglio/segnalazioni/stato")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniCambiaStato(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneStatoRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati stato segnalazione non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        var success = await commesseFilterRepository.AggiornaStatoSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            request.Stato,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Aggiornamento stato segnalazione non riuscito." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, request.IdSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("dettaglio/segnalazioni/chiudi")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniChiudi(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneStatoRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati chiusura segnalazione non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione gia chiusa." });
+        }
+
+        var success = await commesseFilterRepository.ChiudiSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            DateTime.Today,
+            cancellationToken);
+
+        // Fallback robusto: in alcuni ambienti la SP dedicata alla chiusura puo fallire
+        // pur consentendo il cambio stato tramite SP generica.
+        if (!success)
+        {
+            success = await commesseFilterRepository.AggiornaStatoSegnalazioneCommessaAsync(
+                validation.Context.EffectiveUser,
+                request.IdSegnalazione,
+                4,
+                cancellationToken);
+        }
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Chiusura segnalazione non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, request.IdSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("dettaglio/segnalazioni/riapri")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniRiapri(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneStatoRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati riapertura segnalazione non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (!IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione non chiusa: nessuna riapertura necessaria." });
+        }
+
+        var success = await commesseFilterRepository.RiapriSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            cancellationToken);
+
+        if (!success)
+        {
+            success = await commesseFilterRepository.AggiornaStatoSegnalazioneCommessaAsync(
+                validation.Context.EffectiveUser,
+                request.IdSegnalazione,
+                1,
+                cancellationToken);
+        }
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Riapertura segnalazione non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, request.IdSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("dettaglio/segnalazioni/messaggi")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniInserisciMessaggio(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromBody] CommessaSegnalazioneMessaggioRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati messaggio non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione chiusa: riaprire prima di inserire messaggi." });
+        }
+
+        var success = await commesseFilterRepository.InserisciMessaggioSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdSegnalazione,
+            request.IdMessaggioPadre,
+            request.Testo ?? string.Empty,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Inserimento messaggio non riuscito." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, request.IdSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPut("dettaglio/segnalazioni/messaggi")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniModificaMessaggio(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromQuery] int idSegnalazione,
+        [FromBody] CommessaSegnalazioneMessaggioUpdateRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.IdMessaggio <= 0 || idSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati messaggio non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, idSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione chiusa: riaprire prima di modificare testata o messaggi." });
+        }
+
+        var thread = await commesseFilterRepository.GetThreadSegnalazioneCommessaAsync(idSegnalazione, cancellationToken);
+        var messaggio = thread.FirstOrDefault(item => item.Id == request.IdMessaggio);
+        if (messaggio is null)
+        {
+            return NotFound(new { message = "Messaggio non trovato per la segnalazione selezionata." });
+        }
+
+        if (!IsOwner(messaggio.IdRisorsaInserimento, validation.Context.EffectiveUser))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo l'autore puo modificare il messaggio." });
+        }
+
+        var success = await commesseFilterRepository.ModificaMessaggioSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdMessaggio,
+            request.Testo ?? string.Empty,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Modifica messaggio non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, idSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpDelete("dettaglio/segnalazioni/messaggi")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniEliminaMessaggio(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromQuery] int idSegnalazione,
+        [FromBody] CommessaSegnalazioneMessaggioUpdateRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await DettaglioSegnalazioniEliminaMessaggioCore(
+            profile,
+            commessa,
+            idSegnalazione,
+            request,
+            actAsUsername,
+            cancellationToken);
+    }
+
+    [HttpPost("dettaglio/segnalazioni/messaggi/elimina")]
+    [ProducesResponseType(typeof(CommesseDettaglioSegnalazioniResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DettaglioSegnalazioniEliminaMessaggioPost(
+        [FromQuery] string profile,
+        [FromQuery] string commessa,
+        [FromQuery] int idSegnalazione,
+        [FromBody] CommessaSegnalazioneMessaggioUpdateRequestDto request,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await DettaglioSegnalazioniEliminaMessaggioCore(
+            profile,
+            commessa,
+            idSegnalazione,
+            request,
+            actAsUsername,
+            cancellationToken);
+    }
+
+    private async Task<CommessaSegnalazioneRow?> FindSegnalazioneAsync(
+        string commessa,
+        int idSegnalazione,
+        CancellationToken cancellationToken)
+    {
+        if (idSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return null;
+        }
+
+        var segnalazioni = await commesseFilterRepository.GetSegnalazioniCommessaAsync(
+            commessa,
+            includeChiuse: true,
+            cancellationToken);
+
+        return segnalazioni.FirstOrDefault(item => item.Id == idSegnalazione);
+    }
+
+    private static bool IsSegnalazioneChiusa(CommessaSegnalazioneRow segnalazione)
+    {
+        return segnalazione.Stato == 4;
+    }
+
+    private static bool IsOwner(int? idRisorsaOwner, UserContext user)
+    {
+        return idRisorsaOwner.HasValue && idRisorsaOwner.Value > 0 && user.IdRisorsa > 0 && idRisorsaOwner.Value == user.IdRisorsa;
+    }
+
+    private async Task<IActionResult> DettaglioSegnalazioniEliminaMessaggioCore(
+        string profile,
+        string commessa,
+        int idSegnalazione,
+        CommessaSegnalazioneMessaggioUpdateRequestDto request,
+        string? actAsUsername,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || request.IdMessaggio <= 0 || idSegnalazione <= 0 || string.IsNullOrWhiteSpace(commessa))
+        {
+            return BadRequest(new { message = "Dati messaggio non validi." });
+        }
+
+        var validation = await ValidateCommessaAccessAsync(profile, commessa, actAsUsername, cancellationToken);
+        if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
+        {
+            return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var segnalazione = await FindSegnalazioneAsync(validation.Commessa, idSegnalazione, cancellationToken);
+        if (segnalazione is null)
+        {
+            return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
+        }
+
+        if (IsSegnalazioneChiusa(segnalazione))
+        {
+            return BadRequest(new { message = "Segnalazione chiusa: riaprire prima di eliminare messaggi." });
+        }
+
+        var thread = await commesseFilterRepository.GetThreadSegnalazioneCommessaAsync(idSegnalazione, cancellationToken);
+        var messaggio = thread.FirstOrDefault(item => item.Id == request.IdMessaggio);
+        if (messaggio is null)
+        {
+            return NotFound(new { message = "Messaggio non trovato per la segnalazione selezionata." });
+        }
+
+        if (!IsOwner(messaggio.IdRisorsaInserimento, validation.Context.EffectiveUser))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo l'autore puo eliminare il messaggio." });
+        }
+
+        var hasChildMessages = thread.Any(item => item.IdMessaggioPadre.HasValue && item.IdMessaggioPadre.Value == messaggio.Id);
+        if (hasChildMessages)
+        {
+            return BadRequest(new { message = "Messaggio non eliminabile: sono presenti risposte collegate." });
+        }
+
+        var success = await commesseFilterRepository.EliminaMessaggioSegnalazioneCommessaAsync(
+            validation.Context.EffectiveUser,
+            request.IdMessaggio,
+            cancellationToken);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Eliminazione messaggio non riuscita." });
+        }
+
+        var response = await BuildSegnalazioniResponseAsync(validation.Profile, validation.Commessa, true, idSegnalazione, cancellationToken);
+        return Ok(response);
+    }
+
+    private async Task<CommesseDettaglioSegnalazioniResponseDto> BuildSegnalazioniResponseAsync(
+        string profile,
+        string commessa,
+        bool includeChiuse,
+        int? idSegnalazioneThread,
+        CancellationToken cancellationToken)
+    {
+        var configTask = commesseFilterRepository.GetCommessaConfigAsync(commessa, cancellationToken);
+        var tipiTask = commesseFilterRepository.GetTipiSegnalazioneCommessaAsync(cancellationToken);
+        var segnalazioniTask = commesseFilterRepository.GetSegnalazioniCommessaAsync(commessa, includeChiuse, cancellationToken);
+        var destinatariTask = commesseFilterRepository.GetCommessaSintesiMailCandidatesAsync(commessa, cancellationToken);
+        await Task.WhenAll(configTask, tipiTask, segnalazioniTask, destinatariTask);
+
+        var segnalazioni = segnalazioniTask.Result;
+        var segnalazioniIds = segnalazioni
+            .Where(item => item.Id > 0)
+            .Select(item => item.Id)
+            .Distinct()
+            .ToArray();
+        var thread = Array.Empty<CommessaSegnalazioneMessaggioRow>();
+        if (segnalazioniIds.Length > 0)
+        {
+            var threadTasks = segnalazioniIds
+                .Select(id => commesseFilterRepository.GetThreadSegnalazioneCommessaAsync(id, cancellationToken))
+                .ToArray();
+            await Task.WhenAll(threadTasks);
+            thread = threadTasks
+                .SelectMany(task => task.Result)
+                .OrderBy(item => item.IdSegnalazione)
+                .ThenBy(item => item.Livello)
+                .ThenBy(item => item.Id)
+                .ToArray();
+        }
+        var destinatari = destinatariTask.Result
+            .Select(candidate =>
+            {
+                var roleCode = NormalizeSegnalazioniDestinatarioRoleCode(candidate.RoleCode);
+                var roleLabel = SegnalazioniDestinatariRoleLabels.TryGetValue(roleCode, out var resolvedRoleLabel)
+                    ? resolvedRoleLabel
+                    : roleCode;
+                var idRisorsa = candidate.IdRisorsa.GetValueOrDefault();
+                var netUserName = (candidate.NetUserName ?? string.Empty).Trim();
+                var email = ResolveEmailFromNetUserName(netUserName);
+
+                return new CommessaSegnalazioneDestinatarioOptionDto
+                {
+                    RoleCode = roleCode,
+                    RoleLabel = roleLabel,
+                    IdRisorsa = idRisorsa,
+                    NomeRisorsa = (candidate.NomeRisorsa ?? string.Empty).Trim(),
+                    NetUserName = netUserName,
+                    Email = email
+                };
+            })
+            .Where(item =>
+                item.IdRisorsa > 0 &&
+                SegnalazioniDestinatariRoleOrder.Contains(item.RoleCode, StringComparer.OrdinalIgnoreCase))
+            .GroupBy(item => new { item.RoleCode, item.IdRisorsa })
+            .Select(group => group.First())
+            .OrderBy(item => Array.IndexOf(SegnalazioniDestinatariRoleOrder, item.RoleCode))
+            .ThenBy(item => item.NomeRisorsa, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Email, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new CommesseDettaglioSegnalazioniResponseDto
+        {
+            Profile = profile,
+            Commessa = commessa,
+            IdCommessa = configTask.Result?.IdCommessa ?? 0,
+            TipiSegnalazione = tipiTask.Result
+                .Select(item => new CommessaSegnalazioneTipoDto
+                {
+                    Id = item.Id,
+                    Codice = item.Codice,
+                    Descrizione = item.Descrizione,
+                    ImpattaClienteDefault = item.ImpattaClienteDefault,
+                    OrdineVisualizzazione = item.OrdineVisualizzazione
+                })
+                .ToArray(),
+            Destinatari = destinatari,
+            Segnalazioni = segnalazioni
+                .Select(item => new CommessaSegnalazioneDto
+                {
+                    Id = item.Id,
+                    IdCommessa = item.IdCommessa,
+                    IdTipoSegnalazione = item.IdTipoSegnalazione,
+                    TipoCodice = item.TipoCodice,
+                    TipoDescrizione = item.TipoDescrizione,
+                    Titolo = item.Titolo,
+                    Testo = item.Testo,
+                    Priorita = item.Priorita,
+                    Stato = item.Stato,
+                    ImpattaCliente = item.ImpattaCliente,
+                    DataEvento = item.DataEvento,
+                    DataInserimento = item.DataInserimento,
+                    IdRisorsaInserimento = item.IdRisorsaInserimento,
+                    NomeRisorsaInserimento = item.NomeRisorsaInserimento,
+                    DataUltimaModifica = item.DataUltimaModifica,
+                    IdRisorsaUltimaModifica = item.IdRisorsaUltimaModifica,
+                    NomeRisorsaUltimaModifica = item.NomeRisorsaUltimaModifica,
+                    DataChiusura = item.DataChiusura,
+                    IdRisorsaDestinataria = item.IdRisorsaDestinataria,
+                    NomeRisorsaDestinataria = item.NomeRisorsaDestinataria
+                })
+                .ToArray(),
+            Thread = thread
+                .Select(item => new CommessaSegnalazioneMessaggioDto
+                {
+                    Id = item.Id,
+                    IdSegnalazione = item.IdSegnalazione,
+                    IdMessaggioPadre = item.IdMessaggioPadre,
+                    Livello = item.Livello,
+                    Testo = item.Testo,
+                    DataInserimento = item.DataInserimento,
+                    IdRisorsaInserimento = item.IdRisorsaInserimento,
+                    NomeRisorsaInserimento = item.NomeRisorsaInserimento,
+                    DataUltimaModifica = item.DataUltimaModifica,
+                    IdRisorsaUltimaModifica = item.IdRisorsaUltimaModifica,
+                    NomeRisorsaUltimaModifica = item.NomeRisorsaUltimaModifica
+                })
+                .ToArray()
+        };
+    }
+
+    private static CommessaConfigPermissions GetCommessaConfigPermissions(string profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile))
+        {
+            return CommessaConfigPermissions.Empty;
+        }
+
+        var isSupervisore = string.Equals(profile, ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase);
+        var isRc = string.Equals(profile, ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase);
+        var isRcc = string.Equals(profile, ProfileCatalog.ResponsabileCommercialeCommessa, StringComparison.OrdinalIgnoreCase);
+        var isRp = string.Equals(profile, ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase);
+        var isPm = string.Equals(profile, ProfileCatalog.ProjectManager, StringComparison.OrdinalIgnoreCase);
+
+        return new CommessaConfigPermissions(
+            CanEditTipologiaCommessa: isSupervisore || isRc || isRcc,
+            CanEditProdotto: isSupervisore || isRc || isRcc,
+            CanEditBudgetImportoInvestimento: isSupervisore || isRp,
+            CanEditBudgetOreInvestimento: isSupervisore || isRp,
+            CanEditPrezzoVenditaInizialeRcc: isSupervisore || isRc || isRcc,
+            CanEditPrezzoVenditaFinaleRcc: isSupervisore || isRc || isRcc,
+            CanEditStimaInizialeOrePm: isSupervisore || isRp || isPm);
+    }
+
+    private readonly record struct CommessaConfigPermissions(
+        bool CanEditTipologiaCommessa,
+        bool CanEditProdotto,
+        bool CanEditBudgetImportoInvestimento,
+        bool CanEditBudgetOreInvestimento,
+        bool CanEditPrezzoVenditaInizialeRcc,
+        bool CanEditPrezzoVenditaFinaleRcc,
+        bool CanEditStimaInizialeOrePm)
+    {
+        public static CommessaConfigPermissions Empty => new(
+            CanEditTipologiaCommessa: false,
+            CanEditProdotto: false,
+            CanEditBudgetImportoInvestimento: false,
+            CanEditBudgetOreInvestimento: false,
+            CanEditPrezzoVenditaInizialeRcc: false,
+            CanEditPrezzoVenditaFinaleRcc: false,
+            CanEditStimaInizialeOrePm: false);
+
+        public bool CanEditAny =>
+            CanEditTipologiaCommessa
+            || CanEditProdotto
+            || CanEditBudgetImportoInvestimento
+            || CanEditBudgetOreInvestimento
+            || CanEditPrezzoVenditaInizialeRcc
+            || CanEditPrezzoVenditaFinaleRcc
+            || CanEditStimaInizialeOrePm;
     }
 
     private async Task<(bool IsValid, UserExecutionContextData? Context, string? Profile, string Commessa, IActionResult? ErrorResponse)> ValidateCommessaAccessAsync(
@@ -1610,9 +2640,7 @@ public sealed class CommesseController(
 
     private static string BuildCommessaDetailLink(
         HttpRequest request,
-        string profile,
-        string commessa,
-        string? actAsUsername)
+        string commessa)
     {
         var origin = request.Headers.Origin.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(origin))
@@ -1638,14 +2666,8 @@ public sealed class CommesseController(
         var queryParts = new List<string>
         {
             $"page={Uri.EscapeDataString("commessa-dettaglio")}",
-            $"commessa={Uri.EscapeDataString(commessa ?? string.Empty)}",
-            $"profile={Uri.EscapeDataString(profile ?? string.Empty)}"
+            $"commessa={Uri.EscapeDataString(commessa ?? string.Empty)}"
         };
-
-        if (!string.IsNullOrWhiteSpace(actAsUsername))
-        {
-            queryParts.Add($"actAs={Uri.EscapeDataString(actAsUsername.Trim())}");
-        }
 
         builder.Query = string.Join("&", queryParts);
         return builder.Uri.ToString();
@@ -1751,5 +2773,39 @@ public sealed class CommesseController(
     {
         var normalized = (value ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(normalized) ? "(vuoto)" : normalized;
+    }
+
+    private static string NormalizeSegnalazioniDestinatarioRoleCode(string? roleCode)
+    {
+        var normalized = (roleCode ?? string.Empty).Trim().ToUpperInvariant();
+        if (normalized == "PRES")
+        {
+            return "RC";
+        }
+
+        return normalized;
+    }
+
+    private static string ResolveEmailFromNetUserName(string? netUserName)
+    {
+        var normalized = (netUserName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        normalized = normalized.Replace('/', '\\');
+        var slashIndex = normalized.LastIndexOf('\\');
+        if (slashIndex >= 0 && slashIndex < normalized.Length - 1)
+        {
+            normalized = normalized[(slashIndex + 1)..];
+        }
+
+        if (!normalized.Contains('@', StringComparison.Ordinal))
+        {
+            normalized = $"{normalized}@xeniaprogetti.it";
+        }
+
+        return normalized.Trim().ToLowerInvariant();
     }
 }

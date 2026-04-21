@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Fragment } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 
 type CommessaDettaglioPageProps = any
 
@@ -14,10 +14,16 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     detailAnagrafica,
     detailAvanzamentoStorico,
     detailCommessa,
+    detailCommessaChiusa,
+    detailConfiguraData,
+    detailConfiguraLoading,
+    detailConfiguraSaving,
+    detailConfiguraStatusMessage,
     detailConsuntivoMesePrecedente,
     detailCostiFuturiAggregati,
     detailCostiPassatiRiconciliati,
     detailCostoPersonaleFuturoProiezione,
+    detailCurrentUserId,
     detailCurrentYear,
     detailData,
     detailLastDayPreviousMonth,
@@ -41,6 +47,11 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     detailRicavoPrevisto,
     detailRicavoPrevistoInput,
     detailSaving,
+    detailSegnalazioniData,
+    detailSegnalazioniIncludeChiuse,
+    detailSegnalazioniLoading,
+    detailSegnalazioniSaving,
+    detailSegnalazioniStatusMessage,
     detailSintesiRows,
     detailStatusMessage,
     detailTotals,
@@ -57,19 +68,463 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     formatNumber,
     formatPercentRatio,
     formatPercentValue,
+    inserisciDetailSegnalazioneMessaggio,
     handleDetailOreRestantiInputBlur,
     handleDetailOreRestantiInputChange,
     handleDetailPercentRaggiuntoInputBlur,
     handleDetailPercentRaggiuntoInputChange,
     handleDetailRicavoPrevistoInputBlur,
     handleDetailRicavoPrevistoInputChange,
+    loadDetailConfigura,
+    loadDetailSegnalazioni,
+    saveDetailConfigura,
+    modificaDetailSegnalazione,
+    modificaDetailSegnalazioneMessaggio,
+    eliminaDetailSegnalazioneMessaggio,
+    apriDetailSegnalazione,
+    cambiaStatoDetailSegnalazione,
+    eliminaDetailSegnalazione,
     handleSaveDetailPercentRaggiunto,
     selectedRequisitoId,
     setDetailActiveTab,
+    setDetailSegnalazioniIncludeChiuse,
     toggleDetailAcquistiDateSort,
     toggleDetailVenditeDateSort,
     toggleRequisitoDettaglio,
   } = props as any
+
+  const detailKpiReadOnly = Boolean(detailCommessaChiusa)
+  const detailOreRestantiVisual = detailKpiReadOnly ? 0 : detailOreRestantiProiezione
+  const detailCostoPersonaleFuturoVisual = detailKpiReadOnly ? 0 : detailCostoPersonaleFuturoProiezione
+  const detailRicavoPrevistoVisual = detailKpiReadOnly ? 0 : detailRicavoPrevisto
+  const detailRicavoMaturatoVisual = detailKpiReadOnly ? 0 : detailRicavoMaturatoAlMesePrecedente
+  const detailPercentRaggiuntoVisualInput = detailKpiReadOnly ? '0,00' : detailPercentRaggiuntoInput
+  const [configuraForm, setConfiguraForm] = useState({
+    idTipoCommessa: '',
+    idProdotto: '',
+    budgetImportoInvestimento: '0',
+    budgetOreInvestimento: '0',
+    prezzoVenditaInizialeRcc: '0',
+    prezzoVenditaFinaleRcc: '0',
+    stimaInizialeOrePm: '0',
+  })
+  const [segnalazioneEditorMode, setSegnalazioneEditorMode] = useState<'hidden' | 'new' | 'edit'>('hidden')
+  const [selectedSegnalazioneId, setSelectedSegnalazioneId] = useState<number | null>(null)
+  const [selectedMessaggioId, setSelectedMessaggioId] = useState<number | null>(null)
+  const [replyParentMessageId, setReplyParentMessageId] = useState<number | null>(null)
+  const [segnalazioneForm, setSegnalazioneForm] = useState({
+    idTipoSegnalazione: 0,
+    titolo: '',
+    testo: '',
+    priorita: 2,
+    stato: 1,
+    impattaCliente: false,
+    dataEvento: '',
+    idRisorsaDestinataria: '',
+  })
+  const [messaggioForm, setMessaggioForm] = useState('')
+  const showSegnalazioneEditor = segnalazioneEditorMode !== 'hidden'
+  const isEditingSegnalazione = segnalazioneEditorMode === 'edit'
+
+  const parseDecimalInput = (rawValue: string) => {
+    const compactValue = (rawValue ?? '').trim().replace(/\s+/g, '')
+    if (!compactValue) {
+      return 0
+    }
+
+    let normalized = compactValue
+    const hasComma = normalized.includes(',')
+    const hasDot = normalized.includes('.')
+    if (hasComma && hasDot) {
+      normalized = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
+        ? normalized.replace(/\./g, '').replace(',', '.')
+        : normalized.replace(/,/g, '')
+    } else if (hasComma) {
+      normalized = normalized.replace(',', '.')
+    }
+
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  const getSegnalazionePrioritaLabel = (value: number | null | undefined) => {
+    switch (Number(value ?? 0)) {
+      case 1:
+        return 'Alta'
+      case 2:
+        return 'Media'
+      case 3:
+        return 'Bassa'
+      default:
+        return 'Non definita'
+    }
+  }
+
+  const getSegnalazioneStatoLabel = (value: number | null | undefined) => {
+    switch (Number(value ?? 0)) {
+      case 1:
+        return 'Aperta'
+      case 2:
+        return 'In lavorazione'
+      case 3:
+        return 'In attesa'
+      case 4:
+        return 'Chiusa'
+      default:
+        return 'Non definito'
+    }
+  }
+
+  const getSegnalazioneImpattaClienteLabel = (value: boolean | null | undefined) => {
+    return value ? 'Si' : 'No'
+  }
+
+  const formatSegnalazioneTesto = (value: string | null | undefined) => {
+    const normalized = String(value ?? '').trim()
+    if (!normalized) {
+      return '-'
+    }
+
+    if (normalized.length <= 140) {
+      return normalized
+    }
+
+    return `${normalized.slice(0, 137)}...`
+  }
+
+  const getSegnalazioneDataModifica = (row: any) => {
+    return formatDate(row?.dataUltimaModifica || row?.dataInserimento || row?.dataEvento)
+  }
+
+  const canEditTipologiaCommessa = Boolean(detailConfiguraData?.canEditTipologiaCommessa ?? detailConfiguraData?.canEdit)
+  const canEditProdotto = Boolean(detailConfiguraData?.canEditProdotto ?? detailConfiguraData?.canEdit)
+  const canEditBudgetImportoInvestimento = Boolean(detailConfiguraData?.canEditBudgetImportoInvestimento ?? detailConfiguraData?.canEdit)
+  const canEditBudgetOreInvestimento = Boolean(detailConfiguraData?.canEditBudgetOreInvestimento ?? detailConfiguraData?.canEdit)
+  const canEditPrezzoVenditaInizialeRcc = Boolean(detailConfiguraData?.canEditPrezzoVenditaInizialeRcc ?? detailConfiguraData?.canEdit)
+  const canEditPrezzoVenditaFinaleRcc = Boolean(detailConfiguraData?.canEditPrezzoVenditaFinaleRcc ?? detailConfiguraData?.canEdit)
+  const canEditStimaInizialeOrePm = Boolean(detailConfiguraData?.canEditStimaInizialeOrePm ?? detailConfiguraData?.canEdit)
+  const canSaveConfigura = (
+    canEditTipologiaCommessa
+    || canEditProdotto
+    || canEditBudgetImportoInvestimento
+    || canEditBudgetOreInvestimento
+    || canEditPrezzoVenditaInizialeRcc
+    || canEditPrezzoVenditaFinaleRcc
+    || canEditStimaInizialeOrePm
+  )
+
+  const selectedSegnalazione = useMemo(
+    () => detailSegnalazioniData?.segnalazioni?.find((item: any) => item.id === selectedSegnalazioneId) ?? null,
+    [detailSegnalazioniData, selectedSegnalazioneId],
+  )
+  const selectedSegnalazioneChiusa = (selectedSegnalazione?.stato ?? 0) === 4
+  const canEditSelectedSegnalazione = Number(selectedSegnalazione?.idRisorsaInserimento ?? 0) === Number(detailCurrentUserId ?? 0)
+  const hasSegnalazioniAperte = useMemo(
+    () => (detailSegnalazioniData?.segnalazioni ?? []).some((item: any) => Number(item?.stato ?? 0) !== 4),
+    [detailSegnalazioniData],
+  )
+  const segnalazioniDestinatariOptions = useMemo(() => {
+    const sourceRows = (detailSegnalazioniData?.destinatari ?? []).filter((item: any) => Number(item?.idRisorsa ?? 0) > 0)
+    const dedupedMap = new Map<string, any>()
+    sourceRows.forEach((item: any) => {
+      const roleCode = String(item.roleCode ?? '').trim().toUpperCase()
+      const idRisorsa = Number(item.idRisorsa ?? 0)
+      if (!roleCode || idRisorsa <= 0) {
+        return
+      }
+
+      const key = `${roleCode}|${idRisorsa}`
+      if (!dedupedMap.has(key)) {
+        dedupedMap.set(key, item)
+      }
+    })
+
+    return Array.from(dedupedMap.values()).sort((left: any, right: any) => {
+      const roleCompare = String(left.roleLabel ?? left.roleCode ?? '').localeCompare(
+        String(right.roleLabel ?? right.roleCode ?? ''),
+        'it',
+        { sensitivity: 'base' },
+      )
+      if (roleCompare !== 0) {
+        return roleCompare
+      }
+
+      return String(left.nomeRisorsa ?? '').localeCompare(String(right.nomeRisorsa ?? ''), 'it', { sensitivity: 'base' })
+    })
+  }, [detailSegnalazioniData])
+
+  const destinatarioSelezionatoDisponibile = useMemo(
+    () => segnalazioniDestinatariOptions.some((item: any) => Number(item.idRisorsa) === Number(segnalazioneForm.idRisorsaDestinataria || 0)),
+    [segnalazioneForm.idRisorsaDestinataria, segnalazioniDestinatariOptions],
+  )
+
+  const selectedThreadRows = useMemo(
+    () => (detailSegnalazioniData?.thread ?? []).filter((item: any) => (
+      selectedSegnalazioneId !== null ? item.idSegnalazione === selectedSegnalazioneId : true
+    )),
+    [detailSegnalazioniData, selectedSegnalazioneId],
+  )
+  const selectedMessaggio = useMemo(
+    () => selectedThreadRows.find((item: any) => item.id === selectedMessaggioId) ?? null,
+    [selectedThreadRows, selectedMessaggioId],
+  )
+  const canEditSelectedMessaggio = Number(selectedMessaggio?.idRisorsaInserimento ?? 0) === Number(detailCurrentUserId ?? 0)
+  const canDeleteSelectedSegnalazione = Boolean(
+    selectedSegnalazione
+    && canEditSelectedSegnalazione
+    && !selectedSegnalazioneChiusa
+    && selectedThreadRows.length === 0,
+  )
+
+  useEffect(() => {
+    if (!detailConfiguraData) {
+      return
+    }
+
+    setConfiguraForm({
+      idTipoCommessa: detailConfiguraData.idTipoCommessa ? detailConfiguraData.idTipoCommessa.toString() : '',
+      idProdotto: detailConfiguraData.idProdotto ? detailConfiguraData.idProdotto.toString() : '',
+      budgetImportoInvestimento: Number.isFinite(detailConfiguraData.budgetImportoInvestimento)
+        ? formatNumber(detailConfiguraData.budgetImportoInvestimento)
+        : '0',
+      budgetOreInvestimento: Number.isFinite(detailConfiguraData.budgetOreInvestimento)
+        ? formatNumber(detailConfiguraData.budgetOreInvestimento)
+        : '0',
+      prezzoVenditaInizialeRcc: Number.isFinite(detailConfiguraData.prezzoVenditaInizialeRcc)
+        ? formatNumber(detailConfiguraData.prezzoVenditaInizialeRcc)
+        : '0',
+      prezzoVenditaFinaleRcc: Number.isFinite(detailConfiguraData.prezzoVenditaFinaleRcc)
+        ? formatNumber(detailConfiguraData.prezzoVenditaFinaleRcc)
+        : '0',
+      stimaInizialeOrePm: Number.isFinite(detailConfiguraData.stimaInizialeOrePm)
+        ? formatNumber(detailConfiguraData.stimaInizialeOrePm)
+        : '0',
+    })
+  }, [detailConfiguraData, formatNumber])
+
+  useEffect(() => {
+    if (!detailSegnalazioniData) {
+      setSelectedSegnalazioneId(null)
+      return
+    }
+
+    if (!detailSegnalazioniData.segnalazioni.length) {
+      setSelectedSegnalazioneId(null)
+      return
+    }
+
+    const hasCurrent = detailSegnalazioniData.segnalazioni.some((item: any) => item.id === selectedSegnalazioneId)
+    if (!hasCurrent) {
+      setSelectedSegnalazioneId(detailSegnalazioniData.segnalazioni[0].id)
+    }
+  }, [detailSegnalazioniData, selectedSegnalazioneId])
+
+  useEffect(() => {
+    if (!selectedSegnalazione) {
+      setSegnalazioneEditorMode('hidden')
+      return
+    }
+
+    if (!isEditingSegnalazione) {
+      return
+    }
+
+    setSegnalazioneForm({
+      idTipoSegnalazione: selectedSegnalazione.idTipoSegnalazione ?? 0,
+      titolo: selectedSegnalazione.titolo ?? '',
+      testo: selectedSegnalazione.testo ?? '',
+      priorita: selectedSegnalazione.priorita ?? 2,
+      stato: selectedSegnalazione.stato ?? 1,
+      impattaCliente: Boolean(selectedSegnalazione.impattaCliente),
+      dataEvento: selectedSegnalazione.dataEvento ? String(selectedSegnalazione.dataEvento).slice(0, 10) : '',
+      idRisorsaDestinataria: selectedSegnalazione.idRisorsaDestinataria ? selectedSegnalazione.idRisorsaDestinataria.toString() : '',
+    })
+  }, [selectedSegnalazione, isEditingSegnalazione])
+
+  useEffect(() => {
+    setSelectedMessaggioId(null)
+    setReplyParentMessageId(null)
+    setMessaggioForm('')
+  }, [selectedSegnalazioneId])
+
+  useEffect(() => {
+    if (!detailSegnalazioniData?.tipiSegnalazione?.length) {
+      return
+    }
+
+    if (segnalazioneForm.idTipoSegnalazione > 0) {
+      return
+    }
+
+    const firstType = detailSegnalazioniData.tipiSegnalazione[0]
+    setSegnalazioneForm((current) => ({
+      ...current,
+      idTipoSegnalazione: firstType.id,
+      impattaCliente: Boolean(firstType.impattaClienteDefault),
+    }))
+  }, [detailSegnalazioniData, segnalazioneForm.idTipoSegnalazione])
+
+  const handleConfiguraSave = () => {
+    if (!detailConfiguraData) {
+      return
+    }
+
+    const payload = {
+      commessa: detailConfiguraData.commessa || detailCommessa,
+      idTipoCommessa: configuraForm.idTipoCommessa ? Number(configuraForm.idTipoCommessa) : null,
+      idProdotto: configuraForm.idProdotto ? Number(configuraForm.idProdotto) : null,
+      budgetImportoInvestimento: parseDecimalInput(configuraForm.budgetImportoInvestimento),
+      budgetOreInvestimento: parseDecimalInput(configuraForm.budgetOreInvestimento),
+      prezzoVenditaInizialeRcc: parseDecimalInput(configuraForm.prezzoVenditaInizialeRcc),
+      prezzoVenditaFinaleRcc: parseDecimalInput(configuraForm.prezzoVenditaFinaleRcc),
+      stimaInizialeOrePm: parseDecimalInput(configuraForm.stimaInizialeOrePm),
+    }
+    saveDetailConfigura(payload)
+  }
+
+  const resetNuovaSegnalazioneForm = () => {
+    const firstType = detailSegnalazioniData?.tipiSegnalazione?.[0]
+    setSegnalazioneEditorMode('new')
+    setSelectedMessaggioId(null)
+    setReplyParentMessageId(null)
+    setMessaggioForm('')
+    setSegnalazioneForm({
+      idTipoSegnalazione: firstType?.id ?? 0,
+      titolo: '',
+      testo: '',
+      priorita: 2,
+      stato: 1,
+      impattaCliente: Boolean(firstType?.impattaClienteDefault),
+      dataEvento: '',
+      idRisorsaDestinataria: '',
+    })
+  }
+
+  const handleApriSegnalazione = async () => {
+    if (!detailCommessa || segnalazioneForm.idTipoSegnalazione <= 0 || !segnalazioneForm.titolo.trim()) {
+      return
+    }
+
+    const success = await apriDetailSegnalazione({
+      commessa: detailCommessa,
+      idTipoSegnalazione: segnalazioneForm.idTipoSegnalazione,
+      titolo: segnalazioneForm.titolo.trim(),
+      testo: segnalazioneForm.testo.trim(),
+      priorita: segnalazioneForm.priorita,
+      impattaCliente: segnalazioneForm.impattaCliente,
+      dataEvento: segnalazioneForm.dataEvento || undefined,
+      idRisorsaDestinataria: segnalazioneForm.idRisorsaDestinataria
+        ? Number(segnalazioneForm.idRisorsaDestinataria)
+        : undefined,
+    })
+    if (success) {
+      setSegnalazioneEditorMode('hidden')
+      setReplyParentMessageId(null)
+      setSelectedMessaggioId(null)
+      setMessaggioForm('')
+    }
+  }
+
+  const handleModificaSegnalazione = async () => {
+    if (!selectedSegnalazione || !canEditSelectedSegnalazione) {
+      return
+    }
+
+    let success = true
+    const statoSelezionato = Number(segnalazioneForm.stato ?? selectedSegnalazione.stato ?? 1)
+    const statoCorrente = Number(selectedSegnalazione.stato ?? 1)
+    const isHeaderChanged = (
+      Number(segnalazioneForm.idTipoSegnalazione ?? 0) !== Number(selectedSegnalazione.idTipoSegnalazione ?? 0)
+      || segnalazioneForm.titolo.trim() !== String(selectedSegnalazione.titolo ?? '').trim()
+      || segnalazioneForm.testo.trim() !== String(selectedSegnalazione.testo ?? '').trim()
+      || Number(segnalazioneForm.priorita ?? 0) !== Number(selectedSegnalazione.priorita ?? 0)
+      || Boolean(segnalazioneForm.impattaCliente) !== Boolean(selectedSegnalazione.impattaCliente)
+      || (segnalazioneForm.dataEvento || '') !== (selectedSegnalazione.dataEvento ? String(selectedSegnalazione.dataEvento).slice(0, 10) : '')
+      || Number(segnalazioneForm.idRisorsaDestinataria || 0) !== Number(selectedSegnalazione.idRisorsaDestinataria || 0)
+    )
+
+    if (!selectedSegnalazioneChiusa && isHeaderChanged) {
+      success = await modificaDetailSegnalazione({
+        idSegnalazione: selectedSegnalazione.id,
+        idTipoSegnalazione: segnalazioneForm.idTipoSegnalazione,
+        titolo: segnalazioneForm.titolo.trim(),
+        testo: segnalazioneForm.testo.trim(),
+        priorita: segnalazioneForm.priorita,
+        impattaCliente: segnalazioneForm.impattaCliente,
+        dataEvento: segnalazioneForm.dataEvento || undefined,
+        idRisorsaDestinataria: segnalazioneForm.idRisorsaDestinataria
+          ? Number(segnalazioneForm.idRisorsaDestinataria)
+          : undefined,
+      })
+    }
+
+    if (!success) {
+      return
+    }
+
+    if (statoSelezionato !== statoCorrente) {
+      success = await cambiaStatoDetailSegnalazione({
+        idSegnalazione: selectedSegnalazione.id,
+        stato: statoSelezionato,
+      })
+    }
+
+    if (success) {
+      setSegnalazioneEditorMode('hidden')
+      setReplyParentMessageId(null)
+      setSelectedMessaggioId(null)
+      setMessaggioForm('')
+    }
+  }
+
+  const handleEliminaSegnalazione = async () => {
+    if (!selectedSegnalazione || !canDeleteSelectedSegnalazione) {
+      return
+    }
+
+    const success = await eliminaDetailSegnalazione({
+      idSegnalazione: selectedSegnalazione.id,
+    })
+    if (success) {
+      setSegnalazioneEditorMode('hidden')
+      setSelectedSegnalazioneId(null)
+      setSelectedMessaggioId(null)
+      setReplyParentMessageId(null)
+      setMessaggioForm('')
+    }
+  }
+
+  const handleInviaMessaggio = async () => {
+    if (!selectedSegnalazioneId || !messaggioForm.trim() || selectedSegnalazioneChiusa) {
+      return
+    }
+
+    const success = await inserisciDetailSegnalazioneMessaggio({
+      idSegnalazione: selectedSegnalazioneId,
+      idMessaggioPadre: replyParentMessageId && replyParentMessageId > 0 ? replyParentMessageId : undefined,
+      testo: messaggioForm.trim(),
+    })
+    if (success) {
+      setReplyParentMessageId(null)
+      setMessaggioForm('')
+    }
+  }
+
+  const handleModificaMessaggio = async () => {
+    if (!selectedSegnalazioneId || !selectedMessaggioId || !messaggioForm.trim() || selectedSegnalazioneChiusa || !canEditSelectedMessaggio) {
+      return
+    }
+
+    const success = await modificaDetailSegnalazioneMessaggio(selectedSegnalazioneId, {
+      idMessaggio: selectedMessaggioId,
+      testo: messaggioForm.trim(),
+    })
+    if (success) {
+      setSelectedMessaggioId(null)
+      setReplyParentMessageId(null)
+      setMessaggioForm('')
+    }
+  }
 
   return (
           <section className="panel sintesi-page detail-page">
@@ -176,9 +631,11 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                       <th className="detail-kpi-group-head" colSpan={7}>
                         Proiezione {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : 'mese precedente'}
                       </th>
-                      <th className="detail-kpi-group-head detail-kpi-action-col" colSpan={1}>
-                        Azione
-                      </th>
+                      {!detailKpiReadOnly && (
+                        <th className="detail-kpi-group-head detail-kpi-action-col" colSpan={1}>
+                          Azione
+                        </th>
+                      )}
                     </tr>
                     <tr>
                       <th className="num">Ore lavorate</th>
@@ -217,7 +674,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           Utile fine progetto
                         </span>
                       </th>
-                      <th className="detail-kpi-action-col">Salva</th>
+                      {!detailKpiReadOnly && <th className="detail-kpi-action-col">Salva</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -241,33 +698,35 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                       <td className={`num ${detailRicaviAnniSuccessivi < 0 ? 'num-negative' : ''}`}>{formatNumber(detailRicaviAnniSuccessivi)}</td>
                       <td className={`num ${detailCostiFuturiAggregati < 0 ? 'num-negative' : ''}`}>{formatNumber(detailCostiFuturiAggregati)}</td>
                       <td className={`num ${detailOreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreFuture)}</td>
-                      <td className={`detail-kpi-amount-cell ${detailOreRestantiProiezione < 0 ? 'num-negative' : ''}`}>
+                      <td className={`detail-kpi-amount-cell ${detailOreRestantiVisual < 0 ? 'num-negative' : ''}`}>
                         <label className="detail-kpi-amount-input-wrap">
                           <input
                             className="detail-kpi-amount-input"
                             type="text"
                             inputMode="decimal"
-                            value={detailOreRestantiInput}
+                            value={detailKpiReadOnly ? '0,00' : detailOreRestantiInput}
                             onChange={handleDetailOreRestantiInputChange}
                             onBlur={handleDetailOreRestantiInputBlur}
                             aria-label="Ore restanti"
+                            disabled={detailKpiReadOnly}
                           />
                           <span className="detail-kpi-amount-suffix">h</span>
                         </label>
                       </td>
-                      <td className={`num ${detailCostoPersonaleFuturoProiezione < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailCostoPersonaleFuturoProiezione)}
+                      <td className={`num ${detailCostoPersonaleFuturoVisual < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailCostoPersonaleFuturoVisual)}
                       </td>
-                      <td className={`detail-kpi-amount-cell ${detailRicavoPrevisto < 0 ? 'num-negative' : ''}`}>
+                      <td className={`detail-kpi-amount-cell ${detailRicavoPrevistoVisual < 0 ? 'num-negative' : ''}`}>
                         <label className="detail-kpi-amount-input-wrap">
                           <input
                             className="detail-kpi-amount-input"
                             type="text"
                             inputMode="decimal"
-                            value={detailRicavoPrevistoInput}
+                            value={detailKpiReadOnly ? '0,00' : detailRicavoPrevistoInput}
                             onChange={handleDetailRicavoPrevistoInputChange}
                             onBlur={handleDetailRicavoPrevistoInputBlur}
                             aria-label="Ricavo previsto"
+                            disabled={detailKpiReadOnly}
                           />
                           <span className="detail-kpi-amount-suffix">EUR</span>
                         </label>
@@ -278,16 +737,17 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                             className="detail-kpi-percent-input"
                             type="text"
                             inputMode="decimal"
-                            value={detailPercentRaggiuntoInput}
+                            value={detailPercentRaggiuntoVisualInput}
                             onChange={handleDetailPercentRaggiuntoInputChange}
                             onBlur={handleDetailPercentRaggiuntoInputBlur}
                             aria-label="% raggiunto progetto"
+                            disabled={detailKpiReadOnly}
                           />
                           <span className="detail-kpi-percent-suffix">%</span>
                         </label>
                       </td>
-                      <td className={`num ${detailRicavoMaturatoAlMesePrecedente < 0 ? 'num-negative' : ''}`}>
-                        {formatNumber(detailRicavoMaturatoAlMesePrecedente)}
+                      <td className={`num ${detailRicavoMaturatoVisual < 0 ? 'num-negative' : ''}`}>
+                        {formatNumber(detailRicavoMaturatoVisual)}
                       </td>
                       <td className={`num ${detailUtileRicalcolatoMesePrecedente < 0 ? 'num-negative' : ''}`}>
                         {formatNumber(detailUtileRicalcolatoMesePrecedente)}
@@ -295,15 +755,17 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                       <td className={`num ${detailUtileFineProgetto < 0 ? 'num-negative' : ''}`}>
                         {formatNumber(detailUtileFineProgetto)}
                       </td>
-                      <td className="detail-kpi-action-cell">
-                        <button
-                          type="button"
-                          onClick={handleSaveDetailPercentRaggiunto}
-                          disabled={detailLoading || detailSaving || !detailData?.commessa}
-                        >
-                          {detailSaving ? 'Salvataggio...' : 'Salva'}
-                        </button>
-                      </td>
+                      {!detailKpiReadOnly && (
+                        <td className="detail-kpi-action-cell">
+                          <button
+                            type="button"
+                            onClick={handleSaveDetailPercentRaggiunto}
+                            disabled={detailLoading || detailSaving || !detailData?.commessa}
+                          >
+                            {detailSaving ? 'Salvataggio...' : 'Salva'}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   </tbody>
                 </table>
@@ -340,6 +802,20 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                 onClick={() => setDetailActiveTab('personale')}
               >
                 Personale
+              </button>
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'configura' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('configura')}
+              >
+                Configura commessa
+              </button>
+              <button
+                type="button"
+                className={`detail-tab-button ${detailActiveTab === 'segnalazioni' ? 'is-active' : ''} ${hasSegnalazioniAperte ? 'has-open-alert' : ''}`}
+                onClick={() => setDetailActiveTab('segnalazioni')}
+              >
+                Segnalazioni
               </button>
             </section>
             <section className={`detail-grid-panels detail-grid-panels-tab-${detailActiveTab}`}>
@@ -856,6 +1332,550 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                         </div>
                       </div>
                     </>
+                  )}
+                </div>
+              </section>
+
+              <section className={`panel detail-card detail-card-configura ${detailActiveTab !== 'configura' ? 'detail-card-hidden' : ''}`}>
+                <header className="panel-header">
+                  <h3>Configura commessa</h3>
+                </header>
+                <div className="detail-card-body">
+                  {detailConfiguraStatusMessage && (
+                    <p className={`detail-configura-status ${detailConfiguraStatusMessage.toLowerCase().includes('errore') ? 'error' : ''}`}>
+                      {detailConfiguraStatusMessage}
+                    </p>
+                  )}
+
+                  {!detailConfiguraData && !detailConfiguraLoading && (
+                    <p className="empty-state">Nessuna configurazione commessa disponibile.</p>
+                  )}
+
+                  {detailConfiguraData && (
+                    <div className="detail-configura-grid">
+                      <fieldset className="detail-configura-fieldset">
+                        <legend>Dati generali</legend>
+                        <label className="detail-configura-field">
+                          <span>Tipologia commessa</span>
+                          <select
+                            value={configuraForm.idTipoCommessa}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, idTipoCommessa: event.target.value }))}
+                            disabled={!canEditTipologiaCommessa || detailConfiguraSaving}
+                          >
+                            <option value="">Seleziona tipologia</option>
+                            {detailConfiguraData.tipiCommessa.map((item: any) => (
+                              <option key={`config-tipologia-${item.id}`} value={item.id.toString()}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Prodotto</span>
+                          <select
+                            value={configuraForm.idProdotto}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, idProdotto: event.target.value }))}
+                            disabled={!canEditProdotto || detailConfiguraSaving}
+                          >
+                            <option value="">Nessun prodotto</option>
+                            {detailConfiguraData.prodotti.map((item: any) => (
+                              <option key={`config-prodotto-${item.id}`} value={item.id.toString()}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </fieldset>
+
+                      <fieldset className="detail-configura-fieldset">
+                        <legend>Commessa a investimento</legend>
+                        <label className="detail-configura-field">
+                          <span>Budget importo investimento</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={configuraForm.budgetImportoInvestimento}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, budgetImportoInvestimento: event.target.value }))}
+                            disabled={!canEditBudgetImportoInvestimento || detailConfiguraSaving}
+                          />
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Budget ore investimento</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={configuraForm.budgetOreInvestimento}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, budgetOreInvestimento: event.target.value }))}
+                            disabled={!canEditBudgetOreInvestimento || detailConfiguraSaving}
+                          />
+                        </label>
+                      </fieldset>
+
+                      <fieldset className="detail-configura-fieldset">
+                        <legend>Dati commerciali</legend>
+                        <label className="detail-configura-field">
+                          <span>Prezzo di vendita iniziale (RCC)</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={configuraForm.prezzoVenditaInizialeRcc}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, prezzoVenditaInizialeRcc: event.target.value }))}
+                            disabled={!canEditPrezzoVenditaInizialeRcc || detailConfiguraSaving}
+                          />
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Prezzo di vendita finale (RCC)</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={configuraForm.prezzoVenditaFinaleRcc}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, prezzoVenditaFinaleRcc: event.target.value }))}
+                            disabled={!canEditPrezzoVenditaFinaleRcc || detailConfiguraSaving}
+                          />
+                        </label>
+                      </fieldset>
+
+                      <fieldset className="detail-configura-fieldset">
+                        <legend>Pianificazione</legend>
+                        <label className="detail-configura-field">
+                          <span>Stima iniziale ore PM</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={configuraForm.stimaInizialeOrePm}
+                            onChange={(event) => setConfiguraForm((current) => ({ ...current, stimaInizialeOrePm: event.target.value }))}
+                            disabled={!canEditStimaInizialeOrePm || detailConfiguraSaving}
+                          />
+                        </label>
+                      </fieldset>
+                    </div>
+                  )}
+
+                  {detailConfiguraData && canSaveConfigura && (
+                    <div className="detail-configura-actions">
+                      <button
+                        type="button"
+                        onClick={handleConfiguraSave}
+                        disabled={detailConfiguraSaving || detailConfiguraLoading}
+                      >
+                        {detailConfiguraSaving ? 'Salvataggio...' : 'Salva configurazione'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className={`panel detail-card detail-card-segnalazioni ${detailActiveTab !== 'segnalazioni' ? 'detail-card-hidden' : ''}`}>
+                <header className="panel-header detail-segnalazioni-header">
+                  <h3>Segnalazioni commessa</h3>
+                  <div className="detail-segnalazioni-toolbar">
+                    <label className="detail-segnalazioni-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={detailSegnalazioniIncludeChiuse}
+                        onChange={(event) => {
+                          const checked = event.target.checked
+                          setDetailSegnalazioniIncludeChiuse(checked)
+                          loadDetailSegnalazioni({
+                            commessa: detailCommessa,
+                            includeChiuse: checked,
+                          })
+                        }}
+                        disabled={detailSegnalazioniLoading || detailSegnalazioniSaving}
+                      />
+                      <span>Includi chiuse</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => loadDetailSegnalazioni({
+                        commessa: detailCommessa,
+                        includeChiuse: detailSegnalazioniIncludeChiuse,
+                      })}
+                      disabled={detailSegnalazioniLoading || detailSegnalazioniSaving || !detailCommessa}
+                    >
+                      {detailSegnalazioniLoading ? 'Caricamento...' : 'Aggiorna'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={resetNuovaSegnalazioneForm}
+                      disabled={detailSegnalazioniSaving}
+                    >
+                      Nuova segnalazione
+                    </button>
+                  </div>
+                </header>
+                <div className="detail-card-body">
+
+                  {detailSegnalazioniStatusMessage && (
+                    <p className={`detail-configura-status ${detailSegnalazioniStatusMessage.toLowerCase().includes('errore') ? 'error' : ''}`}>
+                      {detailSegnalazioniStatusMessage}
+                    </p>
+                  )}
+
+                  <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                    {!detailSegnalazioniLoading && !detailSegnalazioniData?.segnalazioni?.length && (
+                      <p className="empty-state">Nessuna segnalazione disponibile.</p>
+                    )}
+                    {(detailSegnalazioniData?.segnalazioni?.length ?? 0) > 0 && (
+                      <table className="bonifici-table detail-segnalazioni-table">
+                        <colgroup>
+                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '36%' }} />
+                          <col style={{ width: '8%' }} />
+                          <col style={{ width: '8%' }} />
+                          <col style={{ width: '7%' }} />
+                          <col style={{ width: '8%' }} />
+                          <col style={{ width: '8%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '16%' }} />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th>Tipo</th>
+                            <th>Titolo</th>
+                            <th>Testo</th>
+                            <th>Priorita</th>
+                            <th>Stato</th>
+                            <th>Impatta</th>
+                            <th>Autore</th>
+                            <th>Data modifica</th>
+                            <th>Assegnata a</th>
+                            <th>Azione</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailSegnalazioniData!.segnalazioni.map((row: any) => {
+                            const threadRows = (detailSegnalazioniData?.thread ?? []).filter(
+                              (threadRow: any) => threadRow.idSegnalazione === row.id,
+                            )
+                            return (
+                              <Fragment key={`segnalazione-${row.id}`}>
+                                <tr
+                                  className={selectedSegnalazioneId === row.id ? 'detail-segnalazione-selected' : ''}
+                                  onClick={() => {
+                                    setSelectedSegnalazioneId(row.id)
+                                    setSegnalazioneEditorMode('hidden')
+                                    setSelectedMessaggioId(null)
+                                    setReplyParentMessageId(null)
+                                    setMessaggioForm('')
+                                  }}
+                                >
+                                  <td>{row.tipoDescrizione}</td>
+                                  <td>{row.titolo}</td>
+                                  <td className="detail-segnalazioni-text-cell" title={row.testo || ''}>{formatSegnalazioneTesto(row.testo)}</td>
+                                  <td>{getSegnalazionePrioritaLabel(row.priorita)}</td>
+                                  <td>{getSegnalazioneStatoLabel(row.stato)}</td>
+                                  <td>{getSegnalazioneImpattaClienteLabel(row.impattaCliente)}</td>
+                                  <td>
+                                    <div className="detail-segnalazioni-author-cell">{row.nomeRisorsaInserimento || '-'}</div>
+                                  </td>
+                                  <td>{getSegnalazioneDataModifica(row)}</td>
+                                  <td>{row.nomeRisorsaDestinataria || 'Non assegnata'}</td>
+                                  <td className="detail-segnalazioni-row-actions">
+                                    <button
+                                      type="button"
+                                      className="ghost-button detail-inline-action"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        setSelectedSegnalazioneId(row.id)
+                                        setSegnalazioneEditorMode('edit')
+                                        setSelectedMessaggioId(null)
+                                        setReplyParentMessageId(null)
+                                        setMessaggioForm('')
+                                      }}
+                                      disabled={detailSegnalazioniSaving || Number(row.idRisorsaInserimento ?? 0) !== Number(detailCurrentUserId ?? 0)}
+                                    >
+                                      Modifica
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ghost-button detail-inline-action"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        setSelectedSegnalazioneId(row.id)
+                                        setSelectedMessaggioId(null)
+                                        setReplyParentMessageId(0)
+                                        setMessaggioForm('')
+                                      }}
+                                      disabled={detailSegnalazioniSaving || Number(row.stato ?? 0) === 4}
+                                    >
+                                      Rispondi
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ghost-button detail-inline-action"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        void eliminaDetailSegnalazione({ idSegnalazione: row.id })
+                                      }}
+                                      disabled={
+                                        detailSegnalazioniSaving
+                                        || Number(row.idRisorsaInserimento ?? 0) !== Number(detailCurrentUserId ?? 0)
+                                        || Number(row.stato ?? 0) === 4
+                                        || threadRows.length > 0
+                                      }
+                                    >
+                                      Elimina
+                                    </button>
+                                  </td>
+                                </tr>
+                                {threadRows.map((threadRow: any) => {
+                                  const canEditMessage = Number(threadRow.idRisorsaInserimento ?? 0) === Number(detailCurrentUserId ?? 0)
+                                  const hasChildMessages = threadRows.some(
+                                    (candidate: any) => Number(candidate.idMessaggioPadre ?? 0) === Number(threadRow.id ?? 0),
+                                  )
+                                  const rowChiusa = Number(row.stato ?? 0) === 4
+                                  return (
+                                    <tr key={`segnalazione-msg-${threadRow.id}`} className="detail-segnalazione-thread-row">
+                                      <td />
+                                      <td />
+                                      <td className="detail-segnalazioni-text-cell">
+                                        <div
+                                          className="detail-segnalazioni-thread-text"
+                                          style={{ paddingLeft: `${Math.max(0, Number(threadRow.livello ?? 0)) * 18}px` }}
+                                        >
+                                          <div>{threadRow.testo || '-'}</div>
+                                        </div>
+                                      </td>
+                                      <td>-</td>
+                                      <td>-</td>
+                                      <td>-</td>
+                                      <td>
+                                        <div className="detail-segnalazioni-author-cell">{threadRow.nomeRisorsaInserimento || '-'}</div>
+                                      </td>
+                                      <td>{formatDate(threadRow.dataUltimaModifica || threadRow.dataInserimento)}</td>
+                                      <td>-</td>
+                                      <td className="detail-segnalazioni-row-actions">
+                                        <button
+                                          type="button"
+                                          className="ghost-button detail-inline-action"
+                                          disabled={detailSegnalazioniSaving || rowChiusa}
+                                          onClick={() => {
+                                            setSelectedSegnalazioneId(row.id)
+                                            setSelectedMessaggioId(null)
+                                            setReplyParentMessageId(threadRow.id)
+                                            setMessaggioForm('')
+                                          }}
+                                        >
+                                          Rispondi
+                                        </button>
+                                        {canEditMessage && (
+                                          <button
+                                            type="button"
+                                            className="ghost-button detail-inline-action"
+                                            disabled={detailSegnalazioniSaving || rowChiusa}
+                                            onClick={() => {
+                                              setSelectedSegnalazioneId(row.id)
+                                              setSelectedMessaggioId(threadRow.id)
+                                              setReplyParentMessageId(null)
+                                              setMessaggioForm(threadRow.testo ?? '')
+                                            }}
+                                          >
+                                            Modifica
+                                          </button>
+                                        )}
+                                        {canEditMessage && (
+                                          <button
+                                            type="button"
+                                            className="ghost-button detail-inline-action"
+                                            disabled={detailSegnalazioniSaving || rowChiusa || hasChildMessages}
+                                            onClick={() => {
+                                              setSelectedSegnalazioneId(row.id)
+                                              void eliminaDetailSegnalazioneMessaggio(row.id, {
+                                                idMessaggio: threadRow.id,
+                                              })
+                                            }}
+                                          >
+                                            Elimina
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </Fragment>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  {showSegnalazioneEditor && (
+                    <fieldset className="detail-configura-fieldset detail-segnalazioni-editor">
+                      <legend>{isEditingSegnalazione ? `Modifica segnalazione #${selectedSegnalazione?.id ?? ''}` : 'Nuova segnalazione'}</legend>
+                      <label className="detail-configura-field">
+                        <span>Tipo segnalazione</span>
+                        <select
+                          value={segnalazioneForm.idTipoSegnalazione > 0 ? segnalazioneForm.idTipoSegnalazione.toString() : ''}
+                          onChange={(event) => setSegnalazioneForm((current) => ({ ...current, idTipoSegnalazione: Number(event.target.value) }))}
+                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
+                        >
+                          <option value="">Seleziona tipo</option>
+                          {(detailSegnalazioniData?.tipiSegnalazione ?? []).map((item: any) => (
+                            <option key={`tipo-segnalazione-${item.id}`} value={item.id.toString()}>
+                              {item.codice} - {item.descrizione}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="detail-configura-field">
+                        <span>Titolo</span>
+                        <input
+                          type="text"
+                          value={segnalazioneForm.titolo}
+                          onChange={(event) => setSegnalazioneForm((current) => ({ ...current, titolo: event.target.value }))}
+                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                        />
+                      </label>
+                      <label className="detail-configura-field">
+                        <span>Testo</span>
+                        <textarea
+                          rows={4}
+                          value={segnalazioneForm.testo}
+                          onChange={(event) => setSegnalazioneForm((current) => ({ ...current, testo: event.target.value }))}
+                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                        />
+                      </label>
+                      <div className="detail-segnalazioni-inline-fields">
+                        <label className="detail-configura-field">
+                          <span>Priorita</span>
+                          <select
+                            value={segnalazioneForm.priorita.toString()}
+                            onChange={(event) => setSegnalazioneForm((current) => ({ ...current, priorita: Number(event.target.value) }))}
+                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          >
+                            <option value="1">Alta</option>
+                            <option value="2">Media</option>
+                            <option value="3">Bassa</option>
+                          </select>
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Stato</span>
+                          <select
+                            value={segnalazioneForm.stato.toString()}
+                            onChange={(event) => setSegnalazioneForm((current) => ({ ...current, stato: Number(event.target.value) }))}
+                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
+                          >
+                            <option value="1">Aperta</option>
+                            <option value="2">In lavorazione</option>
+                            <option value="3">In attesa</option>
+                            <option value="4">Chiusa</option>
+                          </select>
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Data evento</span>
+                          <input
+                            type="date"
+                            value={segnalazioneForm.dataEvento}
+                            onChange={(event) => setSegnalazioneForm((current) => ({ ...current, dataEvento: event.target.value }))}
+                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          />
+                        </label>
+                        <label className="detail-configura-field">
+                          <span>Figura destinataria</span>
+                          <select
+                            value={segnalazioneForm.idRisorsaDestinataria}
+                            onChange={(event) => setSegnalazioneForm((current) => ({ ...current, idRisorsaDestinataria: event.target.value }))}
+                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          >
+                            <option value="">Nessuna</option>
+                            {segnalazioniDestinatariOptions.map((item: any) => (
+                              <option key={`destinatario-${item.roleCode}-${item.idRisorsa}`} value={String(item.idRisorsa)}>
+                                {item.roleLabel || item.roleCode}: {item.nomeRisorsa || `Risorsa ${item.idRisorsa}`}
+                                {item.email ? ` (${item.email})` : ''}
+                              </option>
+                            ))}
+                            {segnalazioneForm.idRisorsaDestinataria && !destinatarioSelezionatoDisponibile && (
+                              <option value={segnalazioneForm.idRisorsaDestinataria}>
+                                Destinatario corrente (ID {segnalazioneForm.idRisorsaDestinataria})
+                              </option>
+                            )}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="detail-segnalazioni-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={segnalazioneForm.impattaCliente}
+                          onChange={(event) => setSegnalazioneForm((current) => ({ ...current, impattaCliente: event.target.checked }))}
+                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                        />
+                        <span>Impatta cliente</span>
+                      </label>
+                      <div className="detail-configura-actions">
+                        <button
+                          type="button"
+                          onClick={isEditingSegnalazione ? handleModificaSegnalazione : handleApriSegnalazione}
+                          disabled={
+                            detailSegnalazioniSaving
+                            || !segnalazioneForm.titolo.trim()
+                            || segnalazioneForm.idTipoSegnalazione <= 0
+                            || (isEditingSegnalazione && (!selectedSegnalazione || !canEditSelectedSegnalazione))
+                          }
+                        >
+                          {detailSegnalazioniSaving ? 'Salvataggio...' : 'Salva'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => setSegnalazioneEditorMode('hidden')}
+                          disabled={detailSegnalazioniSaving}
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    </fieldset>
+                  )}
+
+                  {selectedSegnalazioneId && (selectedMessaggioId !== null || replyParentMessageId !== null) && (
+                    <section className="detail-segnalazioni-thread">
+                      <div className="detail-segnalazioni-reply">
+                        {replyParentMessageId !== null && replyParentMessageId > 0 && !selectedMessaggioId && (
+                          <p className="detail-segnalazioni-reply-target">
+                            Risposta al messaggio #{replyParentMessageId}
+                          </p>
+                        )}
+                        {replyParentMessageId === 0 && !selectedMessaggioId && (
+                          <p className="detail-segnalazioni-reply-target">
+                            Risposta generale alla segnalazione
+                          </p>
+                        )}
+                        <label className="detail-configura-field">
+                          <span>{selectedMessaggioId ? `Modifica messaggio #${selectedMessaggioId}` : 'Messaggio'}</span>
+                          <textarea
+                            rows={4}
+                            value={messaggioForm}
+                            onChange={(event) => setMessaggioForm(event.target.value)}
+                            disabled={detailSegnalazioniSaving || selectedSegnalazioneChiusa}
+                          />
+                        </label>
+                        <div className="detail-configura-actions">
+                          <button
+                            type="button"
+                            onClick={selectedMessaggioId ? handleModificaMessaggio : handleInviaMessaggio}
+                            disabled={detailSegnalazioniSaving || !messaggioForm.trim() || selectedSegnalazioneChiusa || (Boolean(selectedMessaggioId) && !canEditSelectedMessaggio)}
+                          >
+                            {detailSegnalazioniSaving ? 'Salvataggio...' : 'Salva'}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => {
+                              setSelectedMessaggioId(null)
+                              setReplyParentMessageId(null)
+                              setMessaggioForm('')
+                            }}
+                            disabled={detailSegnalazioniSaving}
+                          >
+                            Annulla
+                          </button>
+                        </div>
+                      </div>
+                    </section>
                   )}
                 </div>
               </section>

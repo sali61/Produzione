@@ -1086,6 +1086,373 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
           AND [menu] = @Menu
           AND voce = @Voce;
         """;
+    private const string ResolveCommessaIdByCodeQuery = """
+        SELECT TOP (1)
+            CAST(c.id AS INT) AS IdCommessa
+        FROM dbo.commesse c
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+        ORDER BY c.id DESC;
+        """;
+    private const string CommessaConfigSelectQuery = """
+        SELECT TOP (1)
+            CAST(c.id AS INT) AS IdCommessa,
+            CAST(c.ID_Tipo AS INT) AS IdTipoCommessa,
+            CAST(ISNULL(tc.Tipo_commessa, N'') AS NVARCHAR(256)) AS TipologiaCommessa,
+            CAST(c.ID_Prodotto AS INT) AS IdProdotto,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(p.NomeProdotto, N''))), N''),
+                    NULLIF(LTRIM(RTRIM(ISNULL(p.Descrizione, N''))), N''),
+                    NULLIF(LTRIM(RTRIM(ISNULL(v.NomeProdotto, N''))), N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS Prodotto,
+            CAST(ISNULL(c.BudgetImportoInvestimento, 0) AS DECIMAL(18, 2)) AS BudgetImportoInvestimento,
+            CAST(ISNULL(c.BudgetOreInvestimento, 0) AS DECIMAL(18, 2)) AS BudgetOreInvestimento,
+            CAST(ISNULL(c.CDG_PrezzodiVenditaInizialeRCC, 0) AS DECIMAL(18, 2)) AS PrezzoVenditaInizialeRcc,
+            CAST(ISNULL(c.CDG_PrezzodiVenditaFinaleRCC, 0) AS DECIMAL(18, 2)) AS PrezzoVenditaFinaleRcc,
+            CAST(ISNULL(c.CDG_StimainizialeOrePM, 0) AS DECIMAL(18, 2)) AS StimaInizialeOrePm
+        FROM dbo.commesse c
+        LEFT JOIN dbo.Tipi_Commessa tc
+            ON tc.ID = c.ID_Tipo
+        LEFT JOIN dbo.Prodotti p
+            ON p.ID = c.ID_Prodotto
+        OUTER APPLY
+        (
+            SELECT TOP (1)
+                CAST(ISNULL(q.NomeProdotto, N'') AS NVARCHAR(256)) AS NomeProdotto
+            FROM cdg_qryComessaPmRcc q
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(q.COMMESSA, N'')))) = @CommessaUpper
+            ORDER BY q.data_commessa DESC
+        ) v
+        WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+        ORDER BY c.id DESC;
+        """;
+    private const string CommessaConfigTipiCommessaQuery = """
+        SELECT
+            CAST(tc.ID AS INT) AS Id,
+            CAST(
+                LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(ISNULL(tc.Tipo_commessa, N''), N''),
+                        CAST(tc.ID AS NVARCHAR(20))
+                    )
+                ))
+            AS NVARCHAR(256)) AS Label
+        FROM dbo.Tipi_Commessa tc
+        WHERE ISNULL(tc.attiva, 1) = 1
+        ORDER BY Label;
+        """;
+    private const string CommessaConfigProdottiQuery = """
+        SELECT
+            CAST(p.ID AS INT) AS Id,
+            CAST(
+                LTRIM(RTRIM(
+                    COALESCE(
+                        NULLIF(ISNULL(p.NomeProdotto, N''), N''),
+                        NULLIF(ISNULL(p.Descrizione, N''), N''),
+                        CAST(p.ID AS NVARCHAR(20))
+                    )
+                ))
+            AS NVARCHAR(256)) AS Label
+        FROM dbo.Prodotti p
+        WHERE ISNULL(p.Obsoleto, 0) = 0
+        ORDER BY Label;
+        """;
+    private const string CommessaConfigUpdateQuery = """
+        DECLARE @IdCommessa INT =
+        (
+            SELECT TOP (1) c.id
+            FROM dbo.commesse c
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'')))) = @CommessaUpper
+            ORDER BY c.id DESC
+        );
+
+        IF @IdCommessa IS NULL
+        BEGIN
+            SELECT TOP (0)
+                CAST(0 AS INT) AS IdCommessa,
+                CAST(NULL AS INT) AS IdTipoCommessa,
+                CAST(N'' AS NVARCHAR(256)) AS TipologiaCommessa,
+                CAST(NULL AS INT) AS IdProdotto,
+                CAST(N'' AS NVARCHAR(256)) AS Prodotto,
+                CAST(0 AS DECIMAL(18, 2)) AS BudgetImportoInvestimento,
+                CAST(0 AS DECIMAL(18, 2)) AS BudgetOreInvestimento,
+                CAST(0 AS DECIMAL(18, 2)) AS PrezzoVenditaInizialeRcc,
+                CAST(0 AS DECIMAL(18, 2)) AS PrezzoVenditaFinaleRcc,
+                CAST(0 AS DECIMAL(18, 2)) AS StimaInizialeOrePm;
+            RETURN;
+        END;
+
+        UPDATE dbo.commesse
+        SET
+            ID_Tipo = @IdTipoCommessa,
+            ID_Prodotto = @IdProdotto,
+            BudgetImportoInvestimento = @BudgetImportoInvestimento,
+            BudgetOreInvestimento = @BudgetOreInvestimento,
+            CDG_PrezzodiVenditaInizialeRCC = @PrezzoVenditaInizialeRcc,
+            CDG_PrezzodiVenditaFinaleRCC = @PrezzoVenditaFinaleRcc,
+            CDG_StimainizialeOrePM = @StimaInizialeOrePm
+        WHERE id = @IdCommessa;
+
+        SELECT TOP (1)
+            CAST(c.id AS INT) AS IdCommessa,
+            CAST(c.ID_Tipo AS INT) AS IdTipoCommessa,
+            CAST(ISNULL(tc.Tipo_commessa, N'') AS NVARCHAR(256)) AS TipologiaCommessa,
+            CAST(c.ID_Prodotto AS INT) AS IdProdotto,
+            CAST(
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(ISNULL(p.NomeProdotto, N''))), N''),
+                    NULLIF(LTRIM(RTRIM(ISNULL(p.Descrizione, N''))), N''),
+                    N''
+                )
+            AS NVARCHAR(256)) AS Prodotto,
+            CAST(ISNULL(c.BudgetImportoInvestimento, 0) AS DECIMAL(18, 2)) AS BudgetImportoInvestimento,
+            CAST(ISNULL(c.BudgetOreInvestimento, 0) AS DECIMAL(18, 2)) AS BudgetOreInvestimento,
+            CAST(ISNULL(c.CDG_PrezzodiVenditaInizialeRCC, 0) AS DECIMAL(18, 2)) AS PrezzoVenditaInizialeRcc,
+            CAST(ISNULL(c.CDG_PrezzodiVenditaFinaleRCC, 0) AS DECIMAL(18, 2)) AS PrezzoVenditaFinaleRcc,
+            CAST(ISNULL(c.CDG_StimainizialeOrePM, 0) AS DECIMAL(18, 2)) AS StimaInizialeOrePm
+        FROM dbo.commesse c
+        LEFT JOIN dbo.Tipi_Commessa tc
+            ON tc.ID = c.ID_Tipo
+        LEFT JOIN dbo.Prodotti p
+            ON p.ID = c.ID_Prodotto
+        WHERE c.id = @IdCommessa;
+        """;
+    private const string SegnalazioniTipiSelectQuery = """
+        SELECT
+            CAST(ISNULL(v.Id, 0) AS INT) AS Id,
+            CAST(ISNULL(v.Codice, N'') AS NVARCHAR(100)) AS Codice,
+            CAST(ISNULL(v.Descrizione, N'') AS NVARCHAR(256)) AS Descrizione,
+            CAST(ISNULL(v.ImpattaClienteDefault, 0) AS BIT) AS ImpattaClienteDefault,
+            CAST(ISNULL(v.OrdineVisualizzazione, 0) AS INT) AS OrdineVisualizzazione
+        FROM produzione.vwTipiSegnalazioneCommessaAttivi v
+        ORDER BY
+            ISNULL(v.OrdineVisualizzazione, 0),
+            ISNULL(v.Descrizione, N'');
+        """;
+    private const string SegnalazioniCommessaSelectQuery = """
+        DECLARE @TipoCodiceColumn SYSNAME =
+        (
+            SELECT TOP (1) c.name
+            FROM sys.columns c
+            WHERE c.object_id = OBJECT_ID(N'produzione.vwSegnalazioniCommessa')
+              AND c.name IN (N'CodiceTipoSegnalazione', N'TipoCodice')
+            ORDER BY CASE c.name WHEN N'CodiceTipoSegnalazione' THEN 0 ELSE 1 END
+        );
+
+        DECLARE @TipoDescrizioneColumn SYSNAME =
+        (
+            SELECT TOP (1) c.name
+            FROM sys.columns c
+            WHERE c.object_id = OBJECT_ID(N'produzione.vwSegnalazioniCommessa')
+              AND c.name IN (N'DescrizioneTipoSegnalazione', N'TipoDescrizione')
+            ORDER BY CASE c.name WHEN N'DescrizioneTipoSegnalazione' THEN 0 ELSE 1 END
+        );
+
+        DECLARE @Sql NVARCHAR(MAX) = N'
+            SELECT
+                CAST(ISNULL(s.Id, 0) AS INT) AS Id,
+                CAST(ISNULL(s.IdCommessa, 0) AS INT) AS IdCommessa,
+                CAST(ISNULL(s.IdTipoSegnalazione, 0) AS INT) AS IdTipoSegnalazione,
+                CAST(ISNULL(' + CASE
+                    WHEN @TipoCodiceColumn IS NOT NULL THEN N's.' + QUOTENAME(@TipoCodiceColumn)
+                    ELSE N'N'''''''
+                END + N', N'''') AS NVARCHAR(100)) AS TipoCodice,
+                CAST(ISNULL(' + CASE
+                    WHEN @TipoDescrizioneColumn IS NOT NULL THEN N's.' + QUOTENAME(@TipoDescrizioneColumn)
+                    ELSE N'N'''''''
+                END + N', N'''') AS NVARCHAR(256)) AS TipoDescrizione,
+                CAST(ISNULL(s.Titolo, N'''') AS NVARCHAR(512)) AS Titolo,
+                CAST(ISNULL(s.Testo, N'''') AS NVARCHAR(MAX)) AS Testo,
+                CAST(ISNULL(s.Priorita, 0) AS INT) AS Priorita,
+                CAST(ISNULL(s.Stato, 0) AS INT) AS Stato,
+                CAST(ISNULL(s.ImpattaCliente, 0) AS BIT) AS ImpattaCliente,
+                CAST(s.DataEvento AS DATETIME2(0)) AS DataEvento,
+                CAST(s.DataInserimento AS DATETIME2(0)) AS DataInserimento,
+                CAST(s.IdRisorsaInserimento AS INT) AS IdRisorsaInserimento,
+                CAST(ISNULL(LTRIM(RTRIM(ISNULL(rIns.[Nome Risorsa], N''''))), N'''') AS NVARCHAR(256)) AS NomeRisorsaInserimento,
+                CAST(s.DataUltimaModifica AS DATETIME2(0)) AS DataUltimaModifica,
+                CAST(s.IdRisorsaUltimaModifica AS INT) AS IdRisorsaUltimaModifica,
+                CAST(ISNULL(LTRIM(RTRIM(ISNULL(rUpd.[Nome Risorsa], N''''))), N'''') AS NVARCHAR(256)) AS NomeRisorsaUltimaModifica,
+                CAST(s.DataChiusura AS DATETIME2(0)) AS DataChiusura,
+                CAST(s.IdRisorsaDestinataria AS INT) AS IdRisorsaDestinataria,
+                CAST(ISNULL(LTRIM(RTRIM(ISNULL(rDest.[Nome Risorsa], N''''))), N'''') AS NVARCHAR(256)) AS NomeRisorsaDestinataria
+            FROM produzione.vwSegnalazioniCommessa s
+            INNER JOIN dbo.commesse c
+                ON c.id = s.IdCommessa
+            LEFT JOIN dbo.Risorse rIns
+                ON rIns.id = s.IdRisorsaInserimento
+            LEFT JOIN dbo.Risorse rUpd
+                ON rUpd.id = s.IdRisorsaUltimaModifica
+            LEFT JOIN dbo.Risorse rDest
+                ON rDest.id = s.IdRisorsaDestinataria
+            WHERE UPPER(LTRIM(RTRIM(ISNULL(c.commessa, N'''')))) = @CommessaUpper
+              AND (@IncludeChiuse = 1 OR ISNULL(s.Stato, 0) <> 4)
+            ORDER BY
+                ISNULL(s.Stato, 0),
+                ISNULL(s.Priorita, 0),
+                ISNULL(s.DataEvento, s.DataInserimento) DESC,
+                ISNULL(s.Id, 0) DESC;';
+
+        EXEC sp_executesql
+            @Sql,
+            N'@CommessaUpper NVARCHAR(128), @IncludeChiuse INT',
+            @CommessaUpper = @CommessaUpper,
+            @IncludeChiuse = @IncludeChiuse;
+        """;
+    private const string SegnalazioniCommesseAnalisiSelectQuery = """
+        ;WITH CommesseLatest AS
+        (
+            SELECT
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N'')))) AS NVARCHAR(128)) AS CommessaUpper,
+                CAST(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) AS NVARCHAR(128)) AS Commessa,
+                CAST(ISNULL(c.idPM, 0) AS INT) AS IdPm,
+                CAST(ISNULL(c.idRCC, 0) AS INT) AS IdRcc,
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(c.NetUserNamePM, N'')))) AS NVARCHAR(256)) AS NetUserNamePmUpper,
+                CAST(UPPER(LTRIM(RTRIM(ISNULL(c.NetUserNameRCC, N'')))) AS NVARCHAR(256)) AS NetUserNameRccUpper,
+                CAST(LTRIM(RTRIM(ISNULL(c.idBusinessUnit, N''))) AS NVARCHAR(128)) AS BusinessUnit,
+                CAST(c.data_commessa AS DATETIME2(0)) AS DataCommessa,
+                ROW_NUMBER() OVER
+                (
+                    PARTITION BY UPPER(LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))))
+                    ORDER BY c.data_commessa DESC, c.idcommessa DESC
+                ) AS Rn
+            FROM cdg_qryComessaPmRcc c
+            WHERE LTRIM(RTRIM(ISNULL(c.COMMESSA, N''))) <> N''
+        )
+        SELECT TOP (@Take)
+            CAST(ISNULL(s.Id, 0) AS INT) AS Id,
+            CAST(ISNULL(s.IdCommessa, 0) AS INT) AS IdCommessa,
+            CAST(ISNULL(c.Commessa, N'') AS NVARCHAR(128)) AS Commessa,
+            CAST(ISNULL(s.IdTipoSegnalazione, 0) AS INT) AS IdTipoSegnalazione,
+            CAST(ISNULL(ts.Codice, N'') AS NVARCHAR(100)) AS TipoCodice,
+            CAST(ISNULL(ts.Descrizione, N'') AS NVARCHAR(256)) AS TipoDescrizione,
+            CAST(ISNULL(s.Titolo, N'') AS NVARCHAR(512)) AS Titolo,
+            CAST(ISNULL(s.Testo, N'') AS NVARCHAR(MAX)) AS Testo,
+            CAST(ISNULL(s.Priorita, 0) AS INT) AS Priorita,
+            CAST(ISNULL(s.Stato, 0) AS INT) AS Stato,
+            CAST(ISNULL(s.ImpattaCliente, 0) AS BIT) AS ImpattaCliente,
+            CAST(s.DataEvento AS DATETIME2(0)) AS DataEvento,
+            CAST(s.DataInserimento AS DATETIME2(0)) AS DataInserimento,
+            CAST(s.IdRisorsaInserimento AS INT) AS IdRisorsaInserimento,
+            CAST(ISNULL(LTRIM(RTRIM(ISNULL(rIns.[Nome Risorsa], N''))), N'') AS NVARCHAR(256)) AS NomeRisorsaInserimento,
+            CAST(s.DataUltimaModifica AS DATETIME2(0)) AS DataUltimaModifica,
+            CAST(s.IdRisorsaUltimaModifica AS INT) AS IdRisorsaUltimaModifica,
+            CAST(ISNULL(LTRIM(RTRIM(ISNULL(rUpd.[Nome Risorsa], N''))), N'') AS NVARCHAR(256)) AS NomeRisorsaUltimaModifica,
+            CAST(s.DataChiusura AS DATETIME2(0)) AS DataChiusura,
+            CAST(s.IdRisorsaDestinataria AS INT) AS IdRisorsaDestinataria,
+            CAST(ISNULL(LTRIM(RTRIM(ISNULL(rDest.[Nome Risorsa], N''))), N'') AS NVARCHAR(256)) AS NomeRisorsaDestinataria
+        FROM produzione.vwSegnalazioniCommessa s
+        INNER JOIN dbo.commesse cm
+            ON cm.id = s.IdCommessa
+        INNER JOIN CommesseLatest c
+            ON c.Rn = 1
+           AND c.CommessaUpper = UPPER(LTRIM(RTRIM(ISNULL(cm.commessa, N''))))
+        LEFT JOIN produzione.TipiSegnalazioneCommessa ts
+            ON ts.Id = s.IdTipoSegnalazione
+        LEFT JOIN dbo.Risorse rIns
+            ON rIns.id = s.IdRisorsaInserimento
+        LEFT JOIN dbo.Risorse rUpd
+            ON rUpd.id = s.IdRisorsaUltimaModifica
+        LEFT JOIN dbo.Risorse rDest
+            ON rDest.id = s.IdRisorsaDestinataria
+        WHERE
+            (@Stato IS NULL OR ISNULL(s.Stato, 0) = @Stato)
+            AND (@IdRisorsaDestinataria IS NULL OR ISNULL(s.IdRisorsaDestinataria, 0) = @IdRisorsaDestinataria)
+            AND (
+                @IsGlobal = 1
+                OR (
+                    @IsPm = 1
+                    AND (
+                        ISNULL(c.IdPm, 0) = @IdRisorsa
+                        OR ISNULL(c.NetUserNamePmUpper, N'') = @UsernameUpper
+                    )
+                )
+                OR (
+                    @IsRcc = 1
+                    AND (
+                        ISNULL(c.IdRcc, 0) = @IdRisorsa
+                        OR ISNULL(c.NetUserNameRccUpper, N'') = @UsernameUpper
+                    )
+                )
+                OR (
+                    @IsResponsabileOu = 1
+                    AND EXISTS
+                    (
+                        SELECT 1
+                        FROM [orga].[vw_OU_OrganigrammaAncestor] ou
+                        WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
+                          AND ou.sigla COLLATE DATABASE_DEFAULT = c.BusinessUnit COLLATE DATABASE_DEFAULT
+                    )
+                )
+            )
+        ORDER BY
+            ISNULL(s.Stato, 0),
+            ISNULL(s.Priorita, 0),
+            ISNULL(s.DataUltimaModifica, s.DataInserimento) DESC,
+            ISNULL(s.Id, 0) DESC;
+        """;
+    private const string SegnalazioniThreadSelectQuery = """
+        SELECT
+            CAST(ISNULL(t.IdMessaggio, 0) AS INT) AS Id,
+            CAST(ISNULL(t.IdSegnalazione, 0) AS INT) AS IdSegnalazione,
+            CAST(t.IdMessaggioPadre AS INT) AS IdMessaggioPadre,
+            CAST(ISNULL(t.Livello, 0) AS INT) AS Livello,
+            CAST(ISNULL(t.Testo, N'') AS NVARCHAR(MAX)) AS Testo,
+            CAST(t.DataInserimento AS DATETIME2(0)) AS DataInserimento,
+            CAST(t.IdRisorsaInserimento AS INT) AS IdRisorsaInserimento,
+            CAST(ISNULL(LTRIM(RTRIM(ISNULL(rIns.[Nome Risorsa], N''))), N'') AS NVARCHAR(256)) AS NomeRisorsaInserimento,
+            CAST(t.DataUltimaModifica AS DATETIME2(0)) AS DataUltimaModifica,
+            CAST(t.IdRisorsaUltimaModifica AS INT) AS IdRisorsaUltimaModifica,
+            CAST(ISNULL(LTRIM(RTRIM(ISNULL(rUpd.[Nome Risorsa], N''))), N'') AS NVARCHAR(256)) AS NomeRisorsaUltimaModifica
+        FROM produzione.vwThreadSegnalazioniCommessa t
+        LEFT JOIN dbo.Risorse rIns
+            ON rIns.id = t.IdRisorsaInserimento
+        LEFT JOIN dbo.Risorse rUpd
+            ON rUpd.id = t.IdRisorsaUltimaModifica
+        WHERE t.IdSegnalazione = @IdSegnalazione
+          AND t.IdMessaggio IS NOT NULL
+        ORDER BY
+            ISNULL(t.PercorsoOrdinamento, N''),
+            ISNULL(t.IdMessaggio, 0);
+        """;
+    private const string SegnalazioniApriStoredProcedure = "produzione.sp_ApriSegnalazioneCommessa";
+    private const string SegnalazioniModificaStoredProcedure = "produzione.sp_ModificaSegnalazioneCommessa";
+    private const string SegnalazioniAssegnaStoredProcedure = "produzione.sp_AssegnaSegnalazioneCommessa";
+    private const string SegnalazioniAggiornaStatoStoredProcedure = "produzione.sp_AggiornaStatoSegnalazioneCommessa";
+    private const string SegnalazioniChiudiStoredProcedure = "produzione.sp_ChiudiSegnalazioneCommessa";
+    private const string SegnalazioniRiapriStoredProcedure = "produzione.sp_RiapriSegnalazioneCommessa";
+    private const string SegnalazioniInserisciMessaggioStoredProcedure = "produzione.sp_InserisciMessaggioSegnalazioneCommessa";
+    private const string SegnalazioniModificaMessaggioStoredProcedure = "produzione.sp_ModificaMessaggioSegnalazioneCommessa";
+    private const string SegnalazioniDeleteQuery = """
+        DELETE s
+        FROM produzione.SegnalazioniCommessa s
+        WHERE s.Id = @IdSegnalazione
+          AND s.IdRisorsaInserimento = @IdRisorsa
+          AND NOT EXISTS
+          (
+              SELECT 1
+              FROM produzione.SegnalazioniCommessaMessaggi m
+              WHERE m.IdSegnalazione = s.Id
+          );
+
+        SELECT CAST(CASE WHEN @@ROWCOUNT > 0 THEN 1 ELSE 0 END AS BIT) AS Eliminata;
+        """;
+    private const string SegnalazioniDeleteMessaggioQuery = """
+        DELETE m
+        FROM produzione.SegnalazioniCommessaMessaggi m
+        WHERE m.Id = @IdMessaggio
+          AND m.IdRisorsaInserimento = @IdRisorsa
+          AND NOT EXISTS
+          (
+              SELECT 1
+              FROM produzione.SegnalazioniCommessaMessaggi child
+              WHERE child.IdMessaggioPadre = m.Id
+          );
+
+        SELECT CAST(CASE WHEN @@ROWCOUNT > 0 THEN 1 ELSE 0 END AS BIT) AS Eliminato;
+        """;
     private const string VenditeProvenienzaFatturaContabilita = "Fattura in contabilitÃ ";
     private const string VenditeProvenienzaFatturaFutura = "Fattura Futura";
     private const string VenditeProvenienzaRicavoIpotetico = "Ricavo Ipotetico";
@@ -1315,6 +1682,766 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         catch
         {
             return null;
+        }
+    }
+
+    public async Task<CommessaConfigDataRow?> GetCommessaConfigAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return null;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaConfigSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new CommessaConfigDataRow(
+                ReadNullableInt(reader, "IdCommessa") ?? 0,
+                ReadNullableInt(reader, "IdTipoCommessa"),
+                ReadString(reader, "TipologiaCommessa"),
+                ReadNullableInt(reader, "IdProdotto"),
+                ReadString(reader, "Prodotto"),
+                ReadDecimal(reader, "BudgetImportoInvestimento"),
+                ReadDecimal(reader, "BudgetOreInvestimento"),
+                ReadDecimal(reader, "PrezzoVenditaInizialeRcc"),
+                ReadDecimal(reader, "PrezzoVenditaFinaleRcc"),
+                ReadDecimal(reader, "StimaInizialeOrePm"));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaConfigOptionRow>> GetTipiCommessaAttiviAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaConfigTipiCommessaQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var rows = new List<CommessaConfigOptionRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = ReadNullableInt(reader, "Id");
+                if (!id.HasValue || id.Value <= 0)
+                {
+                    continue;
+                }
+
+                var label = ReadString(reader, "Label");
+                rows.Add(new CommessaConfigOptionRow(id.Value, label));
+            }
+
+            return rows
+                .GroupBy(item => item.Id)
+                .Select(group => group.First())
+                .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaConfigOptionRow>> GetProdottiAttiviAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaConfigProdottiQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var rows = new List<CommessaConfigOptionRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = ReadNullableInt(reader, "Id");
+                if (!id.HasValue || id.Value <= 0)
+                {
+                    continue;
+                }
+
+                var label = ReadString(reader, "Label");
+                rows.Add(new CommessaConfigOptionRow(id.Value, label));
+            }
+
+            return rows
+                .GroupBy(item => item.Id)
+                .Select(group => group.First())
+                .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<CommessaConfigDataRow?> SaveCommessaConfigAsync(
+        string commessa,
+        int? idTipoCommessa,
+        int? idProdotto,
+        decimal budgetImportoInvestimento,
+        decimal budgetOreInvestimento,
+        decimal prezzoVenditaInizialeRcc,
+        decimal prezzoVenditaFinaleRcc,
+        decimal stimaInizialeOrePm,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return null;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaConfigUpdateQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+            command.Parameters.AddWithValue("@IdTipoCommessa", idTipoCommessa.HasValue && idTipoCommessa.Value > 0 ? idTipoCommessa.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@IdProdotto", idProdotto.HasValue && idProdotto.Value > 0 ? idProdotto.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@BudgetImportoInvestimento", budgetImportoInvestimento);
+            command.Parameters.AddWithValue("@BudgetOreInvestimento", budgetOreInvestimento);
+            command.Parameters.AddWithValue("@PrezzoVenditaInizialeRcc", prezzoVenditaInizialeRcc);
+            command.Parameters.AddWithValue("@PrezzoVenditaFinaleRcc", prezzoVenditaFinaleRcc);
+            command.Parameters.AddWithValue("@StimaInizialeOrePm", stimaInizialeOrePm);
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new CommessaConfigDataRow(
+                ReadNullableInt(reader, "IdCommessa") ?? 0,
+                ReadNullableInt(reader, "IdTipoCommessa"),
+                ReadString(reader, "TipologiaCommessa"),
+                ReadNullableInt(reader, "IdProdotto"),
+                ReadString(reader, "Prodotto"),
+                ReadDecimal(reader, "BudgetImportoInvestimento"),
+                ReadDecimal(reader, "BudgetOreInvestimento"),
+                ReadDecimal(reader, "PrezzoVenditaInizialeRcc"),
+                ReadDecimal(reader, "PrezzoVenditaFinaleRcc"),
+                ReadDecimal(reader, "StimaInizialeOrePm"));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaSegnalazioneTipoRow>> GetTipiSegnalazioneCommessaAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniTipiSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var rows = new List<CommessaSegnalazioneTipoRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = ReadNullableInt(reader, "Id");
+                if (!id.HasValue || id.Value <= 0)
+                {
+                    continue;
+                }
+
+                rows.Add(new CommessaSegnalazioneTipoRow(
+                    id.Value,
+                    ReadString(reader, "Codice"),
+                    ReadString(reader, "Descrizione"),
+                    ReadBoolean(reader, "ImpattaClienteDefault"),
+                    ReadNullableInt(reader, "OrdineVisualizzazione") ?? 0));
+            }
+
+            return rows
+                .OrderBy(item => item.OrdineVisualizzazione)
+                .ThenBy(item => item.Descrizione, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaSegnalazioneRow>> GetSegnalazioniCommessaAsync(
+        string commessa,
+        bool includeChiuse,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniCommessaSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@CommessaUpper", commessa.Trim().ToUpperInvariant());
+            command.Parameters.AddWithValue("@IncludeChiuse", includeChiuse ? 1 : 0);
+
+            var rows = new List<CommessaSegnalazioneRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaSegnalazioneRow(
+                    ReadNullableInt(reader, "Id") ?? 0,
+                    ReadNullableInt(reader, "IdCommessa") ?? 0,
+                    ReadNullableInt(reader, "IdTipoSegnalazione") ?? 0,
+                    ReadString(reader, "TipoCodice"),
+                    ReadString(reader, "TipoDescrizione"),
+                    ReadString(reader, "Titolo"),
+                    ReadString(reader, "Testo"),
+                    ReadNullableInt(reader, "Priorita") ?? 0,
+                    ReadNullableInt(reader, "Stato") ?? 0,
+                    ReadBoolean(reader, "ImpattaCliente"),
+                    ReadNullableDate(reader, "DataEvento"),
+                    ReadNullableDate(reader, "DataInserimento"),
+                    ReadNullableInt(reader, "IdRisorsaInserimento"),
+                    ReadString(reader, "NomeRisorsaInserimento"),
+                    ReadNullableDate(reader, "DataUltimaModifica"),
+                    ReadNullableInt(reader, "IdRisorsaUltimaModifica"),
+                    ReadString(reader, "NomeRisorsaUltimaModifica"),
+                    ReadNullableDate(reader, "DataChiusura"),
+                    ReadNullableInt(reader, "IdRisorsaDestinataria"),
+                    ReadString(reader, "NomeRisorsaDestinataria")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaSegnalazioneAnalisiRow>> SearchSegnalazioniCommesseAsync(
+        UserContext user,
+        string profile,
+        int? stato,
+        int? idRisorsaDestinataria,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var normalizedTake = Math.Clamp(take, 1, 100000);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniCommesseAnalisiSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Take", normalizedTake);
+            command.Parameters.AddWithValue("@Stato", stato is >= 1 and <= 4 ? stato.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@IdRisorsaDestinataria", idRisorsaDestinataria.HasValue && idRisorsaDestinataria.Value > 0 ? idRisorsaDestinataria.Value : DBNull.Value);
+            ApplyVisibilityParameters(command, user, visibility);
+
+            var rows = new List<CommessaSegnalazioneAnalisiRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaSegnalazioneAnalisiRow(
+                    ReadNullableInt(reader, ordinals, "Id") ?? 0,
+                    ReadNullableInt(reader, ordinals, "IdCommessa") ?? 0,
+                    ReadString(reader, ordinals, "Commessa"),
+                    ReadNullableInt(reader, ordinals, "IdTipoSegnalazione") ?? 0,
+                    ReadString(reader, ordinals, "TipoCodice"),
+                    ReadString(reader, ordinals, "TipoDescrizione"),
+                    ReadString(reader, ordinals, "Titolo"),
+                    ReadString(reader, ordinals, "Testo"),
+                    ReadNullableInt(reader, ordinals, "Priorita") ?? 0,
+                    ReadNullableInt(reader, ordinals, "Stato") ?? 0,
+                    ReadBoolean(reader, ordinals, "ImpattaCliente"),
+                    ReadNullableDate(reader, "DataEvento"),
+                    ReadNullableDate(reader, "DataInserimento"),
+                    ReadNullableInt(reader, ordinals, "IdRisorsaInserimento"),
+                    ReadString(reader, ordinals, "NomeRisorsaInserimento"),
+                    ReadNullableDate(reader, "DataUltimaModifica"),
+                    ReadNullableInt(reader, ordinals, "IdRisorsaUltimaModifica"),
+                    ReadString(reader, ordinals, "NomeRisorsaUltimaModifica"),
+                    ReadNullableDate(reader, "DataChiusura"),
+                    ReadNullableInt(reader, ordinals, "IdRisorsaDestinataria"),
+                    ReadString(reader, ordinals, "NomeRisorsaDestinataria")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaSegnalazioneMessaggioRow>> GetThreadSegnalazioneCommessaAsync(
+        int idSegnalazione,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || idSegnalazione <= 0)
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniThreadSelectQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+
+            var rows = new List<CommessaSegnalazioneMessaggioRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaSegnalazioneMessaggioRow(
+                    ReadNullableInt(reader, "Id") ?? 0,
+                    ReadNullableInt(reader, "IdSegnalazione") ?? 0,
+                    ReadNullableInt(reader, "IdMessaggioPadre"),
+                    ReadNullableInt(reader, "Livello") ?? 0,
+                    ReadString(reader, "Testo"),
+                    ReadNullableDate(reader, "DataInserimento"),
+                    ReadNullableInt(reader, "IdRisorsaInserimento"),
+                    ReadString(reader, "NomeRisorsaInserimento"),
+                    ReadNullableDate(reader, "DataUltimaModifica"),
+                    ReadNullableInt(reader, "IdRisorsaUltimaModifica"),
+                    ReadString(reader, "NomeRisorsaUltimaModifica")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<bool> ApriSegnalazioneCommessaAsync(
+        UserContext user,
+        string commessa,
+        int idTipoSegnalazione,
+        string titolo,
+        string testo,
+        int priorita,
+        bool impattaCliente,
+        DateTime dataEvento,
+        int? idRisorsaDestinataria,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            string.IsNullOrWhiteSpace(commessa) ||
+            user.IdRisorsa <= 0 ||
+            idTipoSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            var idCommessa = await ResolveCommessaIdAsync(connection, commessa.Trim().ToUpperInvariant(), cancellationToken);
+            if (!idCommessa.HasValue || idCommessa.Value <= 0)
+            {
+                return false;
+            }
+
+            await using var command = new SqlCommand(SegnalazioniApriStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdCommessa", idCommessa.Value);
+            command.Parameters.AddWithValue("@IdTipoSegnalazione", idTipoSegnalazione);
+            command.Parameters.AddWithValue("@Titolo", titolo?.Trim() ?? string.Empty);
+            command.Parameters.AddWithValue("@Testo", testo?.Trim() ?? string.Empty);
+            command.Parameters.AddWithValue("@Priorita", priorita);
+            command.Parameters.AddWithValue("@ImpattaCliente", impattaCliente ? 1 : 0);
+            command.Parameters.AddWithValue("@DataEvento", dataEvento);
+            command.Parameters.AddWithValue("@IdRisorsaInserimento", user.IdRisorsa);
+            command.Parameters.AddWithValue("@IdRisorsaDestinataria", idRisorsaDestinataria.HasValue && idRisorsaDestinataria.Value > 0 ? idRisorsaDestinataria.Value : DBNull.Value);
+            var idSegnalazioneOutput = command.Parameters.Add("@IdSegnalazione", SqlDbType.BigInt);
+            idSegnalazioneOutput.Direction = ParameterDirection.Output;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<int?> ResolveCommessaIdAsync(
+        SqlConnection connection,
+        string commessaUpper,
+        CancellationToken cancellationToken)
+    {
+        if (connection is null || string.IsNullOrWhiteSpace(commessaUpper))
+        {
+            return null;
+        }
+
+        await using var command = new SqlCommand(ResolveCommessaIdByCodeQuery, connection);
+        command.CommandType = CommandType.Text;
+        command.Parameters.AddWithValue("@CommessaUpper", commessaUpper.Trim().ToUpperInvariant());
+        var scalar = await command.ExecuteScalarAsync(cancellationToken);
+        if (scalar is null || scalar == DBNull.Value)
+        {
+            return null;
+        }
+
+        return Convert.ToInt32(scalar);
+    }
+
+    public async Task<bool> ModificaSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        int idTipoSegnalazione,
+        string titolo,
+        string testo,
+        int priorita,
+        bool impattaCliente,
+        DateTime dataEvento,
+        int? idRisorsaDestinataria,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0 ||
+            idTipoSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using (var command = new SqlCommand(SegnalazioniModificaStoredProcedure, connection))
+            {
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+                command.Parameters.AddWithValue("@IdTipoSegnalazione", idTipoSegnalazione);
+                command.Parameters.AddWithValue("@Titolo", titolo?.Trim() ?? string.Empty);
+                command.Parameters.AddWithValue("@Testo", testo?.Trim() ?? string.Empty);
+                command.Parameters.AddWithValue("@Priorita", priorita);
+                command.Parameters.AddWithValue("@ImpattaCliente", impattaCliente ? 1 : 0);
+                command.Parameters.AddWithValue("@DataEvento", dataEvento);
+                command.Parameters.AddWithValue("@IdRisorsaUltimaModifica", user.IdRisorsa);
+                command.Parameters.AddWithValue("@IdRisorsaDestinataria", idRisorsaDestinataria.HasValue && idRisorsaDestinataria.Value > 0 ? idRisorsaDestinataria.Value : DBNull.Value);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            if (idRisorsaDestinataria.HasValue && idRisorsaDestinataria.Value > 0)
+            {
+                await using var assegnaCommand = new SqlCommand(SegnalazioniAssegnaStoredProcedure, connection);
+                assegnaCommand.CommandType = CommandType.StoredProcedure;
+                assegnaCommand.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+                assegnaCommand.Parameters.AddWithValue("@IdRisorsaDestinataria", idRisorsaDestinataria.Value);
+                assegnaCommand.Parameters.AddWithValue("@IdRisorsaUltimaModifica", user.IdRisorsa);
+                await assegnaCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> AggiornaStatoSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        int stato,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniAggiornaStatoStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+            command.Parameters.AddWithValue("@NuovoStato", stato);
+            command.Parameters.AddWithValue("@IdRisorsaOperazione", user.IdRisorsa);
+            command.Parameters.AddWithValue("@DataChiusura", stato == 4 ? DateTime.Today : DBNull.Value);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> ChiudiSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        DateTime? dataChiusura,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniChiudiStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+            command.Parameters.AddWithValue("@DataChiusura", (dataChiusura ?? DateTime.Today).Date);
+            command.Parameters.AddWithValue("@IdRisorsaOperazione", user.IdRisorsa);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> RiapriSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniRiapriStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+            command.Parameters.AddWithValue("@IdRisorsaOperazione", user.IdRisorsa);
+            command.Parameters.AddWithValue("@StatoRiapertura", 1);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> EliminaSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniDeleteQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+            command.Parameters.AddWithValue("@IdRisorsa", user.IdRisorsa);
+
+            var scalar = await command.ExecuteScalarAsync(cancellationToken);
+            if (scalar is null || scalar == DBNull.Value)
+            {
+                return false;
+            }
+
+            return Convert.ToBoolean(scalar);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> InserisciMessaggioSegnalazioneCommessaAsync(
+        UserContext user,
+        int idSegnalazione,
+        int? idMessaggioPadre,
+        string testo,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idSegnalazione <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniInserisciMessaggioStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdSegnalazione", idSegnalazione);
+            command.Parameters.AddWithValue("@IdMessaggioPadre", idMessaggioPadre.HasValue && idMessaggioPadre.Value > 0 ? idMessaggioPadre.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@Testo", testo?.Trim() ?? string.Empty);
+            command.Parameters.AddWithValue("@IdRisorsaInserimento", user.IdRisorsa);
+            var idMessaggioOutput = command.Parameters.Add("@IdMessaggio", SqlDbType.BigInt);
+            idMessaggioOutput.Direction = ParameterDirection.Output;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> ModificaMessaggioSegnalazioneCommessaAsync(
+        UserContext user,
+        int idMessaggio,
+        string testo,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idMessaggio <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniModificaMessaggioStoredProcedure, connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@IdMessaggio", idMessaggio);
+            command.Parameters.AddWithValue("@Testo", testo?.Trim() ?? string.Empty);
+            command.Parameters.AddWithValue("@IdRisorsaUltimaModifica", user.IdRisorsa);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> EliminaMessaggioSegnalazioneCommessaAsync(
+        UserContext user,
+        int idMessaggio,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) ||
+            user.IdRisorsa <= 0 ||
+            idMessaggio <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(SegnalazioniDeleteMessaggioQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@IdMessaggio", idMessaggio);
+            command.Parameters.AddWithValue("@IdRisorsa", user.IdRisorsa);
+
+            var scalar = await command.ExecuteScalarAsync(cancellationToken);
+            if (scalar is null || scalar == DBNull.Value)
+            {
+                return false;
+            }
+
+            return Convert.ToBoolean(scalar);
+        }
+        catch
+        {
+            return false;
         }
     }
 

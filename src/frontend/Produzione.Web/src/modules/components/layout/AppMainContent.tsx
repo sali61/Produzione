@@ -29,6 +29,7 @@ export function AppMainContent(props: AppMainContentProps) {
   const {
     activePage,
     analisiCommessePageProps,
+    commessaDettaglioPageProps,
     analisiProiezioniPageProps,
     remainingPagesProps,
     statusMessageVisible,
@@ -111,7 +112,7 @@ export function AppMainContent(props: AppMainContentProps) {
       )}
 
       {activePage === 'commessa-dettaglio' && (
-        <CommessaDettaglioPage {...analisiCommessePageProps} />
+        <CommessaDettaglioPage {...commessaDettaglioPageProps} />
       )}
     </main>
   )
