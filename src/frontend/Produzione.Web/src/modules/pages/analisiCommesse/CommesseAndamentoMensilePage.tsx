@@ -1,7 +1,31 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useState } from 'react'
 
 type CommesseAndamentoMensilePageProps = any
+type AndamentoMensileSortDirection = 'asc' | 'desc'
+type AndamentoMensileSortColumn =
+  | 'annoCompetenza'
+  | 'meseCompetenza'
+  | 'commessa'
+  | 'descrizioneCommessa'
+  | 'tipologiaCommessa'
+  | 'stato'
+  | 'macroTipologia'
+  | 'prodotto'
+  | 'controparte'
+  | 'businessUnit'
+  | 'rcc'
+  | 'pm'
+  | 'produzione'
+  | 'oreLavorate'
+  | 'costoPersonale'
+  | 'ricavi'
+  | 'costi'
+  | 'ricaviMaturati'
+  | 'utileSpecifico'
+  | 'oreFuture'
+  | 'costoPersonaleFuturo'
 
 export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePageProps) {
   const {
@@ -59,6 +83,126 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     statusMessageVisible,
     toggleAnalisiSearchCollapsed,
   } = props as any
+
+  const [sortColumn, setSortColumn] = useState<AndamentoMensileSortColumn | null>(null)
+  const [sortDirection, setSortDirection] = useState<AndamentoMensileSortDirection>('asc')
+
+  const toggleSort = (column: AndamentoMensileSortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortColumn(column)
+    setSortDirection('asc')
+  }
+
+  const sortIndicator = (column: AndamentoMensileSortColumn) => {
+    if (sortColumn !== column) {
+      return '<>'
+    }
+
+    return sortDirection === 'asc' ? '^' : 'v'
+  }
+
+  const sortedCommesseAndamentoMensileRows = useMemo(() => {
+    if (!sortColumn) {
+      return commesseAndamentoMensileRows
+    }
+
+    const compareText = (left: string, right: string) => left.localeCompare(right, 'it', { sensitivity: 'base' })
+    const compareNumber = (left: number, right: number) => left - right
+    const compareBoolean = (left: boolean, right: boolean) => Number(left) - Number(right)
+
+    const sortedRows = [...commesseAndamentoMensileRows].sort((left, right) => {
+      let comparison = 0
+      switch (sortColumn) {
+        case 'annoCompetenza':
+          comparison = compareNumber(left.annoCompetenza, right.annoCompetenza)
+          break
+        case 'meseCompetenza':
+          comparison = compareNumber(left.meseCompetenza, right.meseCompetenza)
+          break
+        case 'commessa':
+          comparison = compareText(left.commessa ?? '', right.commessa ?? '')
+          break
+        case 'descrizioneCommessa':
+          comparison = compareText(left.descrizioneCommessa ?? '', right.descrizioneCommessa ?? '')
+          break
+        case 'tipologiaCommessa':
+          comparison = compareText(left.tipologiaCommessa ?? '', right.tipologiaCommessa ?? '')
+          break
+        case 'stato':
+          comparison = compareText(left.stato ?? '', right.stato ?? '')
+          break
+        case 'macroTipologia':
+          comparison = compareText(left.macroTipologia ?? '', right.macroTipologia ?? '')
+          break
+        case 'prodotto':
+          comparison = compareText(left.prodotto ?? '', right.prodotto ?? '')
+          break
+        case 'controparte':
+          comparison = compareText(left.controparte ?? '', right.controparte ?? '')
+          break
+        case 'businessUnit':
+          comparison = compareText(left.businessUnit ?? '', right.businessUnit ?? '')
+          break
+        case 'rcc':
+          comparison = compareText(left.rcc ?? '', right.rcc ?? '')
+          break
+        case 'pm':
+          comparison = compareText(left.pm ?? '', right.pm ?? '')
+          break
+        case 'produzione':
+          comparison = compareBoolean(Boolean(left.produzione), Boolean(right.produzione))
+          break
+        case 'oreLavorate':
+          comparison = compareNumber(left.oreLavorate, right.oreLavorate)
+          break
+        case 'costoPersonale':
+          comparison = compareNumber(left.costoPersonale, right.costoPersonale)
+          break
+        case 'ricavi':
+          comparison = compareNumber(left.ricavi, right.ricavi)
+          break
+        case 'costi':
+          comparison = compareNumber(left.costi, right.costi)
+          break
+        case 'ricaviMaturati':
+          comparison = compareNumber(left.ricaviMaturati, right.ricaviMaturati)
+          break
+        case 'utileSpecifico':
+          comparison = compareNumber(left.utileSpecifico, right.utileSpecifico)
+          break
+        case 'oreFuture':
+          comparison = compareNumber(left.oreFuture, right.oreFuture)
+          break
+        case 'costoPersonaleFuturo':
+          comparison = compareNumber(left.costoPersonaleFuturo, right.costoPersonaleFuturo)
+          break
+        default:
+          comparison = 0
+      }
+
+      if (comparison !== 0) {
+        return sortDirection === 'asc' ? comparison : -comparison
+      }
+
+      const byYear = compareNumber(left.annoCompetenza, right.annoCompetenza)
+      if (byYear !== 0) {
+        return byYear
+      }
+
+      const byMonth = compareNumber(left.meseCompetenza, right.meseCompetenza)
+      if (byMonth !== 0) {
+        return byMonth
+      }
+
+      return compareText(left.commessa ?? '', right.commessa ?? '')
+    })
+
+    return sortedRows
+  }, [commesseAndamentoMensileRows, sortColumn, sortDirection])
 
   return (
           <section className="panel sintesi-page analisi-rcc-page">
@@ -314,31 +458,115 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                   <table className="bonifici-table">
                     <thead>
                       <tr>
-                        <th>Anno</th>
-                        <th>Mese</th>
-                        <th>Commessa</th>
-                        <th>Descrizione</th>
-                        <th>Tipologia</th>
-                        <th>Stato</th>
-                        <th>Macrotipologia</th>
-                        <th>Prodotto</th>
-                        <th>Controparte</th>
-                        <th>BU</th>
-                        <th>RCC</th>
-                        <th>PM</th>
-                        <th>Produzione</th>
-                        <th className="num">Ore Lavorate</th>
-                        <th className="num">Costo Personale</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">Costi</th>
-                        <th className="num">Ricavi Maturati</th>
-                        <th className="num">Utile Specifico</th>
-                        <th className="num">Ore Future</th>
-                        <th className="num">Costo Personale Futuro</th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('annoCompetenza')}>
+                            Anno <span className="sort-indicator">{sortIndicator('annoCompetenza')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('meseCompetenza')}>
+                            Mese <span className="sort-indicator">{sortIndicator('meseCompetenza')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('commessa')}>
+                            Commessa <span className="sort-indicator">{sortIndicator('commessa')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('descrizioneCommessa')}>
+                            Descrizione <span className="sort-indicator">{sortIndicator('descrizioneCommessa')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('tipologiaCommessa')}>
+                            Tipologia <span className="sort-indicator">{sortIndicator('tipologiaCommessa')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('stato')}>
+                            Stato <span className="sort-indicator">{sortIndicator('stato')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('macroTipologia')}>
+                            Macrotipologia <span className="sort-indicator">{sortIndicator('macroTipologia')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('prodotto')}>
+                            Prodotto <span className="sort-indicator">{sortIndicator('prodotto')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('controparte')}>
+                            Controparte <span className="sort-indicator">{sortIndicator('controparte')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('businessUnit')}>
+                            BU <span className="sort-indicator">{sortIndicator('businessUnit')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('rcc')}>
+                            RCC <span className="sort-indicator">{sortIndicator('rcc')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('pm')}>
+                            PM <span className="sort-indicator">{sortIndicator('pm')}</span>
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="sort-header-btn" onClick={() => toggleSort('produzione')}>
+                            Produzione <span className="sort-indicator">{sortIndicator('produzione')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('oreLavorate')}>
+                            Ore Lavorate <span className="sort-indicator">{sortIndicator('oreLavorate')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costoPersonale')}>
+                            Costo Personale <span className="sort-indicator">{sortIndicator('costoPersonale')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricavi')}>
+                            Ricavi <span className="sort-indicator">{sortIndicator('ricavi')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costi')}>
+                            Costi <span className="sort-indicator">{sortIndicator('costi')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('ricaviMaturati')}>
+                            Ricavi Maturati <span className="sort-indicator">{sortIndicator('ricaviMaturati')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('utileSpecifico')}>
+                            Utile Specifico <span className="sort-indicator">{sortIndicator('utileSpecifico')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('oreFuture')}>
+                            Ore Future <span className="sort-indicator">{sortIndicator('oreFuture')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('costoPersonaleFuturo')}>
+                            Costo Personale Futuro <span className="sort-indicator">{sortIndicator('costoPersonaleFuturo')}</span>
+                          </button>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {commesseAndamentoMensileRows.map((row, index) => (
+                      {sortedCommesseAndamentoMensileRows.map((row, index) => (
                         <tr key={`commesse-andamento-row-${row.annoCompetenza}-${row.meseCompetenza}-${row.commessa}-${index}`}>
                           <td>{row.annoCompetenza}</td>
                           <td>{row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : '-'}</td>

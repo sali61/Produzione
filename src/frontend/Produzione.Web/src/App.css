@@ -1499,6 +1499,28 @@ button:disabled {
   white-space: normal;
 }
 
+.detail-kpi-group-head-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.detail-kpi-inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #1e456f;
+  white-space: nowrap;
+}
+
+.detail-kpi-inline-toggle input[type="checkbox"] {
+  margin: 0;
+}
+
 .detail-kpi-table td {
   background: #f8fbff;
 }

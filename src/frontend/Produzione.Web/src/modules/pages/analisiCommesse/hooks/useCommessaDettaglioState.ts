@@ -26,6 +26,7 @@ export function useCommessaDettaglioState() {
   const [detailPercentRaggiuntoInput, setDetailPercentRaggiuntoInput] = useState('')
   const [detailRicavoPrevistoInput, setDetailRicavoPrevistoInput] = useState('')
   const [detailOreRestantiInput, setDetailOreRestantiInput] = useState('')
+  const [detailConsuntivoIncludeAnniPrecedenti, setDetailConsuntivoIncludeAnniPrecedenti] = useState(true)
   const [detailVenditeDateSortDirection, setDetailVenditeDateSortDirection] = useState<SortDirection>('asc')
   const [detailAcquistiDateSortDirection, setDetailAcquistiDateSortDirection] = useState<SortDirection>('asc')
   const [detailActiveTab, setDetailActiveTab] = useState<DetailTabKey>('storico')
@@ -71,6 +72,8 @@ export function useCommessaDettaglioState() {
     setDetailRicavoPrevistoInput,
     detailOreRestantiInput,
     setDetailOreRestantiInput,
+    detailConsuntivoIncludeAnniPrecedenti,
+    setDetailConsuntivoIncludeAnniPrecedenti,
     detailVenditeDateSortDirection,
     setDetailVenditeDateSortDirection,
     detailAcquistiDateSortDirection,

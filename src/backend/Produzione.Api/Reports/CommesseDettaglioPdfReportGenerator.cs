@@ -31,6 +31,7 @@ public static class CommesseDettaglioPdfReportGenerator
 
         var ricaviFuturi = detail.AnnoCorrenteProgressivo?.RicaviFuturi ?? 0m;
         var costiFuturi = detail.AnnoCorrenteProgressivo?.CostiFuturi ?? 0m;
+        var detailCommessaChiusa = !string.Equals(anagrafica.Stato?.Trim(), "O", StringComparison.OrdinalIgnoreCase);
 
         var avanzamento = detail.AvanzamentoSalvato
             ?? detail.AvanzamentoStorico
@@ -39,13 +40,23 @@ public static class CommesseDettaglioPdfReportGenerator
                 .FirstOrDefault();
 
         var oreFuture = avanzamento?.OreFuture ?? 0m;
-        var oreRestanti = avanzamento?.OreRestanti ?? oreFuture;
-        var costoPersonaleFuturo = avanzamento?.CostoPersonaleFuturo ?? 0m;
-        var ricavoPrevisto = avanzamento?.ImportoRiferimento ?? 0m;
+        var oreRestanti = detailCommessaChiusa
+            ? 0m
+            : (avanzamento?.OreRestanti ?? oreFuture);
+        var costoPersonaleFuturo = detailCommessaChiusa
+            ? 0m
+            : (avanzamento?.CostoPersonaleFuturo ?? 0m);
+        var ricavoPrevisto = detailCommessaChiusa
+            ? 0m
+            : (avanzamento?.ImportoRiferimento ?? 0m);
 
-        var percentualeRaggiunto = avanzamento is null
-            ? NormalizePercentuale(detail.PercentualeRaggiuntoProposta)
-            : Math.Clamp(avanzamento.PercentualeRaggiunto, 0m, 100m);
+        var percentualeRaggiunto = detailCommessaChiusa
+            ? 0m
+            : (
+                avanzamento is null
+                    ? NormalizePercentuale(detail.PercentualeRaggiuntoProposta)
+                    : Math.Clamp(avanzamento.PercentualeRaggiunto, 0m, 100m)
+            );
 
         var ricavoMaturato = ricavoPrevisto * percentualeRaggiunto / 100m;
         var utileRicalcolato = consuntivoUtile + ricavoMaturato;

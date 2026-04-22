@@ -29,6 +29,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     detailConfiguraSaving,
     detailConfiguraStatusMessage,
     detailConsuntivoMesePrecedente,
+    detailConsuntivoIncludeAnniPrecedenti,
     detailCostiFuturiAggregati,
     detailCostiPassatiRiconciliati,
     detailCostoPersonaleFuturoProiezione,
@@ -96,6 +97,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     handleSaveDetailPercentRaggiunto,
     selectedRequisitoId,
     setDetailActiveTab,
+    setDetailConsuntivoIncludeAnniPrecedenti,
     setDetailSegnalazioniIncludeChiuse,
     toggleDetailAcquistiDateSort,
     toggleDetailVenditeDateSort,
@@ -110,6 +112,12 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   const detailRicavoPrevistoVisual = detailKpiReadOnly ? 0 : detailRicavoPrevisto
   const detailRicavoMaturatoVisual = detailKpiReadOnly ? 0 : detailRicavoMaturatoAlMesePrecedente
   const detailPercentRaggiuntoVisualInput = detailKpiReadOnly ? '0,00' : detailPercentRaggiuntoInput
+  const detailConsuntivoReferenceLabel = detailLastDayPreviousMonth
+    ? detailLastDayPreviousMonth.toLocaleDateString('it-IT')
+    : 'mese precedente'
+  const detailConsuntivoScopeLabel = detailConsuntivoIncludeAnniPrecedenti
+    ? 'anni precedenti inclusi'
+    : 'solo anno corrente'
   const [configuraForm, setConfiguraForm] = useState({
     idTipoCommessa: '',
     idProdotto: '',
@@ -901,7 +909,19 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                   <thead>
                     <tr>
                       <th className="detail-kpi-group-head" colSpan={5}>
-                        Consuntivato {detailLastDayPreviousMonth ? `${detailLastDayPreviousMonth.toLocaleDateString('it-IT')} (anni precedenti inclusi)` : 'mese precedente'}
+                        <div className="detail-kpi-group-head-content">
+                          <span>
+                            Consuntivato {`${detailConsuntivoReferenceLabel} (${detailConsuntivoScopeLabel})`}
+                          </span>
+                          <label className="detail-kpi-inline-toggle">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(detailConsuntivoIncludeAnniPrecedenti)}
+                              onChange={(event) => setDetailConsuntivoIncludeAnniPrecedenti(event.target.checked)}
+                            />
+                            Includi anni precedenti
+                          </label>
+                        </div>
                       </th>
                       <th className="detail-kpi-group-head" colSpan={4}>
                         {detailCurrentYear > 0 ? `Futuro ${detailCurrentYear}` : 'Futuro'}
@@ -1006,7 +1026,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                             aria-label="Ricavo previsto"
                             disabled={detailKpiReadOnly}
                           />
-                          <span className="detail-kpi-amount-suffix">EUR</span>
+                          <span className="detail-kpi-amount-suffix">€</span>
                         </label>
                       </td>
                       <td className="detail-kpi-percent-cell">

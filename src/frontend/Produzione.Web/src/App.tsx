@@ -311,6 +311,8 @@ function App() {
     setDetailRicavoPrevistoInput,
     detailOreRestantiInput,
     setDetailOreRestantiInput,
+    detailConsuntivoIncludeAnniPrecedenti,
+    setDetailConsuntivoIncludeAnniPrecedenti,
     detailVenditeDateSortDirection,
     setDetailVenditeDateSortDirection,
     detailAcquistiDateSortDirection,
@@ -718,6 +720,7 @@ function App() {
     setDetailPercentRaggiuntoInput('')
     setDetailRicavoPrevistoInput('')
     setDetailOreRestantiInput('')
+    setDetailConsuntivoIncludeAnniPrecedenti(true)
     setDetailActiveTab('storico')
     setDetailConfiguraData(null)
     setDetailConfiguraLoading(false)
@@ -4014,6 +4017,7 @@ function App() {
     setDetailPercentRaggiuntoInput('')
     setDetailRicavoPrevistoInput('')
     setDetailOreRestantiInput('')
+    setDetailConsuntivoIncludeAnniPrecedenti(true)
     setDetailActiveTab('storico')
     setDetailConfiguraData(null)
     setDetailConfiguraStatusMessage('')
@@ -8121,10 +8125,10 @@ function App() {
 
   const detailConsuntivoMesePrecedenteRows = useMemo(
     () => [
-      ...detailStoricoRows,
+      ...(detailConsuntivoIncludeAnniPrecedenti ? detailStoricoRows : []),
       ...detailMesiCorrenteRows.filter((row) => row.mese < Math.max(detailCurrentMonth, 1)),
     ],
-    [detailStoricoRows, detailMesiCorrenteRows, detailCurrentMonth],
+    [detailConsuntivoIncludeAnniPrecedenti, detailStoricoRows, detailMesiCorrenteRows, detailCurrentMonth],
   )
 
   const detailConsuntivoMesePrecedente = useMemo(() => (
@@ -8363,7 +8367,16 @@ function App() {
   const detailRicavoPrevisto = detailRicavoPrevistoManuale
     ?? detailRicavoPrevistoSalvato
     ?? detailRicaviFuturiComplessivi
-  const detailRicavoMaturatoAlMesePrecedente = detailRicavoPrevisto * detailPercentRaggiuntoMesePrecedente
+  const detailPercentRaggiuntoPerCalcolo = detailCommessaChiusa
+    ? 0
+    : detailPercentRaggiuntoMesePrecedente
+  const detailRicavoPrevistoPerCalcolo = detailCommessaChiusa
+    ? 0
+    : detailRicavoPrevisto
+  const detailCostoPersonaleFuturoPerCalcolo = detailCommessaChiusa
+    ? 0
+    : detailCostoPersonaleFuturoProiezione
+  const detailRicavoMaturatoAlMesePrecedente = detailRicavoPrevistoPerCalcolo * detailPercentRaggiuntoPerCalcolo
   const detailUtileRicalcolatoMesePrecedente = (
     detailFatturatoPassato
     + detailRicavoMaturatoAlMesePrecedente
@@ -8374,7 +8387,7 @@ function App() {
     detailUtileConsuntivatoRiconciliato
     + detailRicaviFuturiComplessivi
     - detailCostiFuturiAggregati
-    - detailCostoPersonaleFuturoProiezione
+    - detailCostoPersonaleFuturoPerCalcolo
   )
 
   const sintesiCountLabel = sintesiLoadingData
@@ -10699,6 +10712,7 @@ function App() {
     detailConfiguraSaving,
     detailConfiguraStatusMessage,
     detailConsuntivoMesePrecedente,
+    detailConsuntivoIncludeAnniPrecedenti,
     detailCostiFuturiAggregati,
     detailCostiPassatiRiconciliati,
     detailCostoPersonaleFuturoProiezione,
@@ -10768,6 +10782,7 @@ function App() {
     handleSaveDetailPercentRaggiunto,
     selectedRequisitoId,
     setDetailActiveTab,
+    setDetailConsuntivoIncludeAnniPrecedenti,
     setDetailSegnalazioniIncludeChiuse,
     toggleDetailAcquistiDateSort,
     toggleDetailVenditeDateSort,
