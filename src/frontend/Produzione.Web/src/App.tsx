@@ -7874,7 +7874,7 @@ function App() {
 
   const detailAnagrafica = detailData?.anagrafica ?? null
   const detailCommessaStato = detailAnagrafica?.stato?.trim().toUpperCase() ?? ''
-  const detailCommessaChiusa = detailCommessaStato === 'NF' || detailCommessaStato === 'T'
+  const detailCommessaChiusa = detailCommessaStato !== 'O'
   const detailCurrentYear = detailData?.currentYear ?? 0
   const detailCurrentMonth = detailData?.currentMonth ?? 0
   const detailAggregatoAnnoCorrente = detailData?.annoCorrenteProgressivo ?? null
@@ -8016,18 +8016,36 @@ function App() {
   )
 
   const detailRequisitiOreTotals = useMemo(() => (
-    detailRequisitiOreRows.reduce((acc, row) => ({
-      durataRequisito: acc.durataRequisito + row.durataRequisito,
-      orePreviste: acc.orePreviste + row.orePreviste,
-      oreSpese: acc.oreSpese + row.oreSpese,
-      oreRestanti: acc.oreRestanti + row.oreRestanti,
-      oreRiferimento: acc.oreRiferimento + (row.orePreviste > 0 ? row.orePreviste : row.durataRequisito),
-    }), {
+    detailRequisitiOreRows.reduce((acc, row) => {
+      const isAttivo = row.attivo !== false
+      const isCommerciale = row.commerciale === true
+      const oreRiferimentoRiga = row.orePreviste > 0 ? row.orePreviste : row.durataRequisito
+      const oreSpeseRiga = Number.isFinite(row.oreSpese) ? row.oreSpese : 0
+      const vendutoRiga = isCommerciale ? 0 : row.durataRequisito
+      const oreRestantiVisual = isCommerciale
+        ? 0
+        : (isAttivo ? (oreRiferimentoRiga - oreSpeseRiga) : 0)
+      const oreRiferimentoVisual = isCommerciale
+        ? Math.max(oreSpeseRiga, 0)
+        : (isAttivo ? oreRiferimentoRiga : Math.max(oreSpeseRiga, 0))
+
+      return {
+        durataRequisito: acc.durataRequisito + row.durataRequisito,
+        venduto: acc.venduto + vendutoRiga,
+        orePreviste: acc.orePreviste + row.orePreviste,
+        oreSpese: acc.oreSpese + row.oreSpese,
+        oreRestanti: acc.oreRestanti + oreRestantiVisual,
+        oreRiferimento: acc.oreRiferimento + oreRiferimentoVisual,
+        delta: acc.delta + (vendutoRiga - oreSpeseRiga),
+      }
+    }, {
       durataRequisito: 0,
+      venduto: 0,
       orePreviste: 0,
       oreSpese: 0,
       oreRestanti: 0,
       oreRiferimento: 0,
+      delta: 0,
     })
   ), [detailRequisitiOreRows])
 
@@ -8818,7 +8836,7 @@ function App() {
       return
     }
     if (detailCommessaChiusa) {
-      setDetailStatusMessage("Commessa chiusa: avanzamento non modificabile.")
+      setDetailStatusMessage(`Commessa in sola lettura (stato ${detailCommessaStato || '-'}): avanzamento non modificabile.`)
       return
     }
 
@@ -10246,35 +10264,56 @@ function App() {
     )
 
     appendSheet(
-      detailRequisitiOreRows.map((row) => ({
-        IdRequisito: row.idRequisito,
-        Requisito: row.requisito,
-        DurataRequisito: row.durataRequisito,
-        OrePreviste: row.orePreviste,
-        OreSpese: row.oreSpese,
-        OreRestanti: row.oreRestanti,
-        PercentualeAvanzamento: row.percentualeAvanzamento,
-      })),
+      detailRequisitiOreRows.map((row) => {
+        const isAttivo = row.attivo !== false
+        const isCommerciale = row.commerciale === true
+        const oreRiferimento = row.orePreviste > 0 ? row.orePreviste : row.durataRequisito
+        const venduto = isCommerciale ? 0 : row.durataRequisito
+        return {
+          IdRequisito: row.idRequisito,
+          Requisito: row.requisito,
+          Attivo: isAttivo,
+          Commerciale: isCommerciale,
+          DurataRequisito: row.durataRequisito,
+          Venduto: venduto,
+          OrePreviste: row.orePreviste,
+          OreSpese: row.oreSpese,
+          OreRestanti: isCommerciale ? 0 : (isAttivo ? (oreRiferimento - row.oreSpese) : 0),
+          Delta: venduto - row.oreSpese,
+          PercentualeAvanzamento: isAttivo ? row.percentualeAvanzamento : 1,
+        }
+      }),
       'RequisitiOre',
     )
 
     appendSheet(
-      detailRequisitiOreRisorseRows.map((row) => ({
-        IdRequisito: row.idRequisito,
-        Requisito: row.requisito,
-        IdRisorsa: row.idRisorsa,
-        NomeRisorsa: row.nomeRisorsa,
-        DurataRequisito: row.durataRequisito,
-        OrePreviste: row.orePreviste,
-        OreSpese: row.oreSpese,
-        OreRestanti: row.oreRestanti,
-        PercentualeAvanzamento: row.percentualeAvanzamento,
-      })),
+      detailRequisitiOreRisorseRows.map((row) => {
+        const isAttivo = row.attivo !== false
+        const isCommerciale = row.commerciale === true
+        const oreRiferimento = row.orePreviste > 0 ? row.orePreviste : row.durataRequisito
+        const venduto = isCommerciale ? 0 : row.durataRequisito
+        return {
+          IdRequisito: row.idRequisito,
+          Requisito: row.requisito,
+          IdRisorsa: row.idRisorsa,
+          NomeRisorsa: row.nomeRisorsa,
+          Attivo: isAttivo,
+          Commerciale: isCommerciale,
+          DurataRequisito: row.durataRequisito,
+          Venduto: venduto,
+          OrePreviste: row.orePreviste,
+          OreSpese: row.oreSpese,
+          OreRestanti: isCommerciale ? 0 : (isAttivo ? (oreRiferimento - row.oreSpese) : 0),
+          Delta: venduto - row.oreSpese,
+          PercentualeAvanzamento: isAttivo ? row.percentualeAvanzamento : 1,
+        }
+      }),
       'RequisitiRisorse',
     )
 
     appendSheet(
       detailOreSpeseRisorseRows.map((row) => ({
+        Anno: row.anno ?? '',
         IdRisorsa: row.idRisorsa,
         NomeRisorsa: row.nomeRisorsa,
         OreSpeseTotali: row.oreSpeseTotali,

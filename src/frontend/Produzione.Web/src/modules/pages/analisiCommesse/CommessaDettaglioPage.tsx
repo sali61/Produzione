@@ -36,7 +36,6 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     detailOreRestantiInput,
     detailOreRestantiProiezione,
     detailOreSpeseRisorseRows,
-    detailOreSpeseRisorseTotal,
     detailPercentRaggiuntoInput,
     detailRequisitiOreRisorseRows,
     detailRequisitiOreRows,
@@ -83,6 +82,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     eliminaDetailSegnalazioneMessaggio,
     apriDetailSegnalazione,
     cambiaStatoDetailSegnalazione,
+    chiudiDetailSegnalazione,
     eliminaDetailSegnalazione,
     handleSaveDetailPercentRaggiunto,
     selectedRequisitoId,
@@ -93,7 +93,9 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     toggleRequisitoDettaglio,
   } = props as any
 
-  const detailKpiReadOnly = Boolean(detailCommessaChiusa)
+  const detailCommessaReadOnly = Boolean(detailCommessaChiusa)
+  const detailKpiReadOnly = detailCommessaReadOnly
+  const detailSegnalazioniReadOnly = false
   const detailOreRestantiVisual = detailKpiReadOnly ? 0 : detailOreRestantiProiezione
   const detailCostoPersonaleFuturoVisual = detailKpiReadOnly ? 0 : detailCostoPersonaleFuturoProiezione
   const detailRicavoPrevistoVisual = detailKpiReadOnly ? 0 : detailRicavoPrevisto
@@ -123,8 +125,117 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     idRisorsaDestinataria: '',
   })
   const [messaggioForm, setMessaggioForm] = useState('')
+  const [detailOreSpeseAnnoFilter, setDetailOreSpeseAnnoFilter] = useState('')
   const showSegnalazioneEditor = segnalazioneEditorMode !== 'hidden'
   const isEditingSegnalazione = segnalazioneEditorMode === 'edit'
+
+  const detailOreSpeseAnnoOptions = useMemo(() => (
+    Array.from(
+      new Set(
+        detailOreSpeseRisorseRows
+          .map((row: any) => Number(row?.anno))
+          .filter((year: number) => Number.isInteger(year) && year > 0),
+      ),
+    ).sort((left, right) => right - left)
+  ), [detailOreSpeseRisorseRows])
+
+  useEffect(() => {
+    if (!detailOreSpeseAnnoFilter) {
+      return
+    }
+
+    const selectedYear = Number(detailOreSpeseAnnoFilter)
+    const filterIsValid = detailOreSpeseAnnoOptions.some((year) => year === selectedYear)
+    if (!filterIsValid) {
+      setDetailOreSpeseAnnoFilter('')
+    }
+  }, [detailOreSpeseAnnoFilter, detailOreSpeseAnnoOptions])
+
+  const detailOreSpeseRisorseRowsView = useMemo(() => {
+    const selectedYear = Number(detailOreSpeseAnnoFilter)
+    const rowsFilteredByYear = (!detailOreSpeseAnnoFilter || !Number.isInteger(selectedYear) || selectedYear <= 0)
+      ? detailOreSpeseRisorseRows
+      : detailOreSpeseRisorseRows.filter((row: any) => Number(row?.anno) === selectedYear)
+
+    const groupedRows = new Map<string, { idRisorsa: number; nomeRisorsa: string; oreSpeseTotali: number }>()
+    rowsFilteredByYear.forEach((row: any) => {
+      const idRisorsa = Number(row?.idRisorsa ?? 0)
+      const nomeRisorsa = String(row?.nomeRisorsa ?? '')
+      const oreSpeseValue = Number(row?.oreSpeseTotali ?? 0)
+      const oreSpeseTotali = Number.isFinite(oreSpeseValue) ? oreSpeseValue : 0
+      const groupKey = `${idRisorsa}|${nomeRisorsa.trim().toUpperCase()}`
+      const current = groupedRows.get(groupKey)
+
+      if (current) {
+        current.oreSpeseTotali += oreSpeseTotali
+        return
+      }
+
+      groupedRows.set(groupKey, {
+        idRisorsa,
+        nomeRisorsa,
+        oreSpeseTotali,
+      })
+    })
+
+    return Array.from(groupedRows.values()).sort((left, right) => {
+      const byName = left.nomeRisorsa.localeCompare(right.nomeRisorsa, 'it', { sensitivity: 'base' })
+      if (byName !== 0) {
+        return byName
+      }
+
+      return left.idRisorsa - right.idRisorsa
+    })
+  }, [detailOreSpeseRisorseRows, detailOreSpeseAnnoFilter])
+
+  const detailOreSpeseRisorseTotalView = useMemo(
+    () => detailOreSpeseRisorseRowsView.reduce((acc, row) => acc + row.oreSpeseTotali, 0),
+    [detailOreSpeseRisorseRowsView],
+  )
+
+  const isRequisitoAttivo = (item: any) => item?.attivo !== false
+  const isRequisitoCommerciale = (item: any) => item?.commerciale === true
+  const getRequisitoRowClass = (item: any) => {
+    if (isRequisitoCommerciale(item)) {
+      return isRequisitoAttivo(item)
+        ? 'detail-requisito-row-commerciale-attivo'
+        : 'detail-requisito-row-commerciale-non-attivo'
+    }
+
+    if (!isRequisitoAttivo(item)) {
+      return 'detail-requisito-row-inactive'
+    }
+
+    return ''
+  }
+  const getRequisitoVenduto = (item: any) => (isRequisitoCommerciale(item) ? 0 : (Number(item?.durataRequisito) || 0))
+  const getRequisitoOreRiferimento = (item: any) => (item?.orePreviste > 0 ? item.orePreviste : item?.durataRequisito ?? 0)
+  const getRequisitoDelta = (item: any) => getRequisitoVenduto(item) - (Number(item?.oreSpese) || 0)
+  const getRequisitoOreRestantiVisual = (item: any) => {
+    if (isRequisitoCommerciale(item)) {
+      return 0
+    }
+
+    if (!isRequisitoAttivo(item)) {
+      return 0
+    }
+
+    return getRequisitoOreRiferimento(item) - (Number(item?.oreSpese) || 0)
+  }
+  const getRequisitoPercentualeVisual = (item: any) => (isRequisitoAttivo(item) ? (Number(item?.percentualeAvanzamento) || 0) : 1)
+  const renderHeaderWithTooltip = (label: string, tooltip: string) => (
+    <span className="detail-col-header-with-tooltip">
+      <span>{label}</span>
+      <span
+        className="detail-col-tooltip-trigger"
+        tabIndex={0}
+        aria-label={`${label}: ${tooltip}`}
+        data-tooltip={tooltip}
+      >
+        i
+      </span>
+    </span>
+  )
 
   const parseDecimalInput = (rawValue: string) => {
     const compactValue = (rawValue ?? '').trim().replace(/\s+/g, '')
@@ -383,6 +494,10 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const resetNuovaSegnalazioneForm = () => {
+    if (detailSegnalazioniReadOnly) {
+      return
+    }
+
     const firstType = detailSegnalazioniData?.tipiSegnalazione?.[0]
     setSegnalazioneEditorMode('new')
     setSelectedMessaggioId(null)
@@ -401,7 +516,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const handleApriSegnalazione = async () => {
-    if (!detailCommessa || segnalazioneForm.idTipoSegnalazione <= 0 || !segnalazioneForm.titolo.trim()) {
+    if (detailSegnalazioniReadOnly || !detailCommessa || segnalazioneForm.idTipoSegnalazione <= 0 || !segnalazioneForm.titolo.trim()) {
       return
     }
 
@@ -426,7 +541,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const handleModificaSegnalazione = async () => {
-    if (!selectedSegnalazione || !canEditSelectedSegnalazione) {
+    if (detailSegnalazioniReadOnly || !selectedSegnalazione || !canEditSelectedSegnalazione) {
       return
     }
 
@@ -478,7 +593,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const handleEliminaSegnalazione = async () => {
-    if (!selectedSegnalazione || !canDeleteSelectedSegnalazione) {
+    if (detailSegnalazioniReadOnly || !selectedSegnalazione || !canDeleteSelectedSegnalazione) {
       return
     }
 
@@ -495,7 +610,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const handleInviaMessaggio = async () => {
-    if (!selectedSegnalazioneId || !messaggioForm.trim() || selectedSegnalazioneChiusa) {
+    if (detailSegnalazioniReadOnly || !selectedSegnalazioneId || !messaggioForm.trim() || selectedSegnalazioneChiusa) {
       return
     }
 
@@ -511,7 +626,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   }
 
   const handleModificaMessaggio = async () => {
-    if (!selectedSegnalazioneId || !selectedMessaggioId || !messaggioForm.trim() || selectedSegnalazioneChiusa || !canEditSelectedMessaggio) {
+    if (detailSegnalazioniReadOnly || !selectedSegnalazioneId || !selectedMessaggioId || !messaggioForm.trim() || selectedSegnalazioneChiusa || !canEditSelectedMessaggio) {
       return
     }
 
@@ -1169,41 +1284,59 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                               <thead>
                                 <tr>
                                   <th>Requisito</th>
-                                  <th className="num">Durata requisito</th>
-                                  <th className="num">Ore Previste</th>
-                                  <th className="num">Ore Spese</th>
-                                  <th className="num">Ore Restanti</th>
-                                  <th className="num">% Avanzamento</th>
+                                  <th className="num">{renderHeaderWithTooltip('Durata requisito', 'Valutazione per il cliente del requisito')}</th>
+                                  <th className="num">{renderHeaderWithTooltip('Venduto', 'Valutazione accettata dal cliente')}</th>
+                                  <th className="num">{renderHeaderWithTooltip('Ore Previste', 'Ore assegnate alle risorse per eseguire il task')}</th>
+                                  <th className="num">{renderHeaderWithTooltip('Ore Spese', 'Ore registrate sulla intranet')}</th>
+                                  <th className="num">{renderHeaderWithTooltip('Ore Restanti', 'Ore ancora da spendere per completare il task')}</th>
+                                  <th className="num">{renderHeaderWithTooltip('Delta', 'Differenza fra venduto ed ore spese')}</th>
+                                  <th className="num">% Avanz.</th>
                                   <th>Dettaglio</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {detailRequisitiOreRows.map((row) => {
+                                  const rowVenduto = getRequisitoVenduto(row)
+                                  const rowOreRestantiVisual = getRequisitoOreRestantiVisual(row)
+                                  const rowPercentualeVisual = getRequisitoPercentualeVisual(row)
+                                  const rowDelta = getRequisitoDelta(row)
+                                  const rowClassName = getRequisitoRowClass(row)
                                   const isExpanded = selectedRequisitoId === row.idRequisito
                                   const risorseRows = isExpanded
                                     ? detailRequisitiOreRisorseRows.filter((item) => item.idRequisito === row.idRequisito)
                                     : []
-                                  const risorseTotals = risorseRows.reduce((acc, item) => ({
-                                    orePreviste: acc.orePreviste + item.orePreviste,
-                                    oreSpese: acc.oreSpese + item.oreSpese,
-                                    oreRestanti: acc.oreRestanti + item.oreRestanti,
-                                  }), {
+                                  const risorseTotals = risorseRows.reduce((acc, item) => {
+                                    const isAttivo = isRequisitoAttivo(item)
+                                    const oreRiferimento = getRequisitoOreRiferimento(item)
+                                    const oreSpese = Number(item?.oreSpese) || 0
+                                    const oreRestanti = getRequisitoOreRestantiVisual(item)
+                                    return {
+                                      orePreviste: acc.orePreviste + item.orePreviste,
+                                      oreSpese: acc.oreSpese + oreSpese,
+                                      oreRestanti: acc.oreRestanti + oreRestanti,
+                                      oreRiferimento: acc.oreRiferimento + (isAttivo ? oreRiferimento : Math.max(oreSpese, 0)),
+                                    }
+                                  }, {
                                     orePreviste: 0,
                                     oreSpese: 0,
                                     oreRestanti: 0,
+                                    oreRiferimento: 0,
                                   })
+                                  const risorseDelta = rowVenduto - risorseTotals.oreSpese
 
                                   return (
                                     <Fragment key={`requisito-${row.idRequisito}`}>
-                                      <tr>
+                                      <tr className={rowClassName}>
                                         <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
                                         <td className="num">{formatNumber(row.durataRequisito)}</td>
+                                        <td className="num">{formatNumber(rowVenduto)}</td>
                                         <td className="num">{formatNumber(row.orePreviste)}</td>
                                         <td className="num">{formatNumber(row.oreSpese)}</td>
-                                        <td className={`num ${row.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                          {formatNumber(row.oreRestanti)}
+                                        <td className={`num ${rowOreRestantiVisual < 0 ? 'num-negative' : ''}`}>
+                                          {formatNumber(rowOreRestantiVisual)}
                                         </td>
-                                        <td className="num">{formatPercentRatio(row.percentualeAvanzamento)}</td>
+                                        <td className={`num ${rowDelta < 0 ? 'num-negative' : ''}`}>{formatNumber(rowDelta)}</td>
+                                        <td className="num">{formatPercentRatio(rowPercentualeVisual)}</td>
                                         <td>
                                           <button
                                             type="button"
@@ -1217,7 +1350,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
 
                                       {isExpanded && (
                                         <tr className="detail-requisito-expand-row">
-                                          <td colSpan={7}>
+                                          <td colSpan={9}>
                                             {risorseRows.length === 0 && (
                                               <p className="empty-state">Nessun dettaglio risorsa disponibile per il requisito selezionato.</p>
                                             )}
@@ -1227,40 +1360,55 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                                   <thead>
                                                     <tr>
                                                       <th>Risorsa</th>
-                                                      <th className="num">Durata requisito</th>
-                                                      <th className="num">Ore Previste</th>
-                                                      <th className="num">Ore Spese</th>
-                                                      <th className="num">Ore Restanti</th>
-                                                      <th className="num">% Avanzamento</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Durata requisito', 'Valutazione per il cliente del requisito')}</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Venduto', 'Valutazione accettata dal cliente')}</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Ore Previste', 'Ore assegnate alle risorse per eseguire il task')}</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Ore Spese', 'Ore registrate sulla intranet')}</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Ore Restanti', 'Ore ancora da spendere per completare il task')}</th>
+                                                      <th className="num">{renderHeaderWithTooltip('Delta', 'Differenza fra venduto ed ore spese')}</th>
+                                                      <th className="num">% Avanz.</th>
                                                     </tr>
                                                   </thead>
                                                   <tbody>
-                                                    {risorseRows.map((item) => (
-                                                      <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`}>
-                                                        <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
-                                                        <td className="num">{formatNumber(item.durataRequisito)}</td>
-                                                        <td className="num">{formatNumber(item.orePreviste)}</td>
-                                                        <td className="num">{formatNumber(item.oreSpese)}</td>
-                                                        <td className={`num ${item.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                          {formatNumber(item.oreRestanti)}
-                                                        </td>
-                                                        <td className="num">{formatPercentRatio(item.percentualeAvanzamento)}</td>
-                                                      </tr>
-                                                    ))}
+                                                    {risorseRows.map((item) => {
+                                                      const itemVenduto = getRequisitoVenduto(item)
+                                                      const itemOreRestantiVisual = getRequisitoOreRestantiVisual(item)
+                                                      const itemPercentualeVisual = getRequisitoPercentualeVisual(item)
+                                                      const itemDelta = getRequisitoDelta(item)
+                                                      const itemRowClassName = getRequisitoRowClass(item)
+                                                      return (
+                                                        <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`} className={itemRowClassName}>
+                                                          <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
+                                                          <td className="num">{formatNumber(item.durataRequisito)}</td>
+                                                          <td className="num">{formatNumber(itemVenduto)}</td>
+                                                          <td className="num">{formatNumber(item.orePreviste)}</td>
+                                                          <td className="num">{formatNumber(item.oreSpese)}</td>
+                                                          <td className={`num ${itemOreRestantiVisual < 0 ? 'num-negative' : ''}`}>
+                                                            {formatNumber(itemOreRestantiVisual)}
+                                                          </td>
+                                                          <td className={`num ${itemDelta < 0 ? 'num-negative' : ''}`}>{formatNumber(itemDelta)}</td>
+                                                          <td className="num">{formatPercentRatio(itemPercentualeVisual)}</td>
+                                                        </tr>
+                                                      )
+                                                    })}
                                                   </tbody>
                                                   <tfoot>
                                                     <tr className="table-totals-row">
                                                       <td className="table-totals-label">Totale requisito</td>
                                                       <td className="num">{formatNumber(row.durataRequisito)}</td>
+                                                      <td className="num">{formatNumber(rowVenduto)}</td>
                                                       <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
                                                       <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
                                                       <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
                                                         {formatNumber(risorseTotals.oreRestanti)}
                                                       </td>
+                                                      <td className={`num ${risorseDelta < 0 ? 'num-negative' : ''}`}>
+                                                        {formatNumber(risorseDelta)}
+                                                      </td>
                                                       <td className="num">
                                                         {formatPercentRatio(
-                                                          (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito) > 0
-                                                            ? risorseTotals.oreSpese / (risorseTotals.orePreviste > 0 ? risorseTotals.orePreviste : row.durataRequisito)
+                                                          risorseTotals.oreRiferimento > 0
+                                                            ? risorseTotals.oreSpese / risorseTotals.oreRiferimento
                                                             : 0,
                                                         )}
                                                       </td>
@@ -1280,10 +1428,14 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                 <tr className="table-totals-row">
                                   <td className="table-totals-label">Totale</td>
                                   <td className="num">{formatNumber(detailRequisitiOreTotals.durataRequisito)}</td>
+                                  <td className="num">{formatNumber(detailRequisitiOreTotals.venduto)}</td>
                                   <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
                                   <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
                                   <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
                                     {formatNumber(detailRequisitiOreTotals.oreRestanti)}
+                                  </td>
+                                  <td className={`num ${detailRequisitiOreTotals.delta < 0 ? 'num-negative' : ''}`}>
+                                    {formatNumber(detailRequisitiOreTotals.delta)}
                                   </td>
                                   <td className="num">
                                     {formatPercentRatio(
@@ -1301,6 +1453,23 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
 
                         <div className="detail-requisiti-col">
                           <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                            <div className="detail-requisiti-year-filter-row">
+                              <label className="detail-requisiti-year-filter-field">
+                                <span>Anno</span>
+                                <select
+                                  value={detailOreSpeseAnnoFilter}
+                                  onChange={(event) => setDetailOreSpeseAnnoFilter(event.target.value)}
+                                  disabled={detailOreSpeseAnnoOptions.length === 0}
+                                >
+                                  <option value="">Tutti gli anni</option>
+                                  {detailOreSpeseAnnoOptions.map((year) => (
+                                    <option key={`ore-spese-year-${year}`} value={year.toString()}>
+                                      {year}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
                             <table className="bonifici-table detail-requisiti-table">
                               <thead>
                                 <tr>
@@ -1309,13 +1478,13 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {detailOreSpeseRisorseRows.length === 0 && (
+                                {detailOreSpeseRisorseRowsView.length === 0 && (
                                   <tr>
                                     <td colSpan={2} className="empty-state">Nessun dato ore spese per risorsa.</td>
                                   </tr>
                                 )}
-                                {detailOreSpeseRisorseRows.map((row) => (
-                                  <tr key={`ore-spese-risorsa-${row.idRisorsa}`}>
+                                {detailOreSpeseRisorseRowsView.map((row) => (
+                                  <tr key={`ore-spese-risorsa-${row.idRisorsa}-${row.nomeRisorsa}`}>
                                     <td>{row.nomeRisorsa || `ID ${row.idRisorsa}`}</td>
                                     <td className={`num ${row.oreSpeseTotali < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreSpeseTotali)}</td>
                                   </tr>
@@ -1324,7 +1493,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                               <tfoot>
                                 <tr className="table-totals-row">
                                   <td className="table-totals-label">Totale</td>
-                                  <td className={`num ${detailOreSpeseRisorseTotal < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreSpeseRisorseTotal)}</td>
+                                  <td className={`num ${detailOreSpeseRisorseTotalView < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreSpeseRisorseTotalView)}</td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -1500,7 +1669,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                       type="button"
                       className="ghost-button"
                       onClick={resetNuovaSegnalazioneForm}
-                      disabled={detailSegnalazioniSaving}
+                      disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly}
                     >
                       Nuova segnalazione
                     </button>
@@ -1551,6 +1720,10 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                             const threadRows = (detailSegnalazioniData?.thread ?? []).filter(
                               (threadRow: any) => threadRow.idSegnalazione === row.id,
                             )
+                            const canCloseByCurrentUser = (
+                              Number(row.idRisorsaInserimento ?? 0) === Number(detailCurrentUserId ?? 0)
+                              || threadRows.some((threadRow: any) => Number(threadRow.idRisorsaInserimento ?? 0) === Number(detailCurrentUserId ?? 0))
+                            )
                             return (
                               <Fragment key={`segnalazione-${row.id}`}>
                                 <tr
@@ -1586,7 +1759,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                         setReplyParentMessageId(null)
                                         setMessaggioForm('')
                                       }}
-                                      disabled={detailSegnalazioniSaving || Number(row.idRisorsaInserimento ?? 0) !== Number(detailCurrentUserId ?? 0)}
+                                      disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || Number(row.idRisorsaInserimento ?? 0) !== Number(detailCurrentUserId ?? 0)}
                                     >
                                       Modifica
                                     </button>
@@ -1600,9 +1773,29 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                         setReplyParentMessageId(0)
                                         setMessaggioForm('')
                                       }}
-                                      disabled={detailSegnalazioniSaving || Number(row.stato ?? 0) === 4}
+                                      disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || Number(row.stato ?? 0) === 4}
                                     >
                                       Rispondi
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ghost-button detail-inline-action"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        setSelectedSegnalazioneId(row.id)
+                                        void chiudiDetailSegnalazione({
+                                          idSegnalazione: row.id,
+                                          stato: 4,
+                                        })
+                                      }}
+                                      disabled={
+                                        detailSegnalazioniSaving
+                                        || detailSegnalazioniReadOnly
+                                        || Number(row.stato ?? 0) === 4
+                                        || !canCloseByCurrentUser
+                                      }
+                                    >
+                                      Chiudi
                                     </button>
                                     <button
                                       type="button"
@@ -1613,6 +1806,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                       }}
                                       disabled={
                                         detailSegnalazioniSaving
+                                        || detailSegnalazioniReadOnly
                                         || Number(row.idRisorsaInserimento ?? 0) !== Number(detailCurrentUserId ?? 0)
                                         || Number(row.stato ?? 0) === 4
                                         || threadRows.length > 0
@@ -1652,7 +1846,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                         <button
                                           type="button"
                                           className="ghost-button detail-inline-action"
-                                          disabled={detailSegnalazioniSaving || rowChiusa}
+                                          disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || rowChiusa}
                                           onClick={() => {
                                             setSelectedSegnalazioneId(row.id)
                                             setSelectedMessaggioId(null)
@@ -1666,7 +1860,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                           <button
                                             type="button"
                                             className="ghost-button detail-inline-action"
-                                            disabled={detailSegnalazioniSaving || rowChiusa}
+                                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || rowChiusa}
                                             onClick={() => {
                                               setSelectedSegnalazioneId(row.id)
                                               setSelectedMessaggioId(threadRow.id)
@@ -1681,7 +1875,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                           <button
                                             type="button"
                                             className="ghost-button detail-inline-action"
-                                            disabled={detailSegnalazioniSaving || rowChiusa || hasChildMessages}
+                                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || rowChiusa || hasChildMessages}
                                             onClick={() => {
                                               setSelectedSegnalazioneId(row.id)
                                               void eliminaDetailSegnalazioneMessaggio(row.id, {
@@ -1712,7 +1906,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                         <select
                           value={segnalazioneForm.idTipoSegnalazione > 0 ? segnalazioneForm.idTipoSegnalazione.toString() : ''}
                           onChange={(event) => setSegnalazioneForm((current) => ({ ...current, idTipoSegnalazione: Number(event.target.value) }))}
-                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
+                          disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
                         >
                           <option value="">Seleziona tipo</option>
                           {(detailSegnalazioniData?.tipiSegnalazione ?? []).map((item: any) => (
@@ -1728,7 +1922,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           type="text"
                           value={segnalazioneForm.titolo}
                           onChange={(event) => setSegnalazioneForm((current) => ({ ...current, titolo: event.target.value }))}
-                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                         />
                       </label>
                       <label className="detail-configura-field">
@@ -1737,7 +1931,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           rows={4}
                           value={segnalazioneForm.testo}
                           onChange={(event) => setSegnalazioneForm((current) => ({ ...current, testo: event.target.value }))}
-                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                         />
                       </label>
                       <div className="detail-segnalazioni-inline-fields">
@@ -1746,7 +1940,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           <select
                             value={segnalazioneForm.priorita.toString()}
                             onChange={(event) => setSegnalazioneForm((current) => ({ ...current, priorita: Number(event.target.value) }))}
-                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                           >
                             <option value="1">Alta</option>
                             <option value="2">Media</option>
@@ -1758,7 +1952,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           <select
                             value={segnalazioneForm.stato.toString()}
                             onChange={(event) => setSegnalazioneForm((current) => ({ ...current, stato: Number(event.target.value) }))}
-                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && !canEditSelectedSegnalazione)}
                           >
                             <option value="1">Aperta</option>
                             <option value="2">In lavorazione</option>
@@ -1772,7 +1966,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                             type="date"
                             value={segnalazioneForm.dataEvento}
                             onChange={(event) => setSegnalazioneForm((current) => ({ ...current, dataEvento: event.target.value }))}
-                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                           />
                         </label>
                         <label className="detail-configura-field">
@@ -1780,7 +1974,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           <select
                             value={segnalazioneForm.idRisorsaDestinataria}
                             onChange={(event) => setSegnalazioneForm((current) => ({ ...current, idRisorsaDestinataria: event.target.value }))}
-                            disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                           >
                             <option value="">Nessuna</option>
                             {segnalazioniDestinatariOptions.map((item: any) => (
@@ -1802,7 +1996,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           type="checkbox"
                           checked={segnalazioneForm.impattaCliente}
                           onChange={(event) => setSegnalazioneForm((current) => ({ ...current, impattaCliente: event.target.checked }))}
-                          disabled={detailSegnalazioniSaving || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
+                          disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || (isEditingSegnalazione && (selectedSegnalazioneChiusa || !canEditSelectedSegnalazione))}
                         />
                         <span>Impatta cliente</span>
                       </label>
@@ -1812,6 +2006,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                           onClick={isEditingSegnalazione ? handleModificaSegnalazione : handleApriSegnalazione}
                           disabled={
                             detailSegnalazioniSaving
+                            || detailSegnalazioniReadOnly
                             || !segnalazioneForm.titolo.trim()
                             || segnalazioneForm.idTipoSegnalazione <= 0
                             || (isEditingSegnalazione && (!selectedSegnalazione || !canEditSelectedSegnalazione))
@@ -1850,14 +2045,14 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                             rows={4}
                             value={messaggioForm}
                             onChange={(event) => setMessaggioForm(event.target.value)}
-                            disabled={detailSegnalazioniSaving || selectedSegnalazioneChiusa}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || selectedSegnalazioneChiusa}
                           />
                         </label>
                         <div className="detail-configura-actions">
                           <button
                             type="button"
                             onClick={selectedMessaggioId ? handleModificaMessaggio : handleInviaMessaggio}
-                            disabled={detailSegnalazioniSaving || !messaggioForm.trim() || selectedSegnalazioneChiusa || (Boolean(selectedMessaggioId) && !canEditSelectedMessaggio)}
+                            disabled={detailSegnalazioniSaving || detailSegnalazioniReadOnly || !messaggioForm.trim() || selectedSegnalazioneChiusa || (Boolean(selectedMessaggioId) && !canEditSelectedMessaggio)}
                           >
                             {detailSegnalazioniSaving ? 'Salvataggio...' : 'Salva'}
                           </button>

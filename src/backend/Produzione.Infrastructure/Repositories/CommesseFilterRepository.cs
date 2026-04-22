@@ -432,7 +432,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
                 CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
                 CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
-                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento;
+                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento,
+                CAST(1 AS BIT) AS Attivo,
+                CAST(0 AS BIT) AS Commerciale;
 
             SELECT TOP (0)
                 CAST(0 AS INT) AS IdRequisito,
@@ -443,11 +445,14 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 CAST(0 AS DECIMAL(18, 2)) AS OrePreviste,
                 CAST(0 AS DECIMAL(18, 2)) AS OreSpese,
                 CAST(0 AS DECIMAL(18, 2)) AS OreRestanti,
-                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento;
+                CAST(0 AS DECIMAL(18, 4)) AS PercentualeAvanzamento,
+                CAST(1 AS BIT) AS Attivo,
+                CAST(0 AS BIT) AS Commerciale;
 
             SELECT TOP (0)
                 CAST(0 AS INT) AS IdRisorsa,
                 CAST(N'' AS NVARCHAR(256)) AS NomeRisorsa,
+                CAST(NULL AS INT) AS Anno,
                 CAST(0 AS DECIMAL(18, 2)) AS OreSpeseTotali;
 
             RETURN;
@@ -457,7 +462,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         (
             IdRequisito INT NOT NULL,
             Requisito NVARCHAR(512) NOT NULL,
-            DurataRequisito DECIMAL(18, 2) NOT NULL
+            DurataRequisito DECIMAL(18, 2) NOT NULL,
+            Attivo BIT NOT NULL,
+            Commerciale BIT NOT NULL
         );
 
         CREATE TABLE #PrevistoRisorsa
@@ -481,19 +488,25 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             IdRisorsa INT NOT NULL,
             DurataRequisito DECIMAL(18, 2) NOT NULL,
             OrePreviste DECIMAL(18, 2) NOT NULL,
-            OreSpese DECIMAL(18, 2) NOT NULL
+            OreSpese DECIMAL(18, 2) NOT NULL,
+            Attivo BIT NOT NULL,
+            Commerciale BIT NOT NULL
         );
 
         INSERT INTO #RequisitiBase
         (
             IdRequisito,
             Requisito,
-            DurataRequisito
+            DurataRequisito,
+            Attivo,
+            Commerciale
         )
         SELECT
             rpc.id AS IdRequisito,
             CAST(ISNULL(rpc.Requisito, N'') AS NVARCHAR(512)) AS Requisito,
-            CAST(ISNULL(rpc.DurataPrevista, 0) AS DECIMAL(18, 2)) AS DurataRequisito
+            CAST(ISNULL(rpc.DurataPrevista, 0) AS DECIMAL(18, 2)) AS DurataRequisito,
+            CAST(ISNULL(rpc.attivo, 1) AS BIT) AS Attivo,
+            CAST(ISNULL(rpc.commerciale, 0) AS BIT) AS Commerciale
         FROM dbo.RequisitiPerCommessa rpc
         WHERE rpc.idcommessa = @IdCommessa;
 
@@ -556,7 +569,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             IdRisorsa,
             DurataRequisito,
             OrePreviste,
-            OreSpese
+            OreSpese,
+            Attivo,
+            Commerciale
         )
         SELECT
             k.IdRequisito,
@@ -564,7 +579,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             k.IdRisorsa,
             rb.DurataRequisito,
             CAST(ISNULL(p.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
-            CAST(ISNULL(s.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese
+            CAST(ISNULL(s.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
+            rb.Attivo,
+            rb.Commerciale
         FROM ChiaviDettaglio k
         INNER JOIN #RequisitiBase rb
             ON rb.IdRequisito = k.IdRequisito
@@ -597,6 +614,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 rb.IdRequisito,
                 rb.Requisito,
                 rb.DurataRequisito,
+                rb.Attivo,
+                rb.Commerciale,
                 CAST(ISNULL(pt.OrePreviste, 0) AS DECIMAL(18, 2)) AS OrePreviste,
                 CAST(ISNULL(st.OreSpese, 0) AS DECIMAL(18, 2)) AS OreSpese,
                 CAST(
@@ -624,7 +643,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ELSE ISNULL(r.OreSpese, 0) / NULLIF(r.OreRiferimento, 0)
                 END
                 AS DECIMAL(18, 4)
-            ) AS PercentualeAvanzamento
+            ) AS PercentualeAvanzamento,
+            CAST(ISNULL(r.Attivo, 1) AS BIT) AS Attivo,
+            CAST(ISNULL(r.Commerciale, 0) AS BIT) AS Commerciale
         FROM Riepilogo r
         ORDER BY
             r.Requisito;
@@ -672,7 +693,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     )
                 END
                 AS DECIMAL(18, 4)
-            ) AS PercentualeAvanzamento
+            ) AS PercentualeAvanzamento,
+            CAST(ISNULL(d.Attivo, 1) AS BIT) AS Attivo,
+            CAST(ISNULL(d.Commerciale, 0) AS BIT) AS Commerciale
         FROM #Dettaglio d
         LEFT JOIN dbo.Risorse r
             ON d.IdRisorsa = r.ID
@@ -692,6 +715,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     256
                 ) AS NVARCHAR(256)
             ) AS NomeRisorsa,
+            CAST(DATEPART(YEAR, CAST(a.[data] AS DATE)) AS INT) AS Anno,
             CAST(SUM(ISNULL(a.ore, 0)) AS DECIMAL(18, 2)) AS OreSpeseTotali
         FROM dbo.[Attività] a
         INNER JOIN dbo.Risorse r
@@ -701,8 +725,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         GROUP BY
             r.ID,
             r.[Nome Risorsa],
-            r.NetUserName
+            r.NetUserName,
+            DATEPART(YEAR, CAST(a.[data] AS DATE))
         ORDER BY
+            Anno DESC,
             NomeRisorsa;
         """;
     private const string CommessaOrdiniOfferteQuery = """
@@ -4554,7 +4580,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ReadDecimal(reader, "OrePreviste"),
                     ReadDecimal(reader, "OreSpese"),
                     ReadDecimal(reader, "OreRestanti"),
-                    ReadDecimal(reader, "PercentualeAvanzamento")));
+                    ReadDecimal(reader, "PercentualeAvanzamento"),
+                    ReadBoolean(reader, "Attivo"),
+                    ReadBoolean(reader, "Commerciale")));
             }
 
             if (await reader.NextResultAsync(cancellationToken))
@@ -4570,7 +4598,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         ReadDecimal(reader, "OrePreviste"),
                         ReadDecimal(reader, "OreSpese"),
                         ReadDecimal(reader, "OreRestanti"),
-                        ReadDecimal(reader, "PercentualeAvanzamento")));
+                        ReadDecimal(reader, "PercentualeAvanzamento"),
+                        ReadBoolean(reader, "Attivo"),
+                        ReadBoolean(reader, "Commerciale")));
                 }
             }
 
@@ -4581,7 +4611,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     oreSpeseRisorse.Add(new CommessaOreSpeseRisorsaRow(
                         ReadNullableInt(reader, "IdRisorsa") ?? 0,
                         ReadString(reader, "NomeRisorsa"),
-                        ReadDecimal(reader, "OreSpeseTotali")));
+                        ReadDecimal(reader, "OreSpeseTotali"),
+                        ReadNullableInt(reader, "Anno")));
                 }
             }
 
@@ -4596,7 +4627,8 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     .ThenBy(item => item.IdRisorsa)
                     .ToArray(),
                 oreSpeseRisorse
-                    .OrderBy(item => item.NomeRisorsa)
+                    .OrderByDescending(item => item.Anno ?? int.MinValue)
+                    .ThenBy(item => item.NomeRisorsa)
                     .ThenBy(item => item.IdRisorsa)
                     .ToArray());
         }
@@ -4942,7 +4974,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         AddStringClause(clauses, "tipo_commessa", request.TipologiaCommessa);
         AddStringClause(clauses, "stato", request.Stato);
         AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
-        AddStringClause(clauses, "controparte", request.Prodotto);
+        AddContainsClause(clauses, "controparte", request.Prodotto);
         AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
         AddStringClause(clauses, "RCC", request.Rcc);
         AddStringClause(clauses, "PM", request.Pm);
@@ -5987,9 +6019,31 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         clauses.Add($"{columnName} = {SqlQuote(value)}");
     }
 
+    private static void AddContainsClause(ICollection<string> clauses, string columnName, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        clauses.Add($"UPPER(LTRIM(RTRIM(ISNULL({columnName}, '')))) LIKE {SqlLikeQuoteContains(value.ToUpperInvariant())} ESCAPE '~'");
+    }
+
     private static string SqlQuote(string value)
     {
         return $"'{value.Trim().Replace("'", "''")}'";
+    }
+
+    private static string SqlLikeQuoteContains(string value)
+    {
+        var normalized = value.Trim()
+            .Replace("~", "~~", StringComparison.Ordinal)
+            .Replace("%", "~%", StringComparison.Ordinal)
+            .Replace("_", "~_", StringComparison.Ordinal)
+            .Replace("[", "~[", StringComparison.Ordinal)
+            .Replace("'", "''", StringComparison.Ordinal);
+
+        return $"'%{normalized}%'";
     }
 
     private static string NormalizeCommessaKey(string value)

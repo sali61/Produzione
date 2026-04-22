@@ -962,6 +962,8 @@ export type CommessaRequisitoOreSummaryRow = {
   oreSpese: number
   oreRestanti: number
   percentualeAvanzamento: number
+  attivo: boolean
+  commerciale: boolean
 }
 
 export type CommessaRequisitoOreRisorsaRow = {
@@ -974,12 +976,15 @@ export type CommessaRequisitoOreRisorsaRow = {
   oreSpese: number
   oreRestanti: number
   percentualeAvanzamento: number
+  attivo: boolean
+  commerciale: boolean
 }
 
 export type CommessaOreSpeseRisorsaRow = {
   idRisorsa: number
   nomeRisorsa: string
   oreSpeseTotali: number
+  anno?: number | null
 }
 
 export type CommessaOrdineRow = {

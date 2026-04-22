@@ -1961,10 +1961,113 @@ button:disabled {
   font-size: 0.75rem;
 }
 
+.detail-requisiti-year-filter-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.28rem;
+}
+
+.detail-requisiti-year-filter-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-size: 0.74rem;
+  color: #274a74;
+}
+
+.detail-requisiti-year-filter-field select {
+  min-width: 140px;
+  border: 1px solid #c3d4eb;
+  border-radius: 6px;
+  padding: 0.2rem 0.42rem;
+  font-size: 0.74rem;
+  color: #17365d;
+  background: #fff;
+}
+
 .detail-inline-action {
   padding: 0.2rem 0.45rem;
   min-height: 1.7rem;
   font-size: 0.72rem;
+}
+
+.detail-col-header-with-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.detail-col-tooltip-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 1px solid #98b4d8;
+  background: #eef5ff;
+  color: #2b527d;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  outline: none;
+}
+
+.detail-col-tooltip-trigger::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: calc(100% + 0.3rem);
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 320px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #b9cde8;
+  background: #ffffff;
+  color: #17365d;
+  box-shadow: 0 6px 16px rgba(19, 44, 74, 0.18);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.detail-col-tooltip-trigger:hover::after,
+.detail-col-tooltip-trigger:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.detail-requisito-row-inactive > td {
+  background: #f1f4f8;
+  color: #4f6684;
+}
+
+.detail-requisito-row-commerciale-attivo > td {
+  background: #fff5bf;
+  color: #5e4a00;
+}
+
+.detail-requisito-row-commerciale-non-attivo > td {
+  background: #ffd7a8;
+  color: #6d3d00;
+}
+
+.detail-requisito-row-inactive > td.num-negative,
+.detail-requisito-row-inactive > td .num-negative,
+.detail-requisito-row-commerciale-attivo > td.num-negative,
+.detail-requisito-row-commerciale-attivo > td .num-negative,
+.detail-requisito-row-commerciale-non-attivo > td.num-negative,
+.detail-requisito-row-commerciale-non-attivo > td .num-negative {
+  color: #bb2b2b;
 }
 
 .detail-requisiti-dettaglio {
@@ -2235,6 +2338,10 @@ button:disabled {
 
   .detail-requisiti-split {
     grid-template-columns: 1fr;
+  }
+
+  .detail-requisiti-year-filter-row {
+    justify-content: flex-start;
   }
 
   .detail-configura-grid,

@@ -5,4 +5,5 @@ public sealed class CommessaOreSpeseRisorsaDto
     public int IdRisorsa { get; set; }
     public string NomeRisorsa { get; set; } = string.Empty;
     public decimal OreSpeseTotali { get; set; }
+    public int? Anno { get; set; }
 }

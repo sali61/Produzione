@@ -58,3 +58,14 @@ Script presenti:
   commerciali con fatturato/fatturato futuro, controlli interaziendali fuori
   tipologia `Servizi Interaziendali` e controlli su commesse di tipologia
   `Servizi Interaziendali` con costi/ricavi.
+- `014_spDettaglioCommesseFatturato_Perf.sql`:
+  tuning prestazionale per `produzione.spDettaglioCommesseFatturato` con:
+  colonne calcolate normalizzate persistite, indici dedicati su tabelle CDG
+  e revisione query `Vendite/Acquisti` per ridurre scansioni e CPU mantenendo
+  invariato il contratto dei result-set.
+- `015_spDettaglioCommesseFatturato_ByIdCommessa.sql`:
+  revisione DB-only di `produzione.spDettaglioCommesseFatturato` che elimina
+  la join a `CDG.CDG_IncrocioContabilitaIntranet`, risolve `IdCommessa` da
+  `dbo.Commesse` e filtra:
+  `CDG.CdgFattureAttive.id_cont_commessa` / `CDG.CdgFatturePassive.idcommessa`.
+  Include creazione indici di supporto per i nuovi filtri.

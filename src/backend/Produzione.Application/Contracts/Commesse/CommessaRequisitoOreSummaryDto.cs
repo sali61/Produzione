@@ -9,4 +9,6 @@ public sealed class CommessaRequisitoOreSummaryDto
     public decimal OreSpese { get; set; }
     public decimal OreRestanti { get; set; }
     public decimal PercentualeAvanzamento { get; set; }
+    public bool Attivo { get; set; }
+    public bool Commerciale { get; set; }
 }

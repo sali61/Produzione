@@ -7,4 +7,6 @@ public sealed record CommessaRequisitoOreSummaryRow(
     decimal OrePreviste,
     decimal OreSpese,
     decimal OreRestanti,
-    decimal PercentualeAvanzamento);
+    decimal PercentualeAvanzamento,
+    bool Attivo,
+    bool Commerciale);

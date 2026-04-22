@@ -1090,21 +1090,15 @@ public sealed class CommesseController(
                 });
             }
 
-            var anagrafica = await commesseFilterRepository.GetCommessaAnagraficaAsync(
+            var readOnlyResponse = await EnsureCommessaEditableAsync(
                 contextData.EffectiveUser,
                 profileResult,
                 normalizedCommessa,
+                "salvataggio avanzamento",
                 cancellationToken);
-            var statoCommessa = anagrafica?.Stato?.Trim();
-            var isCommessaChiusa =
-                string.Equals(statoCommessa, "NF", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(statoCommessa, "T", StringComparison.OrdinalIgnoreCase);
-            if (isCommessaChiusa)
+            if (readOnlyResponse is not null)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    message = $"Commessa '{normalizedCommessa}' chiusa (stato {statoCommessa}): avanzamento non modificabile."
-                });
+                return readOnlyResponse;
             }
 
             var dataRiferimento = request.DataRiferimento.Date;
@@ -1784,6 +1778,15 @@ public sealed class CommesseController(
             return NotFound(new { message = "Segnalazione non trovata per la commessa selezionata." });
         }
 
+        if (request.Stato == 4)
+        {
+            var canClose = await CanCloseSegnalazioneAsync(segnalazione, validation.Context.EffectiveUser, cancellationToken);
+            if (!canClose)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Puoi chiudere la segnalazione solo se sei autore o hai inserito almeno una risposta." });
+            }
+        }
+
         var success = await commesseFilterRepository.AggiornaStatoSegnalazioneCommessaAsync(
             validation.Context.EffectiveUser,
             request.IdSegnalazione,
@@ -1828,6 +1831,15 @@ public sealed class CommesseController(
         if (IsSegnalazioneChiusa(segnalazione))
         {
             return BadRequest(new { message = "Segnalazione gia chiusa." });
+        }
+
+        var canCloseSegnalazione = await CanCloseSegnalazioneAsync(
+            segnalazione,
+            validation.Context.EffectiveUser,
+            cancellationToken);
+        if (!canCloseSegnalazione)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Puoi chiudere la segnalazione solo se sei autore o hai inserito almeno una risposta." });
         }
 
         var success = await commesseFilterRepository.ChiudiSegnalazioneCommessaAsync(
@@ -2072,6 +2084,36 @@ public sealed class CommesseController(
         return segnalazioni.FirstOrDefault(item => item.Id == idSegnalazione);
     }
 
+    private async Task<IActionResult?> EnsureCommessaEditableAsync(
+        UserContext effectiveUser,
+        string profile,
+        string commessa,
+        string operationLabel,
+        CancellationToken cancellationToken)
+    {
+        var anagrafica = await commesseFilterRepository.GetCommessaAnagraficaAsync(
+            effectiveUser,
+            profile,
+            commessa,
+            cancellationToken);
+        var statoCommessa = anagrafica?.Stato?.Trim();
+        if (IsCommessaEditableStatus(statoCommessa))
+        {
+            return null;
+        }
+
+        var statoLabel = string.IsNullOrWhiteSpace(statoCommessa) ? "-" : statoCommessa;
+        return StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            message = $"Commessa '{commessa}' in sola lettura (stato {statoLabel}): {operationLabel} non consentita. Modifiche abilitate solo con stato O."
+        });
+    }
+
+    private static bool IsCommessaEditableStatus(string? stato)
+    {
+        return string.Equals(stato?.Trim(), "O", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsSegnalazioneChiusa(CommessaSegnalazioneRow segnalazione)
     {
         return segnalazione.Stato == 4;
@@ -2080,6 +2122,25 @@ public sealed class CommesseController(
     private static bool IsOwner(int? idRisorsaOwner, UserContext user)
     {
         return idRisorsaOwner.HasValue && idRisorsaOwner.Value > 0 && user.IdRisorsa > 0 && idRisorsaOwner.Value == user.IdRisorsa;
+    }
+
+    private async Task<bool> CanCloseSegnalazioneAsync(
+        CommessaSegnalazioneRow segnalazione,
+        UserContext user,
+        CancellationToken cancellationToken)
+    {
+        if (IsOwner(segnalazione.IdRisorsaInserimento, user))
+        {
+            return true;
+        }
+
+        if (segnalazione.Id <= 0 || user.IdRisorsa <= 0)
+        {
+            return false;
+        }
+
+        var thread = await commesseFilterRepository.GetThreadSegnalazioneCommessaAsync(segnalazione.Id, cancellationToken);
+        return thread.Any(item => IsOwner(item.IdRisorsaInserimento, user));
     }
 
     private async Task<IActionResult> DettaglioSegnalazioniEliminaMessaggioCore(
@@ -2674,7 +2735,9 @@ public sealed class CommesseController(
                         OrePreviste = item.OrePreviste,
                         OreSpese = item.OreSpese,
                         OreRestanti = item.OreRestanti,
-                        PercentualeAvanzamento = item.PercentualeAvanzamento
+                        PercentualeAvanzamento = item.PercentualeAvanzamento,
+                        Attivo = item.Attivo,
+                        Commerciale = item.Commerciale
                     })
                     .ToArray(),
                 RequisitiOreRisorse = requisitiOreDettaglio.Risorse
@@ -2688,7 +2751,9 @@ public sealed class CommesseController(
                         OrePreviste = item.OrePreviste,
                         OreSpese = item.OreSpese,
                         OreRestanti = item.OreRestanti,
-                        PercentualeAvanzamento = item.PercentualeAvanzamento
+                        PercentualeAvanzamento = item.PercentualeAvanzamento,
+                        Attivo = item.Attivo,
+                        Commerciale = item.Commerciale
                     })
                     .ToArray(),
                 OreSpeseRisorse = requisitiOreDettaglio.OreSpeseRisorse
@@ -2696,7 +2761,8 @@ public sealed class CommesseController(
                     {
                         IdRisorsa = item.IdRisorsa,
                         NomeRisorsa = item.NomeRisorsa,
-                        OreSpeseTotali = item.OreSpeseTotali
+                        OreSpeseTotali = item.OreSpeseTotali,
+                        Anno = item.Anno
                     })
                     .ToArray(),
                 ConfigurazioneCommessa = await configurazioneTask,
