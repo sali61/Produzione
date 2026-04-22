@@ -340,6 +340,12 @@
   color: #274a74;
 }
 
+.sintesi-label-with-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .sintesi-field input,
 .sintesi-field select {
   border: 1px solid #b8cae5;
@@ -1961,6 +1967,84 @@ button:disabled {
   font-size: 0.75rem;
 }
 
+.detail-requisiti-sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.detail-requisiti-sortable-header:focus-visible {
+  outline: 2px solid rgba(51, 102, 204, 0.35);
+  outline-offset: -2px;
+}
+
+.detail-requisiti-sort-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.detail-requisiti-sort-header-content-num {
+  justify-content: flex-end;
+}
+
+.detail-requisiti-caption-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.2rem;
+}
+
+.detail-requisiti-caption-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.detail-requisiti-caption-filter-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.74rem;
+  color: #274a74;
+}
+
+.detail-requisiti-caption-filter-field select {
+  min-width: 110px;
+  border: 1px solid #c3d4eb;
+  border-radius: 6px;
+  padding: 0.2rem 0.42rem;
+  font-size: 0.74rem;
+  color: #17365d;
+  background: #fff;
+}
+
+.detail-requisiti-caption-unit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.14rem 0.36rem;
+  border: 1px solid #c3d4eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.detail-requisiti-caption-unit-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.74rem;
+  color: #274a74;
+  cursor: pointer;
+}
+
+.detail-requisiti-caption-unit-toggle input[type='radio'] {
+  margin: 0;
+}
+
 .detail-requisiti-year-filter-row {
   display: flex;
   justify-content: flex-end;
@@ -2341,6 +2425,14 @@ button:disabled {
   }
 
   .detail-requisiti-year-filter-row {
+    justify-content: flex-start;
+  }
+
+  .detail-requisiti-caption-row {
+    align-items: flex-start;
+  }
+
+  .detail-requisiti-caption-filters {
     justify-content: flex-start;
   }
 

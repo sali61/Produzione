@@ -6026,7 +6026,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             return;
         }
 
-        clauses.Add($"UPPER(LTRIM(RTRIM(ISNULL({columnName}, '')))) LIKE {SqlLikeQuoteContains(value.ToUpperInvariant())} ESCAPE '~'");
+        var normalizedValue = RemoveSqlWhitespace(value).ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedValue))
+        {
+            return;
+        }
+
+        var normalizedColumnExpression =
+            $"REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(ISNULL({columnName}, ''))), NCHAR(160), ''), CHAR(9), ''), CHAR(13), ''), CHAR(10), ''), ' ', '')";
+        clauses.Add($"UPPER({normalizedColumnExpression}) LIKE {SqlLikeQuoteContains(normalizedValue)} ESCAPE '~'");
     }
 
     private static string SqlQuote(string value)
@@ -6044,6 +6052,11 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .Replace("'", "''", StringComparison.Ordinal);
 
         return $"'%{normalized}%'";
+    }
+
+    private static string RemoveSqlWhitespace(string value)
+    {
+        return string.Concat(value.Where(character => !char.IsWhiteSpace(character)));
     }
 
     private static string NormalizeCommessaKey(string value)

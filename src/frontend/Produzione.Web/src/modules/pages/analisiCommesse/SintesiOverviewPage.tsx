@@ -64,6 +64,8 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
     totaleUtileFineProgettoValorizzato,
     totals,
   } = props as any
+  const attiveDalTooltip =
+    'Mostra le commesse con data chiusura nulla oppure con anno di chiusura uguale o successivo all\'anno selezionato. Non richiede righe con anno competenza successivo.'
 
   return (
           <section className="panel sintesi-page">
@@ -116,7 +118,17 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
 
                   {!isDatiContabiliPage && (
                     <div className="sintesi-field sintesi-field-attive-dal">
-                      <label htmlFor="sintesi-attive-dal-anno">Attive dal</label>
+                      <label htmlFor="sintesi-attive-dal-anno" className="sintesi-label-with-tooltip">
+                        <span>Attive dal</span>
+                        <span
+                          className="detail-col-tooltip-trigger"
+                          tabIndex={0}
+                          aria-label={`Attive dal: ${attiveDalTooltip}`}
+                          data-tooltip={attiveDalTooltip}
+                        >
+                          i
+                        </span>
+                      </label>
                       <select
                         id="sintesi-attive-dal-anno"
                         value={sintesiFiltersForm.attiveDalAnno}

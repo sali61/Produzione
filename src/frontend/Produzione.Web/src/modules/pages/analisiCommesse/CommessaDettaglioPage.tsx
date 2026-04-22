@@ -3,6 +3,15 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 
 type CommessaDettaglioPageProps = any
+type DetailRequisitiSortKey =
+  | 'requisito'
+  | 'durataRequisito'
+  | 'venduto'
+  | 'orePreviste'
+  | 'oreSpese'
+  | 'oreRestanti'
+  | 'delta'
+  | 'percentualeAvanzamento'
 
 export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   const {
@@ -126,6 +135,13 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   })
   const [messaggioForm, setMessaggioForm] = useState('')
   const [detailOreSpeseAnnoFilter, setDetailOreSpeseAnnoFilter] = useState('')
+  const [detailRequisitiStatoFilter, setDetailRequisitiStatoFilter] = useState<'tutte' | 'aperte' | 'chiuse'>('tutte')
+  const [detailRequisitiCommercialeFilter, setDetailRequisitiCommercialeFilter] = useState<'tutte' | 'commerciali' | 'operative'>('tutte')
+  const [detailRequisitiUnitaView, setDetailRequisitiUnitaView] = useState<'ore' | 'giorni'>('ore')
+  const [detailRequisitiSort, setDetailRequisitiSort] = useState<{ key: DetailRequisitiSortKey; direction: 'asc' | 'desc' }>({
+    key: 'requisito',
+    direction: 'asc',
+  })
   const showSegnalazioneEditor = segnalazioneEditorMode !== 'hidden'
   const isEditingSegnalazione = segnalazioneEditorMode === 'edit'
 
@@ -223,6 +239,133 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
     return getRequisitoOreRiferimento(item) - (Number(item?.oreSpese) || 0)
   }
   const getRequisitoPercentualeVisual = (item: any) => (isRequisitoAttivo(item) ? (Number(item?.percentualeAvanzamento) || 0) : 1)
+  const toRequisitiDisplayValue = (value: number) => (detailRequisitiUnitaView === 'giorni' ? value / 8 : value)
+  const formatRequisitiDisplayValue = (value: number) => formatNumber(toRequisitiDisplayValue(Number(value) || 0))
+  const getDetailRequisitiSortValue = (item: any, key: DetailRequisitiSortKey) => {
+    switch (key) {
+      case 'requisito':
+        return String(item?.requisito || `Requisito ${item?.idRequisito ?? ''}`)
+      case 'durataRequisito':
+        return Number(item?.durataRequisito) || 0
+      case 'venduto':
+        return getRequisitoVenduto(item)
+      case 'orePreviste':
+        return Number(item?.orePreviste) || 0
+      case 'oreSpese':
+        return Number(item?.oreSpese) || 0
+      case 'oreRestanti':
+        return getRequisitoOreRestantiVisual(item)
+      case 'delta':
+        return getRequisitoDelta(item)
+      case 'percentualeAvanzamento':
+        return getRequisitoPercentualeVisual(item)
+      default:
+        return 0
+    }
+  }
+  const toggleDetailRequisitiSort = (key: DetailRequisitiSortKey) => {
+    setDetailRequisitiSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction: current.direction === 'asc' ? 'desc' : 'asc',
+        }
+      }
+
+      return {
+        key,
+        direction: 'asc',
+      }
+    })
+  }
+  const handleDetailRequisitiSortHeaderKeyDown = (event: any, key: DetailRequisitiSortKey) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    event.preventDefault()
+    toggleDetailRequisitiSort(key)
+  }
+  const getDetailRequisitiSortIndicator = (key: DetailRequisitiSortKey) => {
+    if (detailRequisitiSort.key !== key) {
+      return '↕'
+    }
+
+    return detailRequisitiSort.direction === 'asc' ? '▲' : '▼'
+  }
+  const detailRequisitiOreRowsView = useMemo(() => (
+    detailRequisitiOreRows.filter((row: any) => {
+      const statoMatches = detailRequisitiStatoFilter === 'tutte'
+        || (detailRequisitiStatoFilter === 'aperte' && isRequisitoAttivo(row))
+        || (detailRequisitiStatoFilter === 'chiuse' && !isRequisitoAttivo(row))
+      const commercialeMatches = detailRequisitiCommercialeFilter === 'tutte'
+        || (detailRequisitiCommercialeFilter === 'commerciali' && isRequisitoCommerciale(row))
+        || (detailRequisitiCommercialeFilter === 'operative' && !isRequisitoCommerciale(row))
+      return statoMatches && commercialeMatches
+    })
+  ), [detailRequisitiCommercialeFilter, detailRequisitiOreRows, detailRequisitiStatoFilter])
+  const detailRequisitiOreRowsSorted = useMemo(() => {
+    const directionFactor = detailRequisitiSort.direction === 'asc' ? 1 : -1
+    return detailRequisitiOreRowsView
+      .map((row: any, index: number) => ({ row, index }))
+      .sort((left, right) => {
+        const leftValue = getDetailRequisitiSortValue(left.row, detailRequisitiSort.key)
+        const rightValue = getDetailRequisitiSortValue(right.row, detailRequisitiSort.key)
+        const compareAsString = typeof leftValue === 'string' || typeof rightValue === 'string'
+
+        if (compareAsString) {
+          const result = String(leftValue).localeCompare(String(rightValue), 'it', { sensitivity: 'base' })
+          if (result !== 0) {
+            return result * directionFactor
+          }
+        } else {
+          const leftNumber = Number(leftValue) || 0
+          const rightNumber = Number(rightValue) || 0
+          if (leftNumber !== rightNumber) {
+            return (leftNumber - rightNumber) * directionFactor
+          }
+        }
+
+        return left.index - right.index
+      })
+      .map((item) => item.row)
+  }, [detailRequisitiOreRowsView, detailRequisitiSort])
+  const detailRequisitiOreTotalsView = useMemo(() => (
+    detailRequisitiOreRowsView.reduce((acc: any, row: any) => {
+      const oreSpese = Number(row?.oreSpese) || 0
+      const oreRiferimento = isRequisitoAttivo(row)
+        ? getRequisitoOreRiferimento(row)
+        : Math.max(oreSpese, 0)
+      const venduto = getRequisitoVenduto(row)
+      return {
+        durataRequisito: acc.durataRequisito + (Number(row?.durataRequisito) || 0),
+        venduto: acc.venduto + venduto,
+        orePreviste: acc.orePreviste + (Number(row?.orePreviste) || 0),
+        oreSpese: acc.oreSpese + oreSpese,
+        oreRestanti: acc.oreRestanti + getRequisitoOreRestantiVisual(row),
+        delta: acc.delta + (venduto - oreSpese),
+        oreRiferimento: acc.oreRiferimento + oreRiferimento,
+      }
+    }, {
+      durataRequisito: 0,
+      venduto: 0,
+      orePreviste: 0,
+      oreSpese: 0,
+      oreRestanti: 0,
+      delta: 0,
+      oreRiferimento: 0,
+    })
+  ), [detailRequisitiOreRowsView])
+  const detailRequisitiOreTotalsCurrent = useMemo(() => (
+    detailRequisitiStatoFilter === 'tutte' && detailRequisitiCommercialeFilter === 'tutte'
+      ? (detailRequisitiOreTotals ?? detailRequisitiOreTotalsView)
+      : detailRequisitiOreTotalsView
+  ), [
+    detailRequisitiCommercialeFilter,
+    detailRequisitiOreTotals,
+    detailRequisitiOreTotalsView,
+    detailRequisitiStatoFilter,
+  ])
   const renderHeaderWithTooltip = (label: string, tooltip: string) => (
     <span className="detail-col-header-with-tooltip">
       <span>{label}</span>
@@ -231,10 +374,30 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
         tabIndex={0}
         aria-label={`${label}: ${tooltip}`}
         data-tooltip={tooltip}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
         i
       </span>
     </span>
+  )
+  const renderDetailRequisitiSortableHeader = (
+    key: DetailRequisitiSortKey,
+    content: any,
+    isNumeric: boolean = false,
+  ) => (
+    <th
+      className={`${isNumeric ? 'num ' : ''}detail-requisiti-sortable-header`}
+      tabIndex={0}
+      aria-sort={detailRequisitiSort.key === key ? (detailRequisitiSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+      onClick={() => toggleDetailRequisitiSort(key)}
+      onKeyDown={(event) => handleDetailRequisitiSortHeaderKeyDown(event, key)}
+    >
+      <span className={`detail-requisiti-sort-header-content ${isNumeric ? 'detail-requisiti-sort-header-content-num' : ''}`}>
+        <span>{content}</span>
+        <span className="sort-indicator" aria-hidden="true">{getDetailRequisitiSortIndicator(key)}</span>
+      </span>
+    </th>
   )
 
   const parseDecimalInput = (rawValue: string) => {
@@ -1265,10 +1428,6 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                   <h3>Ore requisiti commessa</h3>
                 </header>
                 <div className="detail-card-body">
-                  <p className="detail-kpi-caption">
-                    Speso attivita fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
-                  </p>
-
                   {detailRequisitiOreRows.length === 0 && (
                     <p className="empty-state">
                       Nessun requisito con ore previste/spese disponibile per la commessa selezionata.
@@ -1279,23 +1438,82 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                     <>
                       <div className="detail-requisiti-split">
                         <div className="detail-requisiti-col">
+                          <div className="detail-requisiti-caption-row">
+                            <p className="detail-kpi-caption">
+                              Speso attivita fino al {detailLastDayPreviousMonth ? detailLastDayPreviousMonth.toLocaleDateString('it-IT') : '-'}.
+                            </p>
+                            <div className="detail-requisiti-caption-filters">
+                              <label className="detail-requisiti-caption-filter-field">
+                                <span>Stato</span>
+                                <select
+                                  value={detailRequisitiStatoFilter}
+                                  onChange={(event) => setDetailRequisitiStatoFilter(event.target.value as 'tutte' | 'aperte' | 'chiuse')}
+                                >
+                                  <option value="tutte">Tutte</option>
+                                  <option value="aperte">Aperte</option>
+                                  <option value="chiuse">Chiuse</option>
+                                </select>
+                              </label>
+                              <label className="detail-requisiti-caption-filter-field">
+                                <span>Commerciale</span>
+                                <select
+                                  value={detailRequisitiCommercialeFilter}
+                                  onChange={(event) => setDetailRequisitiCommercialeFilter(event.target.value as 'tutte' | 'commerciali' | 'operative')}
+                                >
+                                  <option value="tutte">Tutte</option>
+                                  <option value="commerciali">Commerciali</option>
+                                  <option value="operative">Operative</option>
+                                </select>
+                              </label>
+                              <div className="detail-requisiti-caption-unit-toggle" role="radiogroup" aria-label="Visualizzazione ore o giorni">
+                                <label>
+                                  <input
+                                    type="radio"
+                                    name="detail-requisiti-unita"
+                                    value="ore"
+                                    checked={detailRequisitiUnitaView === 'ore'}
+                                    onChange={() => setDetailRequisitiUnitaView('ore')}
+                                  />
+                                  Ore
+                                </label>
+                                <label>
+                                  <input
+                                    type="radio"
+                                    name="detail-requisiti-unita"
+                                    value="giorni"
+                                    checked={detailRequisitiUnitaView === 'giorni'}
+                                    onChange={() => setDetailRequisitiUnitaView('giorni')}
+                                  />
+                                  Giorni
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {detailRequisitiOreRowsView.length === 0 && (
+                            <p className="empty-state">
+                              Nessun requisito disponibile con i filtri selezionati.
+                            </p>
+                          )}
+
+                          {detailRequisitiOreRowsView.length > 0 && (
                           <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
                             <table className="bonifici-table detail-requisiti-table">
                               <thead>
                                 <tr>
-                                  <th>Requisito</th>
-                                  <th className="num">{renderHeaderWithTooltip('Durata requisito', 'Valutazione per il cliente del requisito')}</th>
-                                  <th className="num">{renderHeaderWithTooltip('Venduto', 'Valutazione accettata dal cliente')}</th>
-                                  <th className="num">{renderHeaderWithTooltip('Ore Previste', 'Ore assegnate alle risorse per eseguire il task')}</th>
-                                  <th className="num">{renderHeaderWithTooltip('Ore Spese', 'Ore registrate sulla intranet')}</th>
-                                  <th className="num">{renderHeaderWithTooltip('Ore Restanti', 'Ore ancora da spendere per completare il task')}</th>
-                                  <th className="num">{renderHeaderWithTooltip('Delta', 'Differenza fra venduto ed ore spese')}</th>
-                                  <th className="num">% Avanz.</th>
+                                  {renderDetailRequisitiSortableHeader('requisito', 'Requisito')}
+                                  {renderDetailRequisitiSortableHeader('durataRequisito', renderHeaderWithTooltip('Durata requisito', 'Valutazione per il cliente del requisito'), true)}
+                                  {renderDetailRequisitiSortableHeader('venduto', renderHeaderWithTooltip('Venduto', 'Valutazione accettata dal cliente'), true)}
+                                  {renderDetailRequisitiSortableHeader('orePreviste', renderHeaderWithTooltip('Ore Previste', 'Ore assegnate alle risorse per eseguire il task'), true)}
+                                  {renderDetailRequisitiSortableHeader('oreSpese', renderHeaderWithTooltip('Ore Spese', 'Ore registrate sulla intranet'), true)}
+                                  {renderDetailRequisitiSortableHeader('oreRestanti', renderHeaderWithTooltip('Ore Restanti', 'Ore ancora da spendere per completare il task'), true)}
+                                  {renderDetailRequisitiSortableHeader('delta', renderHeaderWithTooltip('Delta', 'Differenza fra venduto ed ore spese'), true)}
+                                  {renderDetailRequisitiSortableHeader('percentualeAvanzamento', '% Avanz.', true)}
                                   <th>Dettaglio</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {detailRequisitiOreRows.map((row) => {
+                                {detailRequisitiOreRowsSorted.map((row) => {
                                   const rowVenduto = getRequisitoVenduto(row)
                                   const rowOreRestantiVisual = getRequisitoOreRestantiVisual(row)
                                   const rowPercentualeVisual = getRequisitoPercentualeVisual(row)
@@ -1328,14 +1546,14 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                     <Fragment key={`requisito-${row.idRequisito}`}>
                                       <tr className={rowClassName}>
                                         <td>{row.requisito || `Requisito ${row.idRequisito}`}</td>
-                                        <td className="num">{formatNumber(row.durataRequisito)}</td>
-                                        <td className="num">{formatNumber(rowVenduto)}</td>
-                                        <td className="num">{formatNumber(row.orePreviste)}</td>
-                                        <td className="num">{formatNumber(row.oreSpese)}</td>
+                                        <td className="num">{formatRequisitiDisplayValue(row.durataRequisito)}</td>
+                                        <td className="num">{formatRequisitiDisplayValue(rowVenduto)}</td>
+                                        <td className="num">{formatRequisitiDisplayValue(row.orePreviste)}</td>
+                                        <td className="num">{formatRequisitiDisplayValue(row.oreSpese)}</td>
                                         <td className={`num ${rowOreRestantiVisual < 0 ? 'num-negative' : ''}`}>
-                                          {formatNumber(rowOreRestantiVisual)}
+                                          {formatRequisitiDisplayValue(rowOreRestantiVisual)}
                                         </td>
-                                        <td className={`num ${rowDelta < 0 ? 'num-negative' : ''}`}>{formatNumber(rowDelta)}</td>
+                                        <td className={`num ${rowDelta < 0 ? 'num-negative' : ''}`}>{formatRequisitiDisplayValue(rowDelta)}</td>
                                         <td className="num">{formatPercentRatio(rowPercentualeVisual)}</td>
                                         <td>
                                           <button
@@ -1379,14 +1597,14 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                                       return (
                                                         <tr key={`requisito-risorsa-${item.idRequisito}-${item.idRisorsa}`} className={itemRowClassName}>
                                                           <td>{item.nomeRisorsa || `ID ${item.idRisorsa}`}</td>
-                                                          <td className="num">{formatNumber(item.durataRequisito)}</td>
-                                                          <td className="num">{formatNumber(itemVenduto)}</td>
-                                                          <td className="num">{formatNumber(item.orePreviste)}</td>
-                                                          <td className="num">{formatNumber(item.oreSpese)}</td>
+                                                          <td className="num">{formatRequisitiDisplayValue(item.durataRequisito)}</td>
+                                                          <td className="num">{formatRequisitiDisplayValue(itemVenduto)}</td>
+                                                          <td className="num">{formatRequisitiDisplayValue(item.orePreviste)}</td>
+                                                          <td className="num">{formatRequisitiDisplayValue(item.oreSpese)}</td>
                                                           <td className={`num ${itemOreRestantiVisual < 0 ? 'num-negative' : ''}`}>
-                                                            {formatNumber(itemOreRestantiVisual)}
+                                                            {formatRequisitiDisplayValue(itemOreRestantiVisual)}
                                                           </td>
-                                                          <td className={`num ${itemDelta < 0 ? 'num-negative' : ''}`}>{formatNumber(itemDelta)}</td>
+                                                          <td className={`num ${itemDelta < 0 ? 'num-negative' : ''}`}>{formatRequisitiDisplayValue(itemDelta)}</td>
                                                           <td className="num">{formatPercentRatio(itemPercentualeVisual)}</td>
                                                         </tr>
                                                       )
@@ -1395,15 +1613,15 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                                   <tfoot>
                                                     <tr className="table-totals-row">
                                                       <td className="table-totals-label">Totale requisito</td>
-                                                      <td className="num">{formatNumber(row.durataRequisito)}</td>
-                                                      <td className="num">{formatNumber(rowVenduto)}</td>
-                                                      <td className="num">{formatNumber(risorseTotals.orePreviste)}</td>
-                                                      <td className="num">{formatNumber(risorseTotals.oreSpese)}</td>
+                                                      <td className="num">{formatRequisitiDisplayValue(row.durataRequisito)}</td>
+                                                      <td className="num">{formatRequisitiDisplayValue(rowVenduto)}</td>
+                                                      <td className="num">{formatRequisitiDisplayValue(risorseTotals.orePreviste)}</td>
+                                                      <td className="num">{formatRequisitiDisplayValue(risorseTotals.oreSpese)}</td>
                                                       <td className={`num ${risorseTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                                        {formatNumber(risorseTotals.oreRestanti)}
+                                                        {formatRequisitiDisplayValue(risorseTotals.oreRestanti)}
                                                       </td>
                                                       <td className={`num ${risorseDelta < 0 ? 'num-negative' : ''}`}>
-                                                        {formatNumber(risorseDelta)}
+                                                        {formatRequisitiDisplayValue(risorseDelta)}
                                                       </td>
                                                       <td className="num">
                                                         {formatPercentRatio(
@@ -1427,20 +1645,20 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                               <tfoot>
                                 <tr className="table-totals-row">
                                   <td className="table-totals-label">Totale</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.durataRequisito)}</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.venduto)}</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.orePreviste)}</td>
-                                  <td className="num">{formatNumber(detailRequisitiOreTotals.oreSpese)}</td>
-                                  <td className={`num ${detailRequisitiOreTotals.oreRestanti < 0 ? 'num-negative' : ''}`}>
-                                    {formatNumber(detailRequisitiOreTotals.oreRestanti)}
+                                  <td className="num">{formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.durataRequisito)}</td>
+                                  <td className="num">{formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.venduto)}</td>
+                                  <td className="num">{formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.orePreviste)}</td>
+                                  <td className="num">{formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.oreSpese)}</td>
+                                  <td className={`num ${detailRequisitiOreTotalsCurrent.oreRestanti < 0 ? 'num-negative' : ''}`}>
+                                    {formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.oreRestanti)}
                                   </td>
-                                  <td className={`num ${detailRequisitiOreTotals.delta < 0 ? 'num-negative' : ''}`}>
-                                    {formatNumber(detailRequisitiOreTotals.delta)}
+                                  <td className={`num ${detailRequisitiOreTotalsCurrent.delta < 0 ? 'num-negative' : ''}`}>
+                                    {formatRequisitiDisplayValue(detailRequisitiOreTotalsCurrent.delta)}
                                   </td>
                                   <td className="num">
                                     {formatPercentRatio(
-                                      detailRequisitiOreTotals.oreRiferimento > 0
-                                        ? detailRequisitiOreTotals.oreSpese / detailRequisitiOreTotals.oreRiferimento
+                                      detailRequisitiOreTotalsCurrent.oreRiferimento > 0
+                                        ? detailRequisitiOreTotalsCurrent.oreSpese / detailRequisitiOreTotalsCurrent.oreRiferimento
                                         : 0,
                                     )}
                                   </td>
@@ -1449,6 +1667,7 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                               </tfoot>
                             </table>
                           </div>
+                          )}
                         </div>
 
                         <div className="detail-requisiti-col">
@@ -1486,14 +1705,14 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                                 {detailOreSpeseRisorseRowsView.map((row) => (
                                   <tr key={`ore-spese-risorsa-${row.idRisorsa}-${row.nomeRisorsa}`}>
                                     <td>{row.nomeRisorsa || `ID ${row.idRisorsa}`}</td>
-                                    <td className={`num ${row.oreSpeseTotali < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreSpeseTotali)}</td>
+                                    <td className={`num ${row.oreSpeseTotali < 0 ? 'num-negative' : ''}`}>{formatRequisitiDisplayValue(row.oreSpeseTotali)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot>
                                 <tr className="table-totals-row">
                                   <td className="table-totals-label">Totale</td>
-                                  <td className={`num ${detailOreSpeseRisorseTotalView < 0 ? 'num-negative' : ''}`}>{formatNumber(detailOreSpeseRisorseTotalView)}</td>
+                                  <td className={`num ${detailOreSpeseRisorseTotalView < 0 ? 'num-negative' : ''}`}>{formatRequisitiDisplayValue(detailOreSpeseRisorseTotalView)}</td>
                                 </tr>
                               </tfoot>
                             </table>
