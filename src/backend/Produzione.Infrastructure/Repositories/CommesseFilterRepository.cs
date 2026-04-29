@@ -4839,6 +4839,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             normalizedProfile.Equals(ProfileCatalog.Supervisore, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.ResponsabileProduzione, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.ResponsabileCommerciale, StringComparison.OrdinalIgnoreCase) ||
+            normalizedProfile.Equals(ProfileCatalog.ResponsabileQualita, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.GeneralProjectManager, StringComparison.OrdinalIgnoreCase) ||
             normalizedProfile.Equals(ProfileCatalog.RisorseUmane, StringComparison.OrdinalIgnoreCase);
 

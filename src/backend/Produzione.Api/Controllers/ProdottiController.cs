@@ -22,6 +22,7 @@ public sealed class ProdottiController(
         ProfileCatalog.Supervisore,
         ProfileCatalog.ResponsabileProduzione,
         ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileQualita,
         ProfileCatalog.ProjectManager,
         ProfileCatalog.ResponsabileCommercialeCommessa,
         ProfileCatalog.GeneralProjectManager,

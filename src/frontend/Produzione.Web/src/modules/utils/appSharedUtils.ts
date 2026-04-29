@@ -116,11 +116,12 @@ const profileOperationalPriorityMap = new Map<string, number>([
   ['Supervisore', 0],
   ['Responsabile Commerciale', 1],
   ['Responsabile Produzione', 2],
-  ['Responsabile Commerciale Commessa', 3],
-  ['Responsabile OU', 4],
-  ['Risorse Umane', 5],
-  ['General Project Manager', 6],
-  ['Project Manager', 7],
+  ['Responsabile Qualita', 3],
+  ['Responsabile Commerciale Commessa', 4],
+  ['Responsabile OU', 5],
+  ['Risorse Umane', 6],
+  ['General Project Manager', 7],
+  ['Project Manager', 8],
 ])
 
 const getProfileOperationalPriority = (value: string) => {

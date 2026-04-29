@@ -46,6 +46,7 @@ public sealed class CommesseController(
         ProfileCatalog.Supervisore,
         ProfileCatalog.ResponsabileProduzione,
         ProfileCatalog.ResponsabileCommerciale,
+        ProfileCatalog.ResponsabileQualita,
         ProfileCatalog.ProjectManager,
         ProfileCatalog.ResponsabileCommercialeCommessa,
         ProfileCatalog.GeneralProjectManager,
@@ -1250,6 +1251,12 @@ public sealed class CommesseController(
                 return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
             }
 
+            var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "invio sintesi mail");
+            if (writePermissionError is not null)
+            {
+                return writePermissionError;
+            }
+
             request.Commessa = validation.Commessa;
             var commessaDetailUrl = BuildCommessaDetailLink(
                 Request,
@@ -1420,6 +1427,12 @@ public sealed class CommesseController(
             if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
             {
                 return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "salvataggio configurazione commessa");
+            if (writePermissionError is not null)
+            {
+                return writePermissionError;
             }
 
             var permissions = GetCommessaConfigPermissions(validation.Profile);
@@ -1623,6 +1636,12 @@ public sealed class CommesseController(
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
         }
 
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "apertura segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
+        }
+
         var success = await commesseFilterRepository.ApriSegnalazioneCommessaAsync(
             validation.Context.EffectiveUser,
             validation.Commessa,
@@ -1662,6 +1681,12 @@ public sealed class CommesseController(
         if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
         {
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "modifica segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
         }
 
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
@@ -1721,6 +1746,12 @@ public sealed class CommesseController(
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
         }
 
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "eliminazione segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
+        }
+
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
         if (segnalazione is null)
         {
@@ -1772,6 +1803,12 @@ public sealed class CommesseController(
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
         }
 
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "aggiornamento stato segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
+        }
+
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
         if (segnalazione is null)
         {
@@ -1820,6 +1857,12 @@ public sealed class CommesseController(
         if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
         {
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "chiusura segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
         }
 
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
@@ -1888,6 +1931,12 @@ public sealed class CommesseController(
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
         }
 
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "riapertura segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
+        }
+
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
         if (segnalazione is null)
         {
@@ -1942,6 +1991,12 @@ public sealed class CommesseController(
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
         }
 
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "inserimento messaggio segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
+        }
+
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, request.IdSegnalazione, cancellationToken);
         if (segnalazione is null)
         {
@@ -1988,6 +2043,12 @@ public sealed class CommesseController(
         if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
         {
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "modifica messaggio segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
         }
 
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, idSegnalazione, cancellationToken);
@@ -2160,6 +2221,12 @@ public sealed class CommesseController(
         if (!validation.IsValid || validation.Context is null || string.IsNullOrWhiteSpace(validation.Profile))
         {
             return validation.ErrorResponse ?? Problem("Errore interno nella validazione profilo.");
+        }
+
+        var writePermissionError = EnsureCommesseWritePermission(validation.Profile, "eliminazione messaggio segnalazione");
+        if (writePermissionError is not null)
+        {
+            return writePermissionError;
         }
 
         var segnalazione = await FindSegnalazioneAsync(validation.Commessa, idSegnalazione, cancellationToken);
@@ -2350,6 +2417,39 @@ public sealed class CommesseController(
             CanEditPrezzoVenditaInizialeRcc: isSupervisore || isRc || isRcc,
             CanEditPrezzoVenditaFinaleRcc: isSupervisore || isRc || isRcc,
             CanEditStimaInizialeOrePm: isSupervisore || isRp || isPm);
+    }
+
+    private static IActionResult? EnsureCommesseWritePermission(string profile, string operationLabel)
+    {
+        if (!string.Equals(profile, ProfileCatalog.ResponsabileQualita, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var normalizedOperation = (operationLabel ?? string.Empty).Trim().ToLowerInvariant();
+        var allowedForResponsabileQualita = normalizedOperation is
+            "invio sintesi mail" or
+            "apertura segnalazione" or
+            "modifica segnalazione" or
+            "eliminazione segnalazione" or
+            "aggiornamento stato segnalazione" or
+            "chiusura segnalazione" or
+            "riapertura segnalazione" or
+            "inserimento messaggio segnalazione" or
+            "modifica messaggio segnalazione" or
+            "eliminazione messaggio segnalazione";
+        if (allowedForResponsabileQualita)
+        {
+            return null;
+        }
+
+        return new ObjectResult(new
+        {
+            message = $"Profilo '{ProfileCatalog.ResponsabileQualita}' in sola visualizzazione: {operationLabel} non consentita."
+        })
+        {
+            StatusCode = StatusCodes.Status403Forbidden
+        };
     }
 
     private readonly record struct CommessaConfigPermissions(

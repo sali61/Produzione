@@ -38,6 +38,9 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
 
     return (numeratore / budget) * 100
   }
+  const getPercentValueFromRatio = (ratioValue: number | null | undefined) => (
+    Number.isFinite(ratioValue) ? ratioValue * 100 : null
+  )
 
   const getTotaleOttimistico = (row: any) => row.totaleFatturatoCerto + row.totaleRicavoIpotetico
   const getTotalePesato = (row: any) => (
@@ -48,7 +51,7 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
   const getPercentualeTotale = (row: any) => getPercentValue(getTotaleOttimistico(row), row.budgetPrevisto)
   const getPercentualePesato = (row: any) => (
     Number.isFinite(row.percentualeCompresoRicavoIpotetico)
-      ? row.percentualeCompresoRicavoIpotetico
+      ? row.percentualeCompresoRicavoIpotetico * 100
       : getPercentValue(getTotalePesato(row), row.budgetPrevisto)
   )
 
@@ -184,6 +187,8 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
                       const isTotalRow = row.rcc.localeCompare('Totale complessivo', 'it', { sensitivity: 'base' }) === 0
                       const percentualeTotale = getPercentualeTotale(row)
                       const percentualePesato = getPercentualePesato(row)
+                      const percentualeCertaRaggiunta = getPercentValueFromRatio(row.percentualeCertaRaggiunta)
+                      const percentualeRaggiungimentoTemporale = getPercentValueFromRatio(row.percentualeRaggiungimentoTemporale)
                       const totaleOttimistico = getTotaleOttimistico(row)
                       const totalePesato = getTotalePesato(row)
                       return (
@@ -195,8 +200,8 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
                           <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
                           <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
                           <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                          <td className={getPercentClassName(row.percentualeCertaRaggiunta)}>{renderPercent(row.percentualeCertaRaggiunta)}</td>
-                          <td className={getPercentClassName(row.percentualeRaggiungimentoTemporale)}>{renderPercent(row.percentualeRaggiungimentoTemporale)}</td>
+                          <td className={getPercentClassName(percentualeCertaRaggiunta)}>{renderPercent(percentualeCertaRaggiunta)}</td>
+                          <td className={getPercentClassName(percentualeRaggiungimentoTemporale)}>{renderPercent(percentualeRaggiungimentoTemporale)}</td>
                           <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
                           <td className={`num ${totaleOttimistico < 0 ? 'num-negative' : ''}`}>{formatNumber(totaleOttimistico)}</td>
                           <td className={getPercentClassName(percentualeTotale)}>{renderPercent(percentualeTotale)}</td>
@@ -244,6 +249,8 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
                     {analisiBuPivotTotaliPerAnno.map((row) => {
                       const percentualeTotale = getPercentualeTotale(row)
                       const percentualePesato = getPercentualePesato(row)
+                      const percentualeCertaRaggiunta = getPercentValueFromRatio(row.percentualeCertaRaggiunta)
+                      const percentualeRaggiungimentoTemporale = getPercentValueFromRatio(row.percentualeRaggiungimentoTemporale)
                       const totaleOttimistico = getTotaleOttimistico(row)
                       const totalePesato = getTotalePesato(row)
                       return (
@@ -254,8 +261,8 @@ export function AnalisiBuPivotFatturatoPage(props: AnalisiBuPivotFatturatoPagePr
                           <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>
                           <td className={`num ${row.totaleFatturatoCerto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleFatturatoCerto)}</td>
                           <td className={`num ${row.margineColBudget < 0 ? 'num-negative' : ''}`}>{formatNumber(row.margineColBudget)}</td>
-                          <td className={getPercentClassName(row.percentualeCertaRaggiunta)}>{renderPercent(row.percentualeCertaRaggiunta)}</td>
-                          <td className={getPercentClassName(row.percentualeRaggiungimentoTemporale)}>{renderPercent(row.percentualeRaggiungimentoTemporale)}</td>
+                          <td className={getPercentClassName(percentualeCertaRaggiunta)}>{renderPercent(percentualeCertaRaggiunta)}</td>
+                          <td className={getPercentClassName(percentualeRaggiungimentoTemporale)}>{renderPercent(percentualeRaggiungimentoTemporale)}</td>
                           <td className={`num ${row.totaleRicavoIpotetico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.totaleRicavoIpotetico)}</td>
                           <td className={`num ${totaleOttimistico < 0 ? 'num-negative' : ''}`}>{formatNumber(totaleOttimistico)}</td>
                           <td className={getPercentClassName(percentualeTotale)}>{renderPercent(percentualeTotale)}</td>

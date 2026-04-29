@@ -5,6 +5,7 @@ public static class ProfileCatalog
     public const string Supervisore = "Supervisore";
     public const string ResponsabileProduzione = "Responsabile Produzione";
     public const string ResponsabileCommerciale = "Responsabile Commerciale";
+    public const string ResponsabileQualita = "Responsabile Qualita";
     public const string ProjectManager = "Project Manager";
     public const string ResponsabileCommercialeCommessa = "Responsabile Commerciale Commessa";
     public const string GeneralProjectManager = "General Project Manager";
@@ -18,6 +19,7 @@ public static class ProfileCatalog
             ["PRES"] = Supervisore,
             ["RP"] = ResponsabileProduzione,
             ["RC"] = ResponsabileCommerciale,
+            ["RQ"] = ResponsabileQualita,
             ["PM"] = ProjectManager,
             ["RCC"] = ResponsabileCommercialeCommessa,
             ["GPM"] = GeneralProjectManager,
@@ -25,6 +27,9 @@ public static class ProfileCatalog
             [Supervisore] = Supervisore,
             [ResponsabileProduzione] = ResponsabileProduzione,
             [ResponsabileCommerciale] = ResponsabileCommerciale,
+            ["Responsabile qualità"] = ResponsabileQualita,
+            ["Responsabile Qualità"] = ResponsabileQualita,
+            [ResponsabileQualita] = ResponsabileQualita,
             [ProjectManager] = ProjectManager,
             [ResponsabileCommercialeCommessa] = ResponsabileCommercialeCommessa,
             [GeneralProjectManager] = GeneralProjectManager,
@@ -38,11 +43,12 @@ public static class ProfileCatalog
             [Supervisore] = 0,
             [ResponsabileCommerciale] = 1,
             [ResponsabileProduzione] = 2,
-            [ResponsabileCommercialeCommessa] = 3,
-            [ResponsabileOu] = 4,
-            [RisorseUmane] = 5,
-            [GeneralProjectManager] = 6,
-            [ProjectManager] = 7
+            [ResponsabileQualita] = 3,
+            [ResponsabileCommercialeCommessa] = 4,
+            [ResponsabileOu] = 5,
+            [RisorseUmane] = 6,
+            [GeneralProjectManager] = 7,
+            [ProjectManager] = 8
         };
 
     public static IReadOnlyCollection<string> All { get; } =
@@ -50,6 +56,7 @@ public static class ProfileCatalog
         Supervisore,
         ResponsabileProduzione,
         ResponsabileCommerciale,
+        ResponsabileQualita,
         ProjectManager,
         ResponsabileCommercialeCommessa,
         GeneralProjectManager,
