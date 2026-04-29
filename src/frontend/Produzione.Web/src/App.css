@@ -1058,6 +1058,12 @@
   margin: 0;
 }
 
+.analisi-rcc-grid-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .analisi-rcc-table-wrap {
   width: fit-content;
   max-width: 100%;
@@ -1149,14 +1155,35 @@ button:disabled {
 }
 
 .bonifici-table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
 }
 
 .bonifici-table-wrap-main {
   max-height: 52dvh;
+  min-width: 0;
+  overflow-x: scroll;
   overflow-y: auto;
   border: 1px solid #d8e4f3;
   border-radius: 6px;
+  padding-right: 1rem;
+  scrollbar-gutter: stable both-edges;
+}
+
+.bonifici-table-wrap-main::-webkit-scrollbar {
+  height: 14px;
+  width: 14px;
+}
+
+.bonifici-table-wrap-main::-webkit-scrollbar-thumb {
+  background: #8aa7cc;
+  border: 3px solid #edf3fe;
+  border-radius: 999px;
+}
+
+.bonifici-table-wrap-main::-webkit-scrollbar-track {
+  background: #edf3fe;
 }
 
 .sintesi-results-wrap {
@@ -1291,6 +1318,93 @@ button:disabled {
 .bonifici-table th.percent-col,
 .bonifici-table td.percent-col {
   background: #f3f8ff;
+}
+
+.andamento-mensile-table {
+  width: max-content;
+  min-width: 2140px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.andamento-mensile-table th:nth-child(-n + 6),
+.andamento-mensile-table td:nth-child(-n + 6) {
+  position: sticky;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.andamento-mensile-table th:nth-child(-n + 6) {
+  background: #eef4fd;
+  z-index: 4;
+}
+
+.andamento-mensile-table th:nth-child(1),
+.andamento-mensile-table td:nth-child(1) {
+  left: 0;
+  width: 4.25rem;
+  min-width: 4.25rem;
+  max-width: 4.25rem;
+}
+
+.andamento-mensile-table th:nth-child(2),
+.andamento-mensile-table td:nth-child(2) {
+  left: 4.25rem;
+  width: 5rem;
+  min-width: 5rem;
+  max-width: 5rem;
+}
+
+.andamento-mensile-table th:nth-child(3),
+.andamento-mensile-table td:nth-child(3) {
+  left: 9.25rem;
+  width: 8rem;
+  min-width: 8rem;
+  max-width: 8rem;
+}
+
+.andamento-mensile-table th:nth-child(4),
+.andamento-mensile-table td:nth-child(4) {
+  left: 17.25rem;
+  width: 18rem;
+  min-width: 18rem;
+  max-width: 18rem;
+}
+
+.andamento-mensile-table th:nth-child(5),
+.andamento-mensile-table td:nth-child(5) {
+  left: 35.25rem;
+  width: 11rem;
+  min-width: 11rem;
+  max-width: 11rem;
+}
+
+.andamento-mensile-table th:nth-child(6),
+.andamento-mensile-table td:nth-child(6) {
+  left: 46.25rem;
+  width: 8rem;
+  min-width: 8rem;
+  max-width: 8rem;
+  box-shadow: 4px 0 6px rgba(23, 59, 103, 0.08);
+}
+
+.andamento-mensile-table th:nth-child(22),
+.andamento-mensile-table td:nth-child(22) {
+  width: 5.5rem;
+  min-width: 5.5rem;
+}
+
+.andamento-mensile-table th:nth-child(23),
+.andamento-mensile-table td:nth-child(23) {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  padding-right: 0.9rem;
+}
+
+.andamento-mensile-table .table-totals-row td:nth-child(-n + 6) {
+  background: #edf3fe;
+  z-index: 3;
 }
 
 .num-negative {

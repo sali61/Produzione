@@ -26,6 +26,8 @@ type AndamentoMensileSortColumn =
   | 'utileSpecifico'
   | 'oreFuture'
   | 'costoPersonaleFuturo'
+  | 'percentualeUtile'
+  | 'spcM'
 
 export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePageProps) {
   const {
@@ -45,6 +47,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     commesseAndamentoMensileData,
     commesseAndamentoMensileMacroTipologia,
     commesseAndamentoMensileMacroTipologiaOptions,
+    commesseAndamentoMensileMeseDa,
     commesseAndamentoMensileMese,
     commesseAndamentoMensileMeseOptions,
     commesseAndamentoMensilePm,
@@ -75,6 +78,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     setCommesseAndamentoMensileCommessaSearch,
     setCommesseAndamentoMensileControparte,
     setCommesseAndamentoMensileMacroTipologia,
+    setCommesseAndamentoMensileMeseDa,
     setCommesseAndamentoMensileMese,
     setCommesseAndamentoMensilePm,
     setCommesseAndamentoMensileRcc,
@@ -104,6 +108,58 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
 
     return sortDirection === 'asc' ? '^' : 'v'
   }
+
+  const formatMonthCell = (row: any) => {
+    const meseA = row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : ''
+    if (!meseA) {
+      return '-'
+    }
+
+    const meseDa = row.meseDaCompetenza > 0
+      ? row.meseDaCompetenza.toString().padStart(2, '0')
+      : (parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString().padStart(2, '0')
+    return commesseAndamentoMensileAggrega && meseDa && meseDa !== meseA
+      ? `${meseDa}-${meseA}`
+      : meseA
+  }
+
+  const formatPercentualeUtile = (ricavi: number, costi: number, costoPersonale: number) => {
+    if (!Number.isFinite(ricavi) || ricavi === 0) {
+      return ''
+    }
+
+    const totaleCosti = (Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)
+    return `${((1 - totaleCosti / ricavi) * 100).toLocaleString('it-IT', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}%`
+  }
+
+  const formatSpcM = (ricavi: number, oreLavorate: number) => {
+    if (!Number.isFinite(oreLavorate) || oreLavorate === 0) {
+      return ''
+    }
+
+    return ((ricavi / oreLavorate) * 8).toLocaleString('it-IT', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
+  }
+
+  const calculatePercentualeUtile = (ricavi: number, costi: number, costoPersonale: number) => {
+    if (!Number.isFinite(ricavi) || ricavi === 0) {
+      return Number.NEGATIVE_INFINITY
+    }
+
+    const totaleCosti = (Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)
+    return (1 - totaleCosti / ricavi) * 100
+  }
+
+  const calculateSpcM = (ricavi: number, oreLavorate: number) => (
+    Number.isFinite(oreLavorate) && oreLavorate !== 0
+      ? (ricavi / oreLavorate) * 8
+      : Number.NEGATIVE_INFINITY
+  )
 
   const sortedCommesseAndamentoMensileRows = useMemo(() => {
     if (!sortColumn) {
@@ -179,6 +235,18 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
           break
         case 'costoPersonaleFuturo':
           comparison = compareNumber(left.costoPersonaleFuturo, right.costoPersonaleFuturo)
+          break
+        case 'percentualeUtile':
+          comparison = compareNumber(
+            calculatePercentualeUtile(left.ricavi, left.costi, left.costoPersonale),
+            calculatePercentualeUtile(right.ricavi, right.costi, right.costoPersonale),
+          )
+          break
+        case 'spcM':
+          comparison = compareNumber(
+            calculateSpcM(left.ricavi, left.oreLavorate),
+            calculateSpcM(right.ricavi, right.oreLavorate),
+          )
           break
         default:
           comparison = 0
@@ -413,14 +481,27 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                       checked={commesseAndamentoMensileAggrega}
                       onChange={(event) => setCommesseAndamentoMensileAggrega(event.target.checked)}
                     />
-                    Aggrega fino a
+                    Aggrega periodo
+                  </label>
+                  <label className="analisi-aggrega-mese-inline" htmlFor="commesse-andamento-mensile-mese-da">
+                    <span>Da</span>
+                    <select
+                      id="commesse-andamento-mensile-mese-da"
+                      value={(parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString()}
+                      onChange={(event) => setCommesseAndamentoMensileMeseDa(event.target.value)}
+                    >
+                      {commesseAndamentoMensileMeseOptions.map((month) => (
+                        <option key={`commesse-andamento-mese-da-${month}`} value={month.toString()}>
+                          {formatReferenceMonthLabel(month)}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="analisi-aggrega-mese-inline" htmlFor="commesse-andamento-mensile-mese">
-                    <span>Mese</span>
+                    <span>A</span>
                     <select
                       id="commesse-andamento-mensile-mese"
                       value={(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString()}
-                      disabled={!commesseAndamentoMensileAggrega}
                       onChange={(event) => setCommesseAndamentoMensileMese(event.target.value)}
                     >
                       {commesseAndamentoMensileMeseOptions.map((month) => (
@@ -438,7 +519,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
               <div className="sintesi-toolbar-row">
                 <p className="sintesi-toolbar-message">
                   {commesseAndamentoMensileData
-                    ? `Andamento mensile ${commesseAndamentoMensileAggrega ? 'aggregato fino a' : 'dettaglio mensile'} caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}${commesseAndamentoMensileAggrega ? `, mese: ${(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString().padStart(2, '0')}` : ''}).`
+                    ? `Andamento mensile ${commesseAndamentoMensileAggrega ? 'aggregato per periodo' : 'dettaglio mensile'} caricato (${commesseAndamentoMensileAnni.join(', ') || '-'}, periodo: ${(parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString().padStart(2, '0')}-${(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString().padStart(2, '0')}).`
                     : statusMessageVisible}
                 </p>
               </div>
@@ -455,7 +536,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
 
               {commesseAndamentoMensileRows.length > 0 && (
                 <div className="bonifici-table-wrap bonifici-table-wrap-main">
-                  <table className="bonifici-table">
+                  <table className="bonifici-table andamento-mensile-table">
                     <thead>
                       <tr>
                         <th>
@@ -563,13 +644,23 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                             Costo Personale Futuro <span className="sort-indicator">{sortIndicator('costoPersonaleFuturo')}</span>
                           </button>
                         </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('percentualeUtile')}>
+                            % utile <span className="sort-indicator">{sortIndicator('percentualeUtile')}</span>
+                          </button>
+                        </th>
+                        <th className="num">
+                          <button type="button" className="sort-header-btn sort-header-btn-num" onClick={() => toggleSort('spcM')}>
+                            SPC-M <span className="sort-indicator">{sortIndicator('spcM')}</span>
+                          </button>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCommesseAndamentoMensileRows.map((row, index) => (
                         <tr key={`commesse-andamento-row-${row.annoCompetenza}-${row.meseCompetenza}-${row.commessa}-${index}`}>
                           <td>{row.annoCompetenza}</td>
-                          <td>{row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : '-'}</td>
+                          <td>{formatMonthCell(row)}</td>
                           <td>
                             {row.commessa.trim()
                               ? (
@@ -602,6 +693,8 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                           <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                           <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
                           <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
+                          <td className="num">{formatPercentualeUtile(row.ricavi, row.costi, row.costoPersonale)}</td>
+                          <td className="num">{formatSpcM(row.ricavi, row.oreLavorate)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -616,6 +709,8 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                         <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.oreFuture)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo)}</td>
+                        <td className="num">{formatPercentualeUtile(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale)}</td>
+                        <td className="num">{formatSpcM(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate)}</td>
                       </tr>
                     </tfoot>
                   </table>

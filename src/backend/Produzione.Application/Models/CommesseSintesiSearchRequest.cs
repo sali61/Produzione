@@ -15,4 +15,5 @@ public sealed record CommesseSintesiSearchRequest(
     int? AttiveDalAnno = null,
     bool? SoloScadute = null,
     string? Provenienza = null,
-    int? Mese = null);
+    int? Mese = null,
+    int? MeseDa = null);

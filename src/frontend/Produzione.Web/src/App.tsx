@@ -67,6 +67,7 @@ import type {
   AvailableProfilesResponse,
   CommessaAvanzamentoRow,
   CommessaFatturaMovimentoRow,
+  CommessaAndamentoMensileRow,
   CommessaRisorseValutazioneRow,
   CommessaSintesiRow,
   CommesseAndamentoMensileResponse,
@@ -383,6 +384,7 @@ function App() {
   const [analisiAlberoProiezioniData, setAnalisiAlberoProiezioniData] = useState<AnalisiRccDettaglioFatturatoResponse | null>(null)
   const [commesseAndamentoMensileAnni, setCommesseAndamentoMensileAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [commesseAndamentoMensileAggrega, setCommesseAndamentoMensileAggrega] = useState(true)
+  const [commesseAndamentoMensileMeseDa, setCommesseAndamentoMensileMeseDa] = useState('1')
   const [commesseAndamentoMensileMese, setCommesseAndamentoMensileMese] = useState(getDefaultReferenceMonth().toString())
   const [commesseAndamentoMensileCommessaSearch, setCommesseAndamentoMensileCommessaSearch] = useState('')
   const [commesseAndamentoMensileCommessa, setCommesseAndamentoMensileCommessa] = useState('')
@@ -774,6 +776,7 @@ function App() {
     setAnalisiAlberoProiezioniData(null)
     setCommesseAndamentoMensileAnni([new Date().getFullYear().toString()])
     setCommesseAndamentoMensileAggrega(true)
+    setCommesseAndamentoMensileMeseDa('1')
     setCommesseAndamentoMensileMese(getDefaultReferenceMonth().toString())
     setCommesseAndamentoMensileCommessaSearch('')
     setCommesseAndamentoMensileCommessa('')
@@ -2633,7 +2636,10 @@ function App() {
         .filter((value) => Number.isFinite(value) && value > 0),
     )].sort((left, right) => left - right)
     const yearsToQuery = selectedYears.length > 0 ? selectedYears : [new Date().getFullYear()]
+    const selectedMeseDaRaw = parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1
     const selectedMese = parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()
+    const selectedMeseDa = Math.min(selectedMeseDaRaw, selectedMese)
+    const selectedMeseA = Math.max(selectedMeseDaRaw, selectedMese)
     const selectedCommessa = commesseAndamentoMensileCommessa.trim()
     const selectedTipologia = commesseAndamentoMensileTipologia.trim()
     const selectedStato = commesseAndamentoMensileStato.trim()
@@ -2648,10 +2654,7 @@ function App() {
       const params = new URLSearchParams()
       params.set('profile', currentProfile)
       yearsToQuery.forEach((value) => params.append('anni', value.toString()))
-      params.set('aggrega', commesseAndamentoMensileAggrega ? 'true' : 'false')
-      if (commesseAndamentoMensileAggrega) {
-        params.set('mese', selectedMese.toString())
-      }
+      params.set('aggrega', 'false')
       if (selectedCommessa) {
         params.set('commessa', selectedCommessa)
       }
@@ -2703,13 +2706,66 @@ function App() {
       }
 
       const payload = (await response.json()) as CommesseAndamentoMensileResponse
-      setCommesseAndamentoMensileData(payload)
+      const periodItems = payload.items.filter((row) => row.meseCompetenza >= selectedMeseDa && row.meseCompetenza <= selectedMeseA)
+      const aggregatePeriodItems = (items: CommessaAndamentoMensileRow[]) => {
+        const groups = new Map<string, CommessaAndamentoMensileRow[]>()
+        items.forEach((row) => {
+          const key = [
+            row.annoCompetenza,
+            row.commessa.trim().toLocaleLowerCase('it-IT'),
+            row.descrizioneCommessa,
+            row.tipologiaCommessa,
+            row.stato,
+            row.macroTipologia,
+            row.prodotto,
+            row.controparte,
+            row.businessUnit,
+            row.rcc,
+            row.pm,
+          ].join('|')
+          groups.set(key, [...(groups.get(key) ?? []), row])
+        })
+
+        return [...groups.values()].map((group) => {
+          const first = group[0]
+          const latestReferenceRow = [...group]
+            .sort((left, right) => right.meseCompetenza - left.meseCompetenza)
+            .find((row) => row.ricaviMaturati !== 0 || row.oreFuture !== 0 || row.costoPersonaleFuturo !== 0)
+            ?? [...group].sort((left, right) => right.meseCompetenza - left.meseCompetenza)[0]
+          const ricavi = group.reduce((acc, row) => acc + row.ricavi, 0)
+          const costi = group.reduce((acc, row) => acc + row.costi, 0)
+          const costoPersonale = group.reduce((acc, row) => acc + row.costoPersonale, 0)
+          const ricaviMaturati = latestReferenceRow?.ricaviMaturati ?? 0
+
+          return {
+            ...first,
+            meseCompetenza: selectedMeseA,
+            meseDaCompetenza: selectedMeseDa,
+            produzione: group.some((row) => row.produzione),
+            oreLavorate: group.reduce((acc, row) => acc + row.oreLavorate, 0),
+            costoPersonale,
+            ricavi,
+            costi,
+            ricaviMaturati,
+            oreFuture: latestReferenceRow?.oreFuture ?? 0,
+            costoPersonaleFuturo: latestReferenceRow?.costoPersonaleFuturo ?? 0,
+            costoGeneraleRibaltato: 0,
+            utileSpecifico: ricavi + ricaviMaturati - costi - costoPersonale,
+          }
+        })
+      }
+      const payloadToStore = {
+        ...payload,
+        items: commesseAndamentoMensileAggrega
+          ? aggregatePeriodItems(periodItems)
+          : periodItems,
+      }
+      payloadToStore.count = payloadToStore.items.length
+      setCommesseAndamentoMensileData(payloadToStore)
       setCommesseAndamentoMensileAnni(yearsToQuery.map((value) => value.toString()))
-      const modeLabel = commesseAndamentoMensileAggrega ? 'aggregato fino a mese' : 'dettaglio mensile'
-      const meseDetail = commesseAndamentoMensileAggrega
-        ? `, mese: ${selectedMese.toString().padStart(2, '0')}`
-        : ''
-      setStatusMessage(`Andamento Mensile caricato (${modeLabel}${meseDetail}): ${payload.count} righe.`)
+      const modeLabel = commesseAndamentoMensileAggrega ? 'aggregato per periodo' : 'dettaglio mensile'
+      const meseDetail = `, periodo: ${selectedMeseDa.toString().padStart(2, '0')}-${selectedMeseA.toString().padStart(2, '0')}`
+      setStatusMessage(`Andamento Mensile caricato (${modeLabel}${meseDetail}): ${payloadToStore.count} righe.`)
     } finally {
       setAnalisiRccLoading(false)
     }
@@ -4301,6 +4357,7 @@ function App() {
       case 'commesse-andamento-mensile':
         setCommesseAndamentoMensileAnni([currentYear])
         setCommesseAndamentoMensileAggrega(true)
+        setCommesseAndamentoMensileMeseDa('1')
         setCommesseAndamentoMensileMese(defaultReferenceMonth)
         setCommesseAndamentoMensileCommessaSearch('')
         setCommesseAndamentoMensileCommessa('')
@@ -5997,8 +6054,12 @@ function App() {
     if (selected !== null) {
       months.add(selected)
     }
+    const selectedDa = parseReferenceMonthStrict(commesseAndamentoMensileMeseDa)
+    if (selectedDa !== null) {
+      months.add(selectedDa)
+    }
     return [...months].sort((left, right) => left - right)
-  }, [commesseAndamentoMensileMese, commesseAndamentoMensileRows])
+  }, [commesseAndamentoMensileMese, commesseAndamentoMensileMeseDa, commesseAndamentoMensileRows])
   const commesseAndamentoMensileTipologiaOptions = useMemo(
     () => mergeFilterOptionValues(
       sintesiFiltersCatalog.tipologieCommessa,
@@ -9438,9 +9499,31 @@ function App() {
         break
       }
       case 'commesse-andamento-mensile': {
+        const formatPeriodoMese = (row: any) => {
+          const meseA = row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : ''
+          if (!meseA) {
+            return ''
+          }
+          const meseDa = row.meseDaCompetenza && row.meseDaCompetenza > 0
+            ? row.meseDaCompetenza.toString().padStart(2, '0')
+            : (parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString().padStart(2, '0')
+          return commesseAndamentoMensileAggrega && meseDa && meseDa !== meseA
+            ? `${meseDa}-${meseA}`
+            : meseA
+        }
+        const formatPercentualeUtileExport = (ricavi: number, costi: number, costoPersonale: number) => (
+          Number.isFinite(ricavi) && ricavi !== 0
+            ? `${((1 - (((Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)) / ricavi)) * 100).toFixed(0)}%`
+            : ''
+        )
+        const formatSpcMExport = (ricavi: number, oreLavorate: number) => (
+          Number.isFinite(oreLavorate) && oreLavorate !== 0
+            ? Number.parseFloat(((ricavi / oreLavorate) * 8).toFixed(1))
+            : ''
+        )
         const andamentoRows: Record<string, unknown>[] = commesseAndamentoMensileRows.map((row) => ({
             AnnoCompetenza: row.annoCompetenza,
-            MeseCompetenza: row.meseCompetenza > 0 ? row.meseCompetenza : '',
+            MeseCompetenza: formatPeriodoMese(row),
             Commessa: row.commessa,
             Descrizione: row.descrizioneCommessa,
             Tipologia: row.tipologiaCommessa,
@@ -9460,6 +9543,8 @@ function App() {
             UtileSpecifico: row.utileSpecifico,
             OreFuture: row.oreFuture,
             CostoPersonaleFuturo: row.costoPersonaleFuturo,
+            PercentualeUtile: formatPercentualeUtileExport(row.ricavi, row.costi, row.costoPersonale),
+            SpcM: formatSpcMExport(row.ricavi, row.oreLavorate),
           }))
 
         andamentoRows.push({
@@ -9484,6 +9569,8 @@ function App() {
           UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
           OreFuture: commesseAndamentoMensileTotals.oreFuture,
           CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
+          PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
+          SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate),
         })
 
         appendSheet(andamentoRows, 'AndamentoMensile')
@@ -9497,6 +9584,8 @@ function App() {
             UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
             OreFuture: commesseAndamentoMensileTotals.oreFuture,
             CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
+            PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
+            SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate),
           },
         ], 'Totali')
         filenamePrefix = 'Commesse_AndamentoMensile'
@@ -10568,6 +10657,7 @@ function App() {
     commesseAndamentoMensileData,
     commesseAndamentoMensileMacroTipologia,
     commesseAndamentoMensileMacroTipologiaOptions,
+    commesseAndamentoMensileMeseDa,
     commesseAndamentoMensileMese,
     commesseAndamentoMensileMeseOptions,
     commesseAndamentoMensilePm,
@@ -10654,6 +10744,7 @@ function App() {
     setCommesseAndamentoMensileCommessaSearch,
     setCommesseAndamentoMensileControparte,
     setCommesseAndamentoMensileMacroTipologia,
+    setCommesseAndamentoMensileMeseDa,
     setCommesseAndamentoMensileMese,
     setCommesseAndamentoMensilePm,
     setCommesseAndamentoMensileRcc,

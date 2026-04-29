@@ -793,6 +793,7 @@ export type CommesseSintesiResponse = {
 export type CommessaAndamentoMensileRow = {
   annoCompetenza: number
   meseCompetenza: number
+  meseDaCompetenza?: number | null
   commessa: string
   descrizioneCommessa: string
   tipologiaCommessa: string

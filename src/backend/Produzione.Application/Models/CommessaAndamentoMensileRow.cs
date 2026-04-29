@@ -3,6 +3,7 @@ namespace Produzione.Application.Models;
 public sealed record CommessaAndamentoMensileRow(
     int AnnoCompetenza,
     int MeseCompetenza,
+    int? MeseDaCompetenza,
     string Commessa,
     string DescrizioneCommessa,
     string TipologiaCommessa,

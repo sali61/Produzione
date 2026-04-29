@@ -316,6 +316,7 @@ public sealed class CommesseController(
         [FromQuery] int? anno = null,
         [FromQuery(Name = "anni")] int[]? anni = null,
         [FromQuery] int? mese = null,
+        [FromQuery] int? meseDa = null,
         [FromQuery] string? commessa = null,
         [FromQuery] string? tipologiaCommessa = null,
         [FromQuery] string? stato = null,
@@ -359,7 +360,8 @@ public sealed class CommesseController(
                 pm,
                 take,
                 aggrega,
-                Mese: mese);
+                Mese: mese,
+                MeseDa: meseDa);
 
             var rows = await commesseFilterRepository.SearchAndamentoMensileAsync(
                 contextData.EffectiveUser,
@@ -376,6 +378,7 @@ public sealed class CommesseController(
                     {
                         AnnoCompetenza = row.AnnoCompetenza,
                         MeseCompetenza = row.MeseCompetenza,
+                        MeseDaCompetenza = row.MeseDaCompetenza,
                         Commessa = row.Commessa,
                         DescrizioneCommessa = row.DescrizioneCommessa,
                         TipologiaCommessa = row.TipologiaCommessa,

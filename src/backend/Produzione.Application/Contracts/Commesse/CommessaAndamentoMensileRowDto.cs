@@ -4,6 +4,7 @@ public sealed class CommessaAndamentoMensileRowDto
 {
     public int AnnoCompetenza { get; set; }
     public int MeseCompetenza { get; set; }
+    public int? MeseDaCompetenza { get; set; }
     public string Commessa { get; set; } = string.Empty;
     public string DescrizioneCommessa { get; set; } = string.Empty;
     public string TipologiaCommessa { get; set; } = string.Empty;

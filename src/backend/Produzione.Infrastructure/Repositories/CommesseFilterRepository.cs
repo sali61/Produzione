@@ -3391,9 +3391,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             .OrderByDescending(value => value)
             .ToArray();
 
-        var filterRequest = request.Aggrega
-            ? request with { Mese = null }
-            : request;
+        var filterRequest = request with { Mese = null, MeseDa = null };
         var filterClause = BuildAnalisiCommesseFilterClause(user, visibility, filterRequest);
         if (selectedAnni.Length == 1)
         {
@@ -3411,6 +3409,13 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             var meseRiferimento = request.Mese.HasValue && request.Mese.Value is >= 1 and <= 12
                 ? request.Mese.Value
                 : (int?)null;
+            var meseDaRiferimento = request.MeseDa.HasValue && request.MeseDa.Value is >= 1 and <= 12
+                ? request.MeseDa.Value
+                : 1;
+            if (meseRiferimento.HasValue && meseDaRiferimento > meseRiferimento.Value)
+            {
+                (meseDaRiferimento, meseRiferimento) = (meseRiferimento.Value, meseDaRiferimento);
+            }
 
             await using var command = new SqlCommand(AndamentoMensileCommesseStoredProcedure, connection);
             command.CommandType = CommandType.StoredProcedure;
@@ -3444,6 +3449,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     rows.Add(new CommessaAndamentoMensileRow(
                         anno.Value,
                         mese.Value,
+                        null,
                         ReadString(reader, ordinals, "commessa"),
                         ReadString(reader, ordinals, "descrizione"),
                         ReadString(reader, ordinals, "tipo_commessa"),
@@ -3466,20 +3472,18 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         ReadDecimal(reader, ordinals, "utile_specifico")));
                 }
             }
-            var currentYear = DateTime.Today.Year;
-            if (request.Aggrega && meseRiferimento.HasValue)
+            if (meseRiferimento.HasValue)
             {
+                var minMese = Math.Clamp(meseDaRiferimento, 1, 12);
                 var maxMese = Math.Clamp(meseRiferimento.Value, 1, 12);
                 rows = rows
-                    .Where(row =>
-                        row.AnnoCompetenza != currentYear ||
-                        (row.AnnoCompetenza == currentYear && row.MeseCompetenza <= maxMese))
+                    .Where(row => row.MeseCompetenza >= minMese && row.MeseCompetenza <= maxMese)
                     .ToList();
             }
 
             var normalizedRows = ApplyAndamentoMensileProjectionRules(rows);
             var outputRows = request.Aggrega
-                ? AggregateAndamentoMensileRows(normalizedRows, meseRiferimento)
+                ? AggregateAndamentoMensileRows(normalizedRows, meseDaRiferimento, meseRiferimento)
                 : normalizedRows;
 
             return outputRows
@@ -5869,6 +5873,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
     private static IReadOnlyCollection<CommessaAndamentoMensileRow> AggregateAndamentoMensileRows(
         IReadOnlyCollection<CommessaAndamentoMensileRow> rows,
+        int meseDaRiferimento,
         int? meseRiferimento)
     {
         if (rows.Count == 0)
@@ -5914,6 +5919,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 return new CommessaAndamentoMensileRow(
                     first.AnnoCompetenza,
                     meseOutput,
+                    Math.Clamp(meseDaRiferimento, 1, 12),
                     first.Commessa,
                     first.DescrizioneCommessa,
                     first.TipologiaCommessa,
