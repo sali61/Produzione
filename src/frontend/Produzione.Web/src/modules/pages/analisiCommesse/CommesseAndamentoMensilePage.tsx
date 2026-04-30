@@ -52,6 +52,8 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     commesseAndamentoMensileMeseOptions,
     commesseAndamentoMensilePm,
     commesseAndamentoMensilePmSelectItems,
+    commesseAndamentoMensileProdotto,
+    commesseAndamentoMensileProdottoOptions,
     commesseAndamentoMensileRcc,
     commesseAndamentoMensileRccSelectItems,
     commesseAndamentoMensileRows,
@@ -81,6 +83,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     setCommesseAndamentoMensileMeseDa,
     setCommesseAndamentoMensileMese,
     setCommesseAndamentoMensilePm,
+    setCommesseAndamentoMensileProdotto,
     setCommesseAndamentoMensileRcc,
     setCommesseAndamentoMensileStato,
     setCommesseAndamentoMensileTipologia,
@@ -123,41 +126,47 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
       : meseA
   }
 
-  const formatPercentualeUtile = (ricavi: number, costi: number, costoPersonale: number) => {
-    if (!Number.isFinite(ricavi) || ricavi === 0) {
+  const getTotaleRicavi = (ricavi: number, ricaviMaturati: number) => (
+    (Number.isFinite(ricavi) ? ricavi : 0) + (Number.isFinite(ricaviMaturati) ? ricaviMaturati : 0)
+  )
+
+  const formatPercentualeUtile = (ricavi: number, ricaviMaturati: number, costi: number, costoPersonale: number) => {
+    const totaleRicavi = getTotaleRicavi(ricavi, ricaviMaturati)
+    if (totaleRicavi === 0) {
       return ''
     }
 
     const totaleCosti = (Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)
-    return `${((1 - totaleCosti / ricavi) * 100).toLocaleString('it-IT', {
+    return `${((1 - totaleCosti / totaleRicavi) * 100).toLocaleString('it-IT', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })}%`
   }
 
-  const formatSpcM = (ricavi: number, oreLavorate: number) => {
+  const formatSpcM = (ricavi: number, ricaviMaturati: number, oreLavorate: number) => {
     if (!Number.isFinite(oreLavorate) || oreLavorate === 0) {
       return ''
     }
 
-    return ((ricavi / oreLavorate) * 8).toLocaleString('it-IT', {
+    return ((getTotaleRicavi(ricavi, ricaviMaturati) / oreLavorate) * 8).toLocaleString('it-IT', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     })
   }
 
-  const calculatePercentualeUtile = (ricavi: number, costi: number, costoPersonale: number) => {
-    if (!Number.isFinite(ricavi) || ricavi === 0) {
+  const calculatePercentualeUtile = (ricavi: number, ricaviMaturati: number, costi: number, costoPersonale: number) => {
+    const totaleRicavi = getTotaleRicavi(ricavi, ricaviMaturati)
+    if (totaleRicavi === 0) {
       return Number.NEGATIVE_INFINITY
     }
 
     const totaleCosti = (Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)
-    return (1 - totaleCosti / ricavi) * 100
+    return (1 - totaleCosti / totaleRicavi) * 100
   }
 
-  const calculateSpcM = (ricavi: number, oreLavorate: number) => (
+  const calculateSpcM = (ricavi: number, ricaviMaturati: number, oreLavorate: number) => (
     Number.isFinite(oreLavorate) && oreLavorate !== 0
-      ? (ricavi / oreLavorate) * 8
+      ? (getTotaleRicavi(ricavi, ricaviMaturati) / oreLavorate) * 8
       : Number.NEGATIVE_INFINITY
   )
 
@@ -238,14 +247,14 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
           break
         case 'percentualeUtile':
           comparison = compareNumber(
-            calculatePercentualeUtile(left.ricavi, left.costi, left.costoPersonale),
-            calculatePercentualeUtile(right.ricavi, right.costi, right.costoPersonale),
+            calculatePercentualeUtile(left.ricavi, left.ricaviMaturati, left.costi, left.costoPersonale),
+            calculatePercentualeUtile(right.ricavi, right.ricaviMaturati, right.costi, right.costoPersonale),
           )
           break
         case 'spcM':
           comparison = compareNumber(
-            calculateSpcM(left.ricavi, left.oreLavorate),
-            calculateSpcM(right.ricavi, right.oreLavorate),
+            calculateSpcM(left.ricavi, left.ricaviMaturati, left.oreLavorate),
+            calculateSpcM(right.ricavi, right.ricaviMaturati, right.oreLavorate),
           )
           break
         default:
@@ -438,6 +447,23 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                         {commesseAndamentoMensilePmSelectItems.map((option) => (
                           <option key={`commesse-andamento-pm-${option.value}`} value={option.value}>
                             {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sintesi-field">
+                      <label htmlFor="commesse-andamento-mensile-prodotto">Prodotto</label>
+                      <select
+                        id="commesse-andamento-mensile-prodotto"
+                        value={commesseAndamentoMensileProdotto}
+                        onChange={(event) => setCommesseAndamentoMensileProdotto(event.target.value)}
+                      >
+                        <option value="">Tutti</option>
+                        <option value="__exclude_products__">Escludi prodotti</option>
+                        {commesseAndamentoMensileProdottoOptions.map((value) => (
+                          <option key={`commesse-andamento-prodotto-${value}`} value={value}>
+                            {value}
                           </option>
                         ))}
                       </select>
@@ -693,8 +719,8 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                           <td className={`num ${row.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(row.utileSpecifico)}</td>
                           <td className={`num ${row.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(row.oreFuture)}</td>
                           <td className={`num ${row.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(row.costoPersonaleFuturo)}</td>
-                          <td className="num">{formatPercentualeUtile(row.ricavi, row.costi, row.costoPersonale)}</td>
-                          <td className="num">{formatSpcM(row.ricavi, row.oreLavorate)}</td>
+                          <td className="num">{formatPercentualeUtile(row.ricavi, row.ricaviMaturati, row.costi, row.costoPersonale)}</td>
+                          <td className="num">{formatSpcM(row.ricavi, row.ricaviMaturati, row.oreLavorate)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -709,8 +735,8 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                         <td className={`num ${commesseAndamentoMensileTotals.utileSpecifico < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.utileSpecifico)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.oreFuture < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.oreFuture)}</td>
                         <td className={`num ${commesseAndamentoMensileTotals.costoPersonaleFuturo < 0 ? 'num-negative' : ''}`}>{formatNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo)}</td>
-                        <td className="num">{formatPercentualeUtile(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale)}</td>
-                        <td className="num">{formatSpcM(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate)}</td>
+                        <td className="num">{formatPercentualeUtile(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale)}</td>
+                        <td className="num">{formatSpcM(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.oreLavorate)}</td>
                       </tr>
                     </tfoot>
                   </table>

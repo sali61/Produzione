@@ -212,6 +212,11 @@ const emptyFiltersCatalog: CommesseSintesiFiltersResponse = {
   pm: [],
 }
 
+type CommessaConfigOption = {
+  id: number
+  label: string
+}
+
 const emptyRisorseFiltersForm: RisorseFiltersForm = {
   anni: [],
   mesi: [],
@@ -276,6 +281,7 @@ function App() {
   const [sintesiFiltersForm, setSintesiFiltersForm] = useState<SintesiFiltersForm>(emptySintesiFiltersForm)
   const [sintesiFiltersCatalog, setSintesiFiltersCatalog] = useState<CommesseSintesiFiltersResponse>(emptyFiltersCatalog)
   const [sintesiCommesseOptions, setSintesiCommesseOptions] = useState<FilterOption[]>([])
+  const [prodottiAttiviOptions, setProdottiAttiviOptions] = useState<FilterOption[]>([])
   const [sintesiRows, setSintesiRows] = useState<CommessaSintesiRow[]>([])
   const [sintesiSearched, setSintesiSearched] = useState(false)
   const [sintesiLoadingFilters, setSintesiLoadingFilters] = useState(false)
@@ -396,6 +402,7 @@ function App() {
   const [commesseAndamentoMensileBusinessUnit, setCommesseAndamentoMensileBusinessUnit] = useState('')
   const [commesseAndamentoMensileRcc, setCommesseAndamentoMensileRcc] = useState('')
   const [commesseAndamentoMensilePm, setCommesseAndamentoMensilePm] = useState('')
+  const [commesseAndamentoMensileProdotto, setCommesseAndamentoMensileProdotto] = useState('')
   const [commesseAndamentoMensileData, setCommesseAndamentoMensileData] = useState<CommesseAndamentoMensileResponse | null>(null)
   const [commesseAnomaleData, setCommesseAnomaleData] = useState<CommesseAnomaleResponse | null>(null)
   const [commesseAnomaleFiltroAnomalia, setCommesseAnomaleFiltroAnomalia] = useState('')
@@ -713,6 +720,7 @@ function App() {
     setSintesiFiltersForm(emptySintesiFiltersForm)
     setSintesiFiltersCatalog(emptyFiltersCatalog)
     setSintesiCommesseOptions([])
+    setProdottiAttiviOptions([])
     setSintesiRows([])
     setSintesiSearched(false)
     setSintesiFilterLoadingDetail('')
@@ -790,6 +798,7 @@ function App() {
     setCommesseAndamentoMensileBusinessUnit('')
     setCommesseAndamentoMensileRcc('')
     setCommesseAndamentoMensilePm('')
+    setCommesseAndamentoMensileProdotto('')
     setCommesseAndamentoMensileData(null)
     setCommesseAnomaleData(null)
     setCommesseSegnalazioniData(null)
@@ -1516,6 +1525,52 @@ function App() {
     } finally {
       setSintesiLoadingFilters(false)
       setSintesiFilterLoadingDetail('')
+    }
+  }
+
+  const loadProdottiAttiviOptions = async (
+    jwt: string,
+    impersonationUsername: string,
+  ) => {
+    if (!jwt.trim()) {
+      setProdottiAttiviOptions([])
+      return false
+    }
+
+    try {
+      const response = await fetch(toBackendUrl('/api/commesse/prodotti-attivi'), {
+        headers: authHeaders(jwt, impersonationUsername),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return false
+      }
+
+      if (!response.ok) {
+        setProdottiAttiviOptions([])
+        return false
+      }
+
+      const payload = (await response.json()) as CommessaConfigOption[]
+      const normalized = new Map<string, FilterOption>()
+      payload.forEach((item) => {
+        const value = normalizeFilterText(item.label)
+        if (!value) {
+          return
+        }
+
+        normalized.set(value.toLocaleLowerCase('it-IT'), { value, label: value })
+      })
+      const options = [...normalized.values()]
+        .sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
+
+      setProdottiAttiviOptions(options)
+      return true
+    } catch {
+      setProdottiAttiviOptions([])
+      return false
     }
   }
 
@@ -2652,6 +2707,7 @@ function App() {
     const selectedBusinessUnit = commesseAndamentoMensileBusinessUnit.trim()
     const selectedRcc = commesseAndamentoMensileRcc.trim()
     const selectedPm = commesseAndamentoMensilePm.trim()
+    const selectedProdotto = commesseAndamentoMensileProdotto.trim()
 
     setAnalisiRccLoading(true)
     try {
@@ -2682,6 +2738,11 @@ function App() {
       }
       if (selectedPm) {
         params.set('pm', selectedPm)
+      }
+      if (selectedProdotto === '__exclude_products__') {
+        params.set('escludiProdotti', 'true')
+      } else if (selectedProdotto) {
+        params.set('prodottoCommessa', selectedProdotto)
       }
       params.set('take', '5000')
 
@@ -4392,6 +4453,7 @@ function App() {
         setCommesseAndamentoMensileBusinessUnit('')
         setCommesseAndamentoMensileRcc('')
         setCommesseAndamentoMensilePm('')
+        setCommesseAndamentoMensileProdotto('')
         setCommesseAndamentoMensileData(null)
         break
       case 'commesse-anomale':
@@ -4715,6 +4777,29 @@ function App() {
       tryReadPersistedSintesiState,
     })
   }, [token, activeImpersonation, currentProfile, canAccessAnalisiCommesseMenu])
+
+  useEffect(() => {
+    if (!token.trim() || !currentProfile) {
+      setProdottiAttiviOptions([])
+      return
+    }
+
+    void loadProdottiAttiviOptions(token, activeImpersonation)
+  }, [token, activeImpersonation, currentProfile])
+
+  useEffect(() => {
+    const selected = normalizeFilterText(commesseAndamentoMensileProdotto)
+    if (!selected || selected === '__exclude_products__' || prodottiAttiviOptions.length === 0) {
+      return
+    }
+
+    const isActiveProduct = prodottiAttiviOptions.some(
+      (option) => normalizeFilterText(option.value).toLocaleLowerCase('it-IT') === selected.toLocaleLowerCase('it-IT'),
+    )
+    if (!isActiveProduct) {
+      setCommesseAndamentoMensileProdotto('')
+    }
+  }, [commesseAndamentoMensileProdotto, prodottiAttiviOptions])
 
   useEffect(() => {
     if (
@@ -6136,6 +6221,22 @@ function App() {
       commesseAndamentoMensileRows.map((row) => row.controparte),
     ),
     [commesseAndamentoMensileControparte, commesseAndamentoMensileRows, sintesiFiltersCatalog.prodotti],
+  )
+  const commesseAndamentoMensileProdottoOptions = useMemo(
+    () => {
+      const options = new Map<string, string>()
+      prodottiAttiviOptions.forEach((option) => {
+        const value = normalizeFilterText(option.value || option.label)
+        if (!value) {
+          return
+        }
+
+        options.set(value.toLocaleLowerCase('it-IT'), value)
+      })
+
+      return [...options.values()].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+    },
+    [prodottiAttiviOptions],
   )
   const commesseAndamentoMensileBusinessUnitOptions = useMemo(
     () => mergeFilterOptionValues(
@@ -9574,14 +9675,17 @@ function App() {
             ? `${meseDa}-${meseA}`
             : meseA
         }
-        const formatPercentualeUtileExport = (ricavi: number, costi: number, costoPersonale: number) => (
-          Number.isFinite(ricavi) && ricavi !== 0
-            ? `${((1 - (((Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)) / ricavi)) * 100).toFixed(0)}%`
+        const getTotaleRicaviAndamento = (ricavi: number, ricaviMaturati: number) => (
+          (Number.isFinite(ricavi) ? ricavi : 0) + (Number.isFinite(ricaviMaturati) ? ricaviMaturati : 0)
+        )
+        const formatPercentualeUtileExport = (ricavi: number, ricaviMaturati: number, costi: number, costoPersonale: number) => (
+          getTotaleRicaviAndamento(ricavi, ricaviMaturati) !== 0
+            ? `${((1 - (((Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)) / getTotaleRicaviAndamento(ricavi, ricaviMaturati))) * 100).toFixed(0)}%`
             : ''
         )
-        const formatSpcMExport = (ricavi: number, oreLavorate: number) => (
+        const formatSpcMExport = (ricavi: number, ricaviMaturati: number, oreLavorate: number) => (
           Number.isFinite(oreLavorate) && oreLavorate !== 0
-            ? Number.parseFloat(((ricavi / oreLavorate) * 8).toFixed(1))
+            ? Number.parseFloat(((getTotaleRicaviAndamento(ricavi, ricaviMaturati) / oreLavorate) * 8).toFixed(1))
             : ''
         )
         const andamentoRows: Record<string, unknown>[] = commesseAndamentoMensileRows.map((row) => ({
@@ -9606,8 +9710,8 @@ function App() {
             UtileSpecifico: row.utileSpecifico,
             OreFuture: row.oreFuture,
             CostoPersonaleFuturo: row.costoPersonaleFuturo,
-            PercentualeUtile: formatPercentualeUtileExport(row.ricavi, row.costi, row.costoPersonale),
-            SpcM: formatSpcMExport(row.ricavi, row.oreLavorate),
+            PercentualeUtile: formatPercentualeUtileExport(row.ricavi, row.ricaviMaturati, row.costi, row.costoPersonale),
+            SpcM: formatSpcMExport(row.ricavi, row.ricaviMaturati, row.oreLavorate),
           }))
 
         andamentoRows.push({
@@ -9632,8 +9736,8 @@ function App() {
           UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
           OreFuture: commesseAndamentoMensileTotals.oreFuture,
           CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
-          PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
-          SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate),
+          PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
+          SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.oreLavorate),
         })
 
         appendSheet(andamentoRows, 'AndamentoMensile')
@@ -9647,8 +9751,8 @@ function App() {
             UtileSpecifico: commesseAndamentoMensileTotals.utileSpecifico,
             OreFuture: commesseAndamentoMensileTotals.oreFuture,
             CostoPersonaleFuturo: commesseAndamentoMensileTotals.costoPersonaleFuturo,
-            PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
-            SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.oreLavorate),
+            PercentualeUtile: formatPercentualeUtileExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.costi, commesseAndamentoMensileTotals.costoPersonale),
+            SpcM: formatSpcMExport(commesseAndamentoMensileTotals.ricavi, commesseAndamentoMensileTotals.ricaviMaturati, commesseAndamentoMensileTotals.oreLavorate),
           },
         ], 'Totali')
         filenamePrefix = 'Commesse_AndamentoMensile'
@@ -10794,6 +10898,8 @@ function App() {
     commesseAndamentoMensileMeseOptions,
     commesseAndamentoMensilePm,
     commesseAndamentoMensilePmSelectItems,
+    commesseAndamentoMensileProdotto,
+    commesseAndamentoMensileProdottoOptions,
     commesseAndamentoMensileRcc,
     commesseAndamentoMensileRccSelectItems,
     commesseAndamentoMensileRows,
@@ -10879,6 +10985,7 @@ function App() {
     setCommesseAndamentoMensileMeseDa,
     setCommesseAndamentoMensileMese,
     setCommesseAndamentoMensilePm,
+    setCommesseAndamentoMensileProdotto,
     setCommesseAndamentoMensileRcc,
     setCommesseAndamentoMensileStato,
     setCommesseAndamentoMensileTipologia,

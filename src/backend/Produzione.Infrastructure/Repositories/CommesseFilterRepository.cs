@@ -5092,6 +5092,15 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         AddStringClause(clauses, "RCC", request.Rcc);
         AddStringClause(clauses, "PM", request.Pm);
 
+        if (request.EscludiProdotti)
+        {
+            clauses.Add("(ISNULL(LTRIM(RTRIM(Nomeprodotto)), '') = '' OR UPPER(LTRIM(RTRIM(Nomeprodotto))) IN ('NON DEFINITO', 'NON DEFINTO'))");
+        }
+        else
+        {
+            AddStringClause(clauses, "Nomeprodotto", request.ProdottoCommessa);
+        }
+
         var visibilityClause = BuildVisibilityClause(user, visibility);
         if (!string.IsNullOrWhiteSpace(visibilityClause))
         {

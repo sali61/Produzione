@@ -191,6 +191,41 @@ public sealed class CommesseController(
         }
     }
 
+    [HttpGet("prodotti-attivi")]
+    [ProducesResponseType(typeof(CommessaConfigOptionDto[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ProdottiAttivi(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var prodotti = await commesseFilterRepository.GetProdottiAttiviAsync(cancellationToken);
+            return Ok(prodotti
+                .Select(item => new CommessaConfigOptionDto
+                {
+                    Id = item.Id,
+                    Label = item.Label
+                })
+                .ToArray());
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/prodotti-attivi.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/prodotti-attivi.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero dei prodotti attivi."
+            });
+        }
+    }
+
     [HttpGet("sintesi")]
     [ProducesResponseType(typeof(CommesseSintesiResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -325,6 +360,8 @@ public sealed class CommesseController(
         [FromQuery] string? businessUnit = null,
         [FromQuery] string? rcc = null,
         [FromQuery] string? pm = null,
+        [FromQuery] bool escludiProdotti = false,
+        [FromQuery] string? prodottoCommessa = null,
         [FromQuery] int take = 2000,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
@@ -361,7 +398,9 @@ public sealed class CommesseController(
                 take,
                 aggrega,
                 Mese: mese,
-                MeseDa: meseDa);
+                MeseDa: meseDa,
+                EscludiProdotti: escludiProdotti,
+                ProdottoCommessa: prodottoCommessa);
 
             var rows = await commesseFilterRepository.SearchAndamentoMensileAsync(
                 contextData.EffectiveUser,

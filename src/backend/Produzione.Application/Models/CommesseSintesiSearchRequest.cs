@@ -16,4 +16,6 @@ public sealed record CommesseSintesiSearchRequest(
     bool? SoloScadute = null,
     string? Provenienza = null,
     int? Mese = null,
-    int? MeseDa = null);
+    int? MeseDa = null,
+    bool EscludiProdotti = false,
+    string? ProdottoCommessa = null);
