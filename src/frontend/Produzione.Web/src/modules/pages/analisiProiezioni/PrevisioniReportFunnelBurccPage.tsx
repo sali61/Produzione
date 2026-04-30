@@ -60,24 +60,19 @@ export function PrevisioniReportFunnelBurccPage(props: PrevisioniReportFunnelBur
     return classes.join(' ')
   }
 
-  const showBusinessUnit = (row: any) => {
-    if (row.livello === 1) {
-      return row.businessUnit
+  const firstAggregationLabel = previsioniReportFunnelBurccOrder === 'rcc-bu' ? 'RCC' : 'BU'
+  const secondAggregationLabel = previsioniReportFunnelBurccOrder === 'rcc-bu' ? 'BU' : 'RCC'
+  const firstAggregationValue = (row: any) => {
+    if (row.livello !== 0) {
+      return ''
     }
-    if (row.livello === 0 && previsioniReportFunnelBurccOrder === 'bu-rcc') {
-      return row.businessUnit
-    }
-    return ''
+    return previsioniReportFunnelBurccOrder === 'rcc-bu' ? row.rcc : row.businessUnit
   }
-
-  const showRcc = (row: any) => {
-    if (row.livello === 1) {
-      return row.rcc
+  const secondAggregationValue = (row: any) => {
+    if (row.livello !== 1) {
+      return ''
     }
-    if (row.livello === 0 && previsioniReportFunnelBurccOrder === 'rcc-bu') {
-      return row.rcc
-    }
-    return ''
+    return previsioniReportFunnelBurccOrder === 'rcc-bu' ? row.businessUnit : row.rcc
   }
 
   return (
@@ -251,8 +246,8 @@ export function PrevisioniReportFunnelBurccPage(props: PrevisioniReportFunnelBur
                   <thead>
                     <tr>
                       <th>Anno</th>
-                      <th>BU</th>
-                      <th>RCC</th>
+                      <th>{firstAggregationLabel}</th>
+                      <th>{secondAggregationLabel}</th>
                       <th>Tipo</th>
                       <th className="num">% Successo</th>
                       <th className="num">Conteggio protocollo</th>
@@ -268,8 +263,8 @@ export function PrevisioniReportFunnelBurccPage(props: PrevisioniReportFunnelBur
                     {previsioniReportFunnelBurccPivotRows.map((row: any) => (
                       <tr key={row.key} className={rowClassName(row)}>
                         <td>{row.livello === 0 ? row.anno : ''}</td>
-                        <td>{showBusinessUnit(row)}</td>
-                        <td>{showRcc(row)}</td>
+                        <td>{firstAggregationValue(row)}</td>
+                        <td>{secondAggregationValue(row)}</td>
                         <td>{row.livello === 2 ? row.tipo : ''}</td>
                         <td className={`num ${row.isPercentualeRow && isAnalisiRccPercentUnderTarget(row.percentualeSuccesso) ? 'num-under-target' : ''}`}>
                           {row.isPercentualeRow ? formatAnalisiRccPercent(row.percentualeSuccesso) : ''}

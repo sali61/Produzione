@@ -839,6 +839,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         string? rcc,
         string? tipo,
         string? statoDocumento,
+        string? businessUnit,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -853,6 +854,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
         var rccFilter = rcc?.Trim();
         var tipoFilter = tipo?.Trim();
         var statoDocumentoFilter = statoDocumento?.Trim();
+        var businessUnitFilter = businessUnit?.Trim();
         var idRisorsaParam = idRisorsa > 0
             ? idRisorsa
             : DefaultAnalisiIdRisorsa;
@@ -882,6 +884,11 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
             filterClauses.Add($"documentostato = {SqlQuote(statoDocumentoFilter)}");
         }
 
+        if (!string.IsNullOrWhiteSpace(businessUnitFilter))
+        {
+            filterClauses.Add($"idbusinessunit = {SqlQuote(businessUnitFilter)}");
+        }
+
         var filter = string.Join(" AND ", filterClauses);
 
         try
@@ -904,6 +911,7 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                 {
                     var annoValue = ReadNullableInt(reader, "anno", "Anno") ?? 0;
                     var rccValue = ReadString(reader, "RCC", "rcc", "Aggregazione");
+                    var businessUnitValue = ReadString(reader, "idbusinessunit", "IDBUSINESSUNIT");
                     var tipoValue = ReadString(reader, "Tipo", "tipo");
                     var statoDocumentoValue = ReadString(reader, "documentostato", "DocumentoStato", "statoDocumento");
 
@@ -935,8 +943,14 @@ public sealed class AnalisiRccRepository(string? connectionString) : IAnalisiRcc
                         continue;
                     }
 
+                    if (!string.IsNullOrWhiteSpace(businessUnitFilter) &&
+                        !businessUnitValue.Equals(businessUnitFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     rows.Add(new AnalisiRccFunnelRow(
-                        ReadString(reader, "idbusinessunit", "IDBUSINESSUNIT"),
+                        businessUnitValue,
                         ReadString(reader, "Nomeprodotto", "nomeprodotto", "NomeProdotto"),
                         ReadString(reader, "CodiceSocieta", "codicesocieta"),
                         rccValue.Trim(),

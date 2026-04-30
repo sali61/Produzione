@@ -69,3 +69,7 @@ Script presenti:
   `dbo.Commesse` e filtra:
   `CDG.CdgFattureAttive.id_cont_commessa` / `CDG.CdgFatturePassive.idcommessa`.
   Include creazione indici di supporto per i nuovi filtri.
+- `018_sp_manutenzione_reindextabellecdg.sql`:
+  crea/aggiorna `manutenzione.sp_reindextabellecdg`, procedura di manutenzione
+  per il rebuild/reorganize degli indici e l'aggiornamento statistiche
+  `FULLSCAN` sulle principali tabelle CDG usate da import e report.

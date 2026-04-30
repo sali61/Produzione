@@ -155,6 +155,12 @@ public interface ICommesseFilterRepository
         UserContext user,
         string commessa,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaRibaltamentoAnnualeRow>> GetCommessaRibaltamentiAnnualiAsync(
+        string commessa,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaRibaltamentoFatturaRow>> GetCommessaRibaltamentiSuFattureAsync(
+        string commessa,
+        CancellationToken cancellationToken = default);
     Task<CommessaOrdiniOfferteDettaglio> GetCommessaOrdiniOfferteDettaglioAsync(
         string commessa,
         CancellationToken cancellationToken = default);

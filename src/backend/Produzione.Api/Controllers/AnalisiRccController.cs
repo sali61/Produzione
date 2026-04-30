@@ -1574,6 +1574,7 @@ public sealed class AnalisiRccController(
         [FromQuery] string? rcc = null,
         [FromQuery] string? tipo = null,
         [FromQuery] string? statoDocumento = null,
+        [FromQuery] string? businessUnit = null,
         [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
         CancellationToken cancellationToken = default)
     {
@@ -1623,6 +1624,9 @@ public sealed class AnalisiRccController(
             var statoDocumentoFiltro = string.IsNullOrWhiteSpace(statoDocumento)
                 ? null
                 : statoDocumento.Trim();
+            var businessUnitFiltro = string.IsNullOrWhiteSpace(businessUnit)
+                ? null
+                : businessUnit.Trim();
 
             string? rccFiltro;
             if (!vediTutto)
@@ -1633,15 +1637,18 @@ public sealed class AnalisiRccController(
 
                 if (string.IsNullOrWhiteSpace(rccFiltro))
                 {
-                    return Ok(new AnalisiRccPivotFunnelResponseDto
+                    return Ok(new AnalisiRccFunnelResponseDto
                     {
                         Profile = profileResult,
                         Anni = anniRiferimento,
                         VediTutto = false,
-                        AggregazioneFiltro = null,
-                        AggregazioniDisponibili = [],
-                        Righe = [],
-                        TotaliPerAnno = []
+                        RccFiltro = null,
+                        BusinessUnitFiltro = null,
+                        RccDisponibili = [],
+                        BusinessUnitDisponibili = [],
+                        TipiDisponibili = [],
+                        StatiDocumentoDisponibili = [],
+                        Items = []
                     });
                 }
             }
@@ -1656,12 +1663,14 @@ public sealed class AnalisiRccController(
                 rccFiltro,
                 tipoFiltro,
                 statoDocumentoFiltro,
+                businessUnitFiltro,
                 cancellationToken);
 
             var optionRows = await analisiRccRepository.GetFunnelAsync(
                 analisiIdRisorsa,
                 anniRiferimento,
                 rccFiltro,
+                null,
                 null,
                 null,
                 cancellationToken);
@@ -1690,6 +1699,13 @@ public sealed class AnalisiRccController(
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
+            var businessUnitDisponibili = optionRows
+                .Select(item => item.BusinessUnit?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
             var statiDocumentoDisponibili = optionRows
                 .Select(item => item.StatoDocumento?.Trim() ?? string.Empty)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -1703,7 +1719,9 @@ public sealed class AnalisiRccController(
                 Anni = anniRiferimento,
                 VediTutto = vediTutto,
                 RccFiltro = rccFiltro,
+                BusinessUnitFiltro = businessUnitFiltro,
                 RccDisponibili = rccDisponibili.ToArray(),
+                BusinessUnitDisponibili = businessUnitDisponibili,
                 TipiDisponibili = tipiDisponibili,
                 StatiDocumentoDisponibili = statiDocumentoDisponibili,
                 Items = rows
@@ -1905,6 +1923,7 @@ public sealed class AnalisiRccController(
                 rccFiltro,
                 requestedTipo,
                 requestedTipoDocumento,
+                null,
                 cancellationToken);
             if (requestedPercentualeSuccesso.HasValue)
             {
@@ -2184,6 +2203,7 @@ public sealed class AnalisiRccController(
                 null,
                 requestedTipo,
                 null,
+                requestedBusinessUnit,
                 cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(requestedBusinessUnit))
@@ -2540,6 +2560,7 @@ public sealed class AnalisiRccController(
                 effectiveRcc,
                 requestedTipo,
                 null,
+                requestedBusinessUnit,
                 cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(requestedBusinessUnit))

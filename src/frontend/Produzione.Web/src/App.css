@@ -1412,6 +1412,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.num-positive {
+  color: #087443;
+  font-weight: 700;
+}
+
 .piano-progress-amount {
   font-variant-numeric: tabular-nums;
 }
@@ -1760,6 +1765,11 @@ button:disabled {
   grid-template-areas: "vendite acquisti";
 }
 
+.detail-grid-panels.detail-grid-panels-tab-ribaltamenti {
+  grid-template-columns: minmax(720px, 1fr);
+  grid-template-areas: "ribaltamenti";
+}
+
 .detail-grid-panels.detail-grid-panels-tab-commerciale {
   grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
   grid-template-areas: "ordini offerte";
@@ -1807,6 +1817,11 @@ button:disabled {
 .detail-card-acquisti {
   grid-area: acquisti;
   min-height: clamp(300px, 56dvh, 74dvh);
+}
+
+.detail-card-ribaltamenti {
+  grid-area: ribaltamenti;
+  min-height: clamp(360px, 66dvh, 80dvh);
 }
 
 .detail-card-ordini {
@@ -1881,6 +1896,57 @@ button:disabled {
   gap: 0.35rem;
   min-height: 0;
   align-content: start;
+}
+
+.detail-ribaltamenti-body {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  align-content: stretch;
+  align-items: start;
+}
+
+.detail-ribaltamenti-section {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.detail-ribaltamenti-section h4 {
+  margin: 0;
+  color: #294766;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.detail-ribaltamenti-fatture-stack,
+.detail-ribaltamenti-fatture-grid {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 0;
+}
+
+.detail-ribaltamenti-fatture-grid h5 {
+  margin: 0;
+  color: #355a7d;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.detail-ribaltamenti-table th:nth-child(5),
+.detail-ribaltamenti-table td:nth-child(5) {
+  min-width: 280px;
+}
+
+.detail-ribaltamenti-fatture-table th:nth-child(4),
+.detail-ribaltamenti-fatture-table td:nth-child(4) {
+  min-width: 120px;
+}
+
+.detail-ribaltamenti-fatture-table th:nth-child(7),
+.detail-ribaltamenti-fatture-table td:nth-child(7),
+.detail-ribaltamenti-fatture-table th:nth-child(8),
+.detail-ribaltamenti-fatture-table td:nth-child(8) {
+  min-width: 120px;
 }
 
 .detail-configura-grid {
@@ -2413,8 +2479,13 @@ button:disabled {
   }
 
   .detail-grid-panels.detail-grid-panels-tab-dati-contabili,
+  .detail-grid-panels.detail-grid-panels-tab-ribaltamenti,
   .detail-grid-panels.detail-grid-panels-tab-commerciale {
     grid-template-columns: repeat(2, minmax(320px, 1fr));
+  }
+
+  .detail-grid-panels.detail-grid-panels-tab-ribaltamenti {
+    grid-template-columns: minmax(640px, 1fr);
   }
 }
 
@@ -2442,6 +2513,15 @@ button:disabled {
     grid-template-areas:
       "vendite"
       "acquisti";
+  }
+
+  .detail-grid-panels.detail-grid-panels-tab-ribaltamenti {
+    grid-template-columns: 1fr;
+    grid-template-areas: "ribaltamenti";
+  }
+
+  .detail-ribaltamenti-body {
+    grid-template-columns: 1fr;
   }
 
   .detail-grid-panels.detail-grid-panels-tab-commerciale {

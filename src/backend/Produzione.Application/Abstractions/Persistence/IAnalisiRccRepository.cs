@@ -77,6 +77,7 @@ public interface IAnalisiRccRepository
         string? rcc,
         string? tipo,
         string? statoDocumento,
+        string? businessUnit,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<AnalisiRccDettaglioFatturatoRow>> GetDettaglioFatturatoAsync(

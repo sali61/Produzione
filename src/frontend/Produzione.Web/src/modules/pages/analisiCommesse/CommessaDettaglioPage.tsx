@@ -152,6 +152,60 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
   })
   const showSegnalazioneEditor = segnalazioneEditorMode !== 'hidden'
   const isEditingSegnalazione = segnalazioneEditorMode === 'edit'
+  const normalizeCommessaCode = (value: any) => String(value ?? '').trim().toLocaleLowerCase('it-IT')
+  const detailRibaltamentiAnnualiRows = useMemo(() => {
+    const currentCommessa = normalizeCommessaCode(detailData?.commessa || detailCommessa)
+    return (detailData?.ribaltamentiAnnuali ?? []).map((row: any, index: number) => {
+      const isOrigine = normalizeCommessaCode(row?.commessaOrigine) === currentCommessa
+      const importo = Math.abs(Number(row?.importo ?? 0) || 0)
+      const importoFirmato = isOrigine ? -importo : importo
+      return {
+        ...row,
+        key: `ribaltamento-annuale-${row?.anno ?? 'na'}-${row?.commessaOrigine ?? ''}-${row?.commessaDestinazione ?? ''}-${index}`,
+        importoFirmato,
+      }
+    })
+  }, [detailData?.commessa, detailData?.ribaltamentiAnnuali, detailCommessa])
+  const detailRibaltamentiAnnualiTotale = useMemo(
+    () => detailRibaltamentiAnnualiRows.reduce((total: number, row: any) => total + row.importoFirmato, 0),
+    [detailRibaltamentiAnnualiRows],
+  )
+  const detailRibaltamentiSuFattureRows = useMemo(() => {
+    const currentCommessa = normalizeCommessaCode(detailData?.commessa || detailCommessa)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return (detailData?.ribaltamentiSuFatture ?? []).map((row: any, index: number) => {
+      const isProvenienza = normalizeCommessaCode(row?.commessaProvenienza) === currentCommessa
+      const importo = Math.abs(Number(row?.importoRibaltato ?? 0) || 0)
+      const dataFattura = row?.dataFattura ? new Date(row.dataFattura) : null
+      const isFuture = dataFattura ? dataFattura.getTime() > today.getTime() : false
+      return {
+        ...row,
+        key: `ribaltamento-fattura-${row?.tipologia ?? 'na'}-${row?.annoCompetenza ?? 'na'}-${row?.numero ?? ''}-${index}`,
+        importoFirmato: isProvenienza ? -importo : importo,
+        isFuture,
+      }
+    })
+  }, [detailData?.commessa, detailData?.ribaltamentiSuFatture, detailCommessa])
+  const detailRibaltamentiVenditeRows = useMemo(
+    () => detailRibaltamentiSuFattureRows.filter((row: any) => normalizeCommessaCode(row?.tipologia) === 'vendita'),
+    [detailRibaltamentiSuFattureRows],
+  )
+  const detailRibaltamentiAcquistiRows = useMemo(
+    () => detailRibaltamentiSuFattureRows.filter((row: any) => {
+      const tipologia = normalizeCommessaCode(row?.tipologia)
+      return tipologia === 'acquisto' || tipologia === 'acquisti'
+    }),
+    [detailRibaltamentiSuFattureRows],
+  )
+  const detailRibaltamentiVenditeTotale = useMemo(
+    () => detailRibaltamentiVenditeRows.reduce((total: number, row: any) => total + row.importoFirmato, 0),
+    [detailRibaltamentiVenditeRows],
+  )
+  const detailRibaltamentiAcquistiTotale = useMemo(
+    () => detailRibaltamentiAcquistiRows.reduce((total: number, row: any) => total + row.importoFirmato, 0),
+    [detailRibaltamentiAcquistiRows],
+  )
 
   const detailOreSpeseAnnoOptions = useMemo(() => (
     Array.from(
@@ -406,6 +460,57 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
         <span className="sort-indicator" aria-hidden="true">{getDetailRequisitiSortIndicator(key)}</span>
       </span>
     </th>
+  )
+
+  const renderRibaltamentiFattureTable = (title: string, rows: any[], total: number, emptyText: string) => (
+    <section className="detail-ribaltamenti-fatture-grid">
+      <h5>{title}</h5>
+      <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+        {(rows.length === 0 && !detailLoading) && (
+          <p className="empty-state">{emptyText}</p>
+        )}
+
+        {rows.length > 0 && (
+          <table className="bonifici-table detail-ribaltamenti-fatture-table">
+            <thead>
+              <tr>
+                <th>Anno</th>
+                <th>Data</th>
+                <th>Numero</th>
+                <th>Contabilita</th>
+                <th className="num">Importo fattura</th>
+                <th className="num">Importo ribaltato</th>
+                <th>Provenienza</th>
+                <th>Destinazione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row: any) => (
+                <tr key={row.key} className={row.isFuture ? 'detail-mov-row-future' : 'detail-mov-row-past'}>
+                  <td>{row.annoCompetenza}</td>
+                  <td>{formatDate(row.dataFattura)}</td>
+                  <td>{row.numero}</td>
+                  <td>{row.contabilita}</td>
+                  <td className={`num ${row.importoFattura < 0 ? 'num-negative' : ''}`}>{formatNumber(row.importoFattura)}</td>
+                  <td className={`num ${row.importoFirmato < 0 ? 'num-negative' : 'num-positive'}`}>
+                    {formatNumber(row.importoFirmato)}
+                  </td>
+                  <td>{row.commessaProvenienza}</td>
+                  <td>{row.commessaDestinazione}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="table-totals-row">
+                <td colSpan={5} className="table-totals-label">Totale</td>
+                <td className={`num ${total < 0 ? 'num-negative' : 'num-positive'}`}>{formatNumber(total)}</td>
+                <td colSpan={2} />
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+    </section>
   )
 
   const parseDecimalInput = (rawValue: string) => {
@@ -1089,6 +1194,13 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
               </button>
               <button
                 type="button"
+                className={`detail-tab-button ${detailActiveTab === 'ribaltamenti' ? 'is-active' : ''}`}
+                onClick={() => setDetailActiveTab('ribaltamenti')}
+              >
+                Ribaltamenti
+              </button>
+              <button
+                type="button"
                 className={`detail-tab-button ${detailActiveTab === 'commerciale' ? 'is-active' : ''}`}
                 onClick={() => setDetailActiveTab('commerciale')}
               >
@@ -1284,6 +1396,76 @@ export function CommessaDettaglioPage(props: CommessaDettaglioPageProps) {
                       </tfoot>
                     </table>
                   )}
+                </div>
+              </section>
+
+              <section className={`panel detail-card detail-card-ribaltamenti ${detailActiveTab !== 'ribaltamenti' ? 'detail-card-hidden' : ''}`}>
+                <header className="panel-header">
+                  <h3>Ribaltamenti</h3>
+                </header>
+                <div className="detail-card-body detail-ribaltamenti-body">
+                  <section className="detail-ribaltamenti-section">
+                    <h4>Annuali</h4>
+                    <div className="bonifici-table-wrap bonifici-table-wrap-main detail-card-table-wrap">
+                      {(detailRibaltamentiAnnualiRows.length === 0 && !detailLoading) && (
+                        <p className="empty-state">Nessun ribaltamento annuale disponibile per la commessa selezionata.</p>
+                      )}
+
+                      {detailRibaltamentiAnnualiRows.length > 0 && (
+                        <table className="bonifici-table detail-ribaltamenti-table">
+                          <thead>
+                            <tr>
+                              <th>Anno</th>
+                              <th>Origine</th>
+                              <th>Destinazione</th>
+                              <th className="num">Importo</th>
+                              <th>Nota</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detailRibaltamentiAnnualiRows.map((row: any) => (
+                              <tr key={row.key}>
+                                <td>{row.anno}</td>
+                                <td>{row.commessaOrigine}</td>
+                                <td>{row.commessaDestinazione}</td>
+                                <td className={`num ${row.importoFirmato < 0 ? 'num-negative' : 'num-positive'}`}>
+                                  {formatNumber(row.importoFirmato)}
+                                </td>
+                                <td>{row.nota}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="table-totals-row">
+                              <td colSpan={3} className="table-totals-label">Totale</td>
+                              <td className={`num ${detailRibaltamentiAnnualiTotale < 0 ? 'num-negative' : 'num-positive'}`}>
+                                {formatNumber(detailRibaltamentiAnnualiTotale)}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="detail-ribaltamenti-section">
+                    <h4>Su Fatture</h4>
+                    <div className="detail-ribaltamenti-fatture-stack">
+                      {renderRibaltamentiFattureTable(
+                        'Vendite',
+                        detailRibaltamentiVenditeRows,
+                        detailRibaltamentiVenditeTotale,
+                        'Nessun ribaltamento su fatture di vendita disponibile per la commessa selezionata.',
+                      )}
+                      {renderRibaltamentiFattureTable(
+                        'Acquisti',
+                        detailRibaltamentiAcquistiRows,
+                        detailRibaltamentiAcquistiTotale,
+                        'Nessun ribaltamento su fatture di acquisto disponibile per la commessa selezionata.',
+                      )}
+                    </div>
+                  </section>
                 </div>
               </section>
 

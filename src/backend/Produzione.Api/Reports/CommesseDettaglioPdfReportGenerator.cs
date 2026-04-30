@@ -261,6 +261,55 @@ public static class CommesseDettaglioPdfReportGenerator
                         ["Data", "Importo", "Documento", "Descrizione", "Causale", "Sottoconto", "Controparte", "Provenienza", "Temporale"],
                         acquistiRows);
 
+                    var commessaCorrente = NormalizeKey(detail.Commessa);
+
+                    var ribaltamentiAnnualiRows = detail.RibaltamentiAnnuali
+                        .OrderByDescending(item => item.Anno)
+                        .ThenBy(item => item.CommessaOrigine, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(item => item.CommessaDestinazione, StringComparer.OrdinalIgnoreCase)
+                        .Select(item =>
+                        {
+                            var isOrigine = NormalizeKey(item.CommessaOrigine) == commessaCorrente;
+                            var importo = Math.Abs(item.Importo);
+
+                            return (IReadOnlyList<string>)
+                            [
+                                item.Anno.ToString(ItCulture),
+                                Safe(item.CommessaOrigine),
+                                Safe(item.CommessaDestinazione),
+                                isOrigine ? "Origine" : "Destinazione",
+                                FormatDecimal(isOrigine ? -importo : importo),
+                                Safe(item.Nota)
+                            ];
+                        })
+                        .ToList();
+                    if (ribaltamentiAnnualiRows.Count > 0)
+                    {
+                        var totale = detail.RibaltamentiAnnuali.Sum(item =>
+                        {
+                            var importo = Math.Abs(item.Importo);
+                            return NormalizeKey(item.CommessaOrigine) == commessaCorrente ? -importo : importo;
+                        });
+
+                        ribaltamentiAnnualiRows.Add([
+                            "Totale",
+                            string.Empty,
+                            string.Empty,
+                            string.Empty,
+                            FormatDecimal(totale),
+                            string.Empty
+                        ]);
+                    }
+
+                    AddSectionTable(
+                        column,
+                        "Ribaltamenti - Annuali",
+                        ["Anno", "Origine", "Destinazione", "Ruolo", "Importo", "Nota"],
+                        ribaltamentiAnnualiRows);
+
+                    AddRibaltamentiFattureSection(column, "Ribaltamenti su Fatture - Vendite", detail.RibaltamentiSuFatture, commessaCorrente, "vendita");
+                    AddRibaltamentiFattureSection(column, "Ribaltamenti su Fatture - Acquisti", detail.RibaltamentiSuFatture, commessaCorrente, "acquisto", "acquisti");
+
                     var ordiniRows = detail.Ordini
                         .OrderBy(item => item.Protocollo)
                         .ThenBy(item => item.Posizione)
@@ -564,6 +613,76 @@ public static class CommesseDettaglioPdfReportGenerator
         });
     }
 
+    private static void AddRibaltamentiFattureSection(
+        ColumnDescriptor column,
+        string title,
+        IEnumerable<CommessaRibaltamentoFatturaDto> fatture,
+        string commessaCorrente,
+        params string[] tipologie)
+    {
+        var allowedTipologie = tipologie
+            .Select(NormalizeKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var today = DateTime.Today;
+
+        var rows = fatture
+            .Where(item => allowedTipologie.Contains(NormalizeKey(item.Tipologia)))
+            .OrderByDescending(item => item.AnnoCompetenza)
+            .ThenBy(item => item.DataFattura)
+            .ThenBy(item => item.Numero, StringComparer.OrdinalIgnoreCase)
+            .Select(item =>
+            {
+                var isProvenienza = NormalizeKey(item.CommessaProvenienza) == commessaCorrente;
+                var importo = Math.Abs(item.ImportoRibaltato);
+                var statoTemporale = item.DataFattura.HasValue && item.DataFattura.Value.Date > today
+                    ? "Futura"
+                    : "Passata";
+
+                return (IReadOnlyList<string>)
+                [
+                    item.AnnoCompetenza.ToString(ItCulture),
+                    FormatDate(item.DataFattura),
+                    Safe(item.Numero),
+                    Safe(item.Contabilita),
+                    FormatDecimal(item.ImportoFattura),
+                    FormatDecimal(isProvenienza ? -importo : importo),
+                    Safe(item.CommessaProvenienza),
+                    Safe(item.CommessaDestinazione),
+                    statoTemporale
+                ];
+            })
+            .ToList();
+
+        if (rows.Count > 0)
+        {
+            var totale = fatture
+                .Where(item => allowedTipologie.Contains(NormalizeKey(item.Tipologia)))
+                .Sum(item =>
+                {
+                    var importo = Math.Abs(item.ImportoRibaltato);
+                    return NormalizeKey(item.CommessaProvenienza) == commessaCorrente ? -importo : importo;
+                });
+
+            rows.Add([
+                "Totale",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                FormatDecimal(totale),
+                string.Empty,
+                string.Empty,
+                string.Empty
+            ]);
+        }
+
+        AddSectionTable(
+            column,
+            title,
+            ["Anno", "Data", "Numero", "Contabilita", "Importo fattura", "Importo ribaltato", "Provenienza", "Destinazione", "Temporale"],
+            rows);
+    }
+
     private static IContainer StyleHeaderCell(IContainer container)
     {
         return container
@@ -636,5 +755,8 @@ public static class CommesseDettaglioPdfReportGenerator
 
     private static string Safe(string? value)
         => value?.Trim() ?? string.Empty;
+
+    private static string NormalizeKey(string? value)
+        => Safe(value).ToLower(ItCulture);
 }
 

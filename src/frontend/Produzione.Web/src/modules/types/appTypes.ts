@@ -40,7 +40,7 @@ export type AppHealthResponse = {
 }
 
 export type MenuKey = 'sintesi' | 'risorse' | 'analisi-proiezioni' | 'previsioni' | 'processo-offerta' | 'dati-contabili' | 'user'
-export type DetailTabKey = 'storico' | 'dati-contabili' | 'commerciale' | 'personale' | 'configura' | 'segnalazioni'
+export type DetailTabKey = 'storico' | 'dati-contabili' | 'ribaltamenti' | 'commerciale' | 'personale' | 'configura' | 'segnalazioni'
 export type AppPage =
   | 'none'
   | 'commesse-sintesi'
@@ -494,7 +494,9 @@ export type AnalisiRccFunnelResponse = {
   anni: number[]
   vediTutto: boolean
   rccFiltro?: string | null
+  businessUnitFiltro?: string | null
   rccDisponibili: string[]
+  businessUnitDisponibili: string[]
   tipiDisponibili: string[]
   statiDocumentoDisponibili: string[]
   items: AnalisiRccFunnelRow[]
@@ -1039,6 +1041,8 @@ export type CommesseDettaglioResponse = {
   mesiAnnoCorrente?: CommessaDettaglioMeseRow[]
   vendite: CommessaFatturaMovimentoRow[]
   acquisti: CommessaFatturaMovimentoRow[]
+  ribaltamentiAnnuali?: CommessaRibaltamentoAnnualeRow[]
+  ribaltamentiSuFatture?: CommessaRibaltamentoFatturaRow[]
   fatturatoPivot: CommessaFatturatoPivotRow[]
   ordini?: CommessaOrdineRow[]
   offerte?: CommessaOffertaRow[]
@@ -1256,6 +1260,26 @@ export type CommessaFatturaMovimentoRow = {
   statoTemporale: string
 }
 
+export type CommessaRibaltamentoAnnualeRow = {
+  anno: number
+  commessaOrigine: string
+  commessaDestinazione: string
+  importo: number
+  nota: string
+}
+
+export type CommessaRibaltamentoFatturaRow = {
+  tipologia: string
+  annoCompetenza: number
+  numero: string
+  contabilita: string
+  dataFattura?: string | null
+  importoFattura: number
+  importoRibaltato: number
+  commessaProvenienza: string
+  commessaDestinazione: string
+}
+
 export type CommessaFatturatoPivotRow = {
   anno?: number | null
   rcc: string
@@ -1311,4 +1335,3 @@ export type SintesiPersistedState = {
   rows: CommessaSintesiRow[]
   searched: boolean
 }
-

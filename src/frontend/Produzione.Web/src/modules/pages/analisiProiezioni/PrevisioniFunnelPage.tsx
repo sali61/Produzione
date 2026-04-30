@@ -9,6 +9,7 @@ export function PrevisioniFunnelPage(props: PrevisioniFunnelPageProps) {
     analisiRccLoading,
     canAccessPrevisioniFunnelRccPage,
     canExportAnalisiPage,
+    canSelectPrevisioniFunnelBu,
     canSelectPrevisioniFunnelRcc,
     currentProfile,
     exportAnalisiExcel,
@@ -21,6 +22,8 @@ export function PrevisioniFunnelPage(props: PrevisioniFunnelPageProps) {
     isAnalisiSearchCollapsible,
     previsioniFunnelAnni,
     previsioniFunnelAnnoOptions,
+    previsioniFunnelBusinessUnit,
+    previsioniFunnelBusinessUnitOptions,
     previsioniFunnelData,
     previsioniFunnelRcc,
     previsioniFunnelRccOptions,
@@ -32,6 +35,7 @@ export function PrevisioniFunnelPage(props: PrevisioniFunnelPageProps) {
     previsioniFunnelTotals,
     resetAnalisiFilters,
     setPrevisioniFunnelAnni,
+    setPrevisioniFunnelBusinessUnit,
     setPrevisioniFunnelRcc,
     setPrevisioniFunnelStatoDocumento,
     setPrevisioniFunnelTipo,
@@ -74,6 +78,23 @@ export function PrevisioniFunnelPage(props: PrevisioniFunnelPageProps) {
                         ))}
                       </select>
                     </label>
+                    {canSelectPrevisioniFunnelBu && (
+                      <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-business-unit">
+                        <span>BU</span>
+                        <select
+                          id="previsioni-funnel-business-unit"
+                          value={previsioniFunnelBusinessUnit}
+                          onChange={(event) => setPrevisioniFunnelBusinessUnit(event.target.value)}
+                        >
+                          <option value="">Tutte</option>
+                          {previsioniFunnelBusinessUnitOptions.map((value) => (
+                            <option key={`previsioni-funnel-bu-${value}`} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     {canSelectPrevisioniFunnelRcc && (
                       <label className="analisi-rcc-year-field" htmlFor="previsioni-funnel-rcc">
                         <span>RCC</span>

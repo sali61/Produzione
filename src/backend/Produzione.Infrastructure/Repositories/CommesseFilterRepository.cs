@@ -274,6 +274,36 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             r.id;
         """;
     private const string DettaglioCommesseFatturatoStoredProcedure = "produzione.spDettaglioCommesseFatturato";
+    private const string CommessaRibaltamentiAnnualiQuery = """
+        SELECT
+            CAST(ISNULL(anno, 0) AS INT) AS Anno,
+            CAST(ISNULL(CommessaOrigine, N'') AS NVARCHAR(50)) AS CommessaOrigine,
+            CAST(ISNULL(CommessaDestinazione, N'') AS NVARCHAR(50)) AS CommessaDestinazione,
+            CAST(ISNULL(importo, 0) AS DECIMAL(18, 2)) AS Importo,
+            CAST(ISNULL(nota, N'') AS NVARCHAR(1000)) AS Nota
+        FROM cdg.CdgRibaltamentiImportiFraCommesse
+        WHERE
+            LTRIM(RTRIM(CommessaOrigine)) = @Commessa
+            OR LTRIM(RTRIM(CommessaDestinazione)) = @Commessa
+        ORDER BY anno DESC, CommessaOrigine, CommessaDestinazione, nota;
+        """;
+    private const string CommessaRibaltamentiSuFattureQuery = """
+        SELECT
+            CAST(ISNULL(tipologia, N'') AS NVARCHAR(20)) AS Tipologia,
+            CAST(ISNULL(annoCompetenza, 0) AS INT) AS AnnoCompetenza,
+            CAST(ISNULL(numero, N'') AS NVARCHAR(128)) AS Numero,
+            CAST(ISNULL(contabilita, N'') AS NVARCHAR(128)) AS Contabilita,
+            CAST(datafattura AS DATETIME) AS DataFattura,
+            CAST(ISNULL(importofattura, 0) AS DECIMAL(18, 2)) AS ImportoFattura,
+            CAST(ISNULL(importoribaltato, 0) AS DECIMAL(18, 2)) AS ImportoRibaltato,
+            CAST(ISNULL(commessaprovenienza, N'') AS NVARCHAR(50)) AS CommessaProvenienza,
+            CAST(ISNULL(commessadestinazione, N'') AS NVARCHAR(50)) AS CommessaDestinazione
+        FROM produzione.qryribaltamenticommessefrafatture
+        WHERE
+            LTRIM(RTRIM(commessaprovenienza)) = @Commessa
+            OR LTRIM(RTRIM(commessadestinazione)) = @Commessa
+        ORDER BY tipologia, annoCompetenza DESC, datafattura, numero;
+        """;
     private const string CommessaSintesiMailCandidatesQuery = """
         DECLARE @IdCommessa INT =
         (
@@ -4155,6 +4185,84 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 Array.Empty<CommessaFatturaMovimentoRow>(),
                 Array.Empty<CommessaFatturaMovimentoRow>(),
                 Array.Empty<CommessaFatturatoPivotRow>());
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaRibaltamentoAnnualeRow>> GetCommessaRibaltamentiAnnualiAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return Array.Empty<CommessaRibaltamentoAnnualeRow>();
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaRibaltamentiAnnualiQuery, connection);
+            command.Parameters.AddWithValue("@Commessa", commessa.Trim());
+
+            var rows = new List<CommessaRibaltamentoAnnualeRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaRibaltamentoAnnualeRow(
+                    ReadNullableInt(reader, "Anno") ?? 0,
+                    ReadString(reader, "CommessaOrigine"),
+                    ReadString(reader, "CommessaDestinazione"),
+                    ReadDecimal(reader, "Importo"),
+                    ReadString(reader, "Nota")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return Array.Empty<CommessaRibaltamentoAnnualeRow>();
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaRibaltamentoFatturaRow>> GetCommessaRibaltamentiSuFattureAsync(
+        string commessa,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(commessa))
+        {
+            return Array.Empty<CommessaRibaltamentoFatturaRow>();
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(CommessaRibaltamentiSuFattureQuery, connection);
+            command.Parameters.AddWithValue("@Commessa", commessa.Trim());
+
+            var rows = new List<CommessaRibaltamentoFatturaRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new CommessaRibaltamentoFatturaRow(
+                    ReadString(reader, "Tipologia"),
+                    ReadNullableInt(reader, "AnnoCompetenza") ?? 0,
+                    ReadString(reader, "Numero"),
+                    ReadString(reader, "Contabilita"),
+                    ReadNullableDate(reader, "DataFattura"),
+                    ReadDecimal(reader, "ImportoFattura"),
+                    ReadDecimal(reader, "ImportoRibaltato"),
+                    ReadString(reader, "CommessaProvenienza"),
+                    ReadString(reader, "CommessaDestinazione")));
+            }
+
+            return rows;
+        }
+        catch
+        {
+            return Array.Empty<CommessaRibaltamentoFatturaRow>();
         }
     }
 

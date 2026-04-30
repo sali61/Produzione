@@ -17,6 +17,7 @@ node_modules/
 .logs/
 .tmp/
 *.log
+src/backend/Produzione.Api/App_Data/DataProtection-Keys/
 
 # Local publish overrides
 scripts/publish/publish.settings.local.json

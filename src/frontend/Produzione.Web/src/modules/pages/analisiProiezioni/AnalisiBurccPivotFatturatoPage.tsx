@@ -9,6 +9,7 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
     analisiBurccPivotAnnoOptions,
     analisiBurccPivotBusinessUnit,
     analisiBurccPivotBusinessUnitOptions,
+    analisiBurccPivotOrder,
     analisiBurccPivotRcc,
     analisiBurccPivotRccOptions,
     analisiBurccPivotRows,
@@ -30,6 +31,7 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
     resetAnalisiFilters,
     setAnalisiBurccPivotAnni,
     setAnalisiBurccPivotBusinessUnit,
+    setAnalisiBurccPivotOrder,
     setAnalisiBurccPivotRcc,
     toggleAnalisiSearchCollapsed
   } = props as any
@@ -66,6 +68,14 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
   const getPercentClassName = (value: number | null | undefined) => (
     `num percent-col ${value !== null && value !== undefined && isAnalisiRccPercentUnderTarget(value) ? 'num-under-target' : ''}`
   )
+  const firstAggregationLabel = analisiBurccPivotOrder === 'rcc-bu' ? 'RCC' : 'BU'
+  const secondAggregationLabel = analisiBurccPivotOrder === 'rcc-bu' ? 'BU' : 'RCC'
+  const firstAggregationValue = (row: any) => (
+    analisiBurccPivotOrder === 'rcc-bu' ? row.rcc : row.businessUnit
+  )
+  const secondAggregationValue = (row: any) => (
+    analisiBurccPivotOrder === 'rcc-bu' ? row.businessUnit : row.rcc
+  )
 
   return (
     <section className="panel sintesi-page analisi-rcc-page">
@@ -100,6 +110,17 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
                       {year}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className="analisi-rcc-year-field" htmlFor="analisi-burcc-pivot-ordine">
+                <span>Ordine aggregazione</span>
+                <select
+                  id="analisi-burcc-pivot-ordine"
+                  value={analisiBurccPivotOrder}
+                  onChange={(event) => setAnalisiBurccPivotOrder(event.target.value)}
+                >
+                  <option value="rcc-bu">RCC &gt; BU</option>
+                  <option value="bu-rcc">BU &gt; RCC</option>
                 </select>
               </label>
               {canSelectAnalisiBurccBusinessUnit && (
@@ -187,8 +208,8 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
                   <thead>
                     <tr>
                       <th>Anno</th>
-                      <th>BU</th>
-                      <th>RCC</th>
+                      <th>{firstAggregationLabel}</th>
+                      <th>{secondAggregationLabel}</th>
                       <th className="num">Budget Previsto</th>
                       <th className="num">Fatturato gia registrato</th>
                       <th className="num">Fatturato Futuro Anno</th>
@@ -216,8 +237,8 @@ export function AnalisiBurccPivotFatturatoPage(props: AnalisiBurccPivotFatturato
                       return (
                         <tr key={`analisi-burcc-pivot-${row.anno}-${row.businessUnit}-${row.rcc}`}>
                           <td>{row.anno}</td>
-                          <td>{row.businessUnit}</td>
-                          <td>{row.rcc}</td>
+                          <td>{firstAggregationValue(row)}</td>
+                          <td>{secondAggregationValue(row)}</td>
                           <td className={`num ${row.budgetPrevisto < 0 ? 'num-negative' : ''}`}>{formatNumber(row.budgetPrevisto)}</td>
                           <td className={`num ${row.fatturatoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoAnno)}</td>
                           <td className={`num ${row.fatturatoFuturoAnno < 0 ? 'num-negative' : ''}`}>{formatNumber(row.fatturatoFuturoAnno)}</td>

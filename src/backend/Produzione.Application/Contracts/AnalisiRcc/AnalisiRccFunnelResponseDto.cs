@@ -6,7 +6,9 @@ public sealed class AnalisiRccFunnelResponseDto
     public int[] Anni { get; set; } = [];
     public bool VediTutto { get; set; }
     public string? RccFiltro { get; set; }
+    public string? BusinessUnitFiltro { get; set; }
     public string[] RccDisponibili { get; set; } = [];
+    public string[] BusinessUnitDisponibili { get; set; } = [];
     public string[] TipiDisponibili { get; set; } = [];
     public string[] StatiDocumentoDisponibili { get; set; } = [];
     public AnalisiRccFunnelRowDto[] Items { get; set; } = [];

@@ -363,6 +363,7 @@ function App() {
   const [analisiBurccPivotAnni, setAnalisiBurccPivotAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [analisiBurccPivotBusinessUnit, setAnalisiBurccPivotBusinessUnit] = useState('')
   const [analisiBurccPivotRcc, setAnalisiBurccPivotRcc] = useState('')
+  const [analisiBurccPivotOrder, setAnalisiBurccPivotOrder] = useState<'rcc-bu' | 'bu-rcc'>('rcc-bu')
   const [analisiPianoFatturazioneAnno, setAnalisiPianoFatturazioneAnno] = useState(new Date().getFullYear().toString())
   const [analisiPianoFatturazioneMesiSnapshot, setAnalisiPianoFatturazioneMesiSnapshot] = useState<string[]>([])
   const [analisiPianoFatturazioneTipoCalcolo, setAnalisiPianoFatturazioneTipoCalcolo] = useState('complessivo')
@@ -436,6 +437,7 @@ function App() {
   const [previsioniUtileMensileBuData, setPrevisioniUtileMensileBuData] = useState<AnalisiRccUtileMensileResponse | null>(null)
   const [previsioniFunnelAnni, setPrevisioniFunnelAnni] = useState<string[]>([new Date().getFullYear().toString()])
   const [previsioniFunnelRcc, setPrevisioniFunnelRcc] = useState('')
+  const [previsioniFunnelBusinessUnit, setPrevisioniFunnelBusinessUnit] = useState('')
   const [previsioniFunnelTipo, setPrevisioniFunnelTipo] = useState('')
   const [previsioniFunnelStatoDocumento, setPrevisioniFunnelStatoDocumento] = useState('')
   const [previsioniFunnelData, setPrevisioniFunnelData] = useState<AnalisiRccFunnelResponse | null>(null)
@@ -756,6 +758,7 @@ function App() {
     setAnalisiBurccPivotAnni([new Date().getFullYear().toString()])
     setAnalisiBurccPivotBusinessUnit('')
     setAnalisiBurccPivotRcc('')
+    setAnalisiBurccPivotOrder('rcc-bu')
     setAnalisiPianoFatturazioneAnno(new Date().getFullYear().toString())
     setAnalisiPianoFatturazioneMesiSnapshot([])
     setAnalisiPianoFatturazioneTipoCalcolo('complessivo')
@@ -826,6 +829,7 @@ function App() {
     setPrevisioniUtileMensileBuData(null)
     setPrevisioniFunnelAnni([new Date().getFullYear().toString()])
     setPrevisioniFunnelRcc('')
+    setPrevisioniFunnelBusinessUnit('')
     setPrevisioniFunnelTipo('')
     setPrevisioniFunnelStatoDocumento('')
     setPrevisioniFunnelData(null)
@@ -3404,6 +3408,9 @@ function App() {
       if (canSelectPrevisioniFunnelRcc && previsioniFunnelRcc.trim()) {
         params.set('rcc', previsioniFunnelRcc.trim())
       }
+      if (canSelectPrevisioniFunnelBu && previsioniFunnelBusinessUnit.trim()) {
+        params.set('businessUnit', previsioniFunnelBusinessUnit.trim())
+      }
       if (previsioniFunnelTipo.trim()) {
         params.set('tipo', previsioniFunnelTipo.trim())
       }
@@ -3446,6 +3453,23 @@ function App() {
           setPrevisioniFunnelRcc(normalizedRccFiltro)
         } else if (!payload.vediTutto) {
           setPrevisioniFunnelRcc((payload.rccDisponibili?.[0] ?? '').trim())
+        }
+      }
+
+      if (canSelectPrevisioniFunnelBu) {
+        const normalizedBusinessUnitFiltro = (payload.businessUnitFiltro ?? '').trim()
+        if (normalizedBusinessUnitFiltro.length > 0) {
+          setPrevisioniFunnelBusinessUnit(normalizedBusinessUnitFiltro)
+        } else if (!payload.vediTutto) {
+          setPrevisioniFunnelBusinessUnit((payload.businessUnitDisponibili?.[0] ?? '').trim())
+        } else {
+          const normalizedBusinessUnit = previsioniFunnelBusinessUnit.trim()
+          if (
+            normalizedBusinessUnit &&
+            !(payload.businessUnitDisponibili ?? []).some((value) => value.localeCompare(normalizedBusinessUnit, 'it', { sensitivity: 'base' }) === 0)
+          ) {
+            setPrevisioniFunnelBusinessUnit('')
+          }
         }
       }
 
@@ -4453,6 +4477,7 @@ function App() {
       case 'previsioni-funnel':
         setPrevisioniFunnelAnni([currentYear])
         setPrevisioniFunnelRcc('')
+        setPrevisioniFunnelBusinessUnit('')
         setPrevisioniFunnelTipo('')
         setPrevisioniFunnelStatoDocumento('')
         setPrevisioniFunnelData(null)
@@ -5464,7 +5489,27 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [analisiBurccData?.rccDisponibili, analisiBurccData?.rccFiltro, analisiBurccRcc])
-  const analisiBurccPivotRows = analisiBurccPivotData?.righe ?? []
+  const analisiBurccPivotRowsRaw = analisiBurccPivotData?.righe ?? []
+  const analisiBurccPivotRows = useMemo(() => {
+    const compareText = (left: string, right: string) => left.localeCompare(right, 'it', { sensitivity: 'base' })
+
+    return [...analisiBurccPivotRowsRaw].sort((left, right) => {
+      if (left.anno !== right.anno) {
+        return left.anno - right.anno
+      }
+
+      const firstCompare = analisiBurccPivotOrder === 'rcc-bu'
+        ? compareText(left.rcc, right.rcc)
+        : compareText(left.businessUnit, right.businessUnit)
+      if (firstCompare !== 0) {
+        return firstCompare
+      }
+
+      return analisiBurccPivotOrder === 'rcc-bu'
+        ? compareText(left.businessUnit, right.businessUnit)
+        : compareText(left.rcc, right.rcc)
+    })
+  }, [analisiBurccPivotOrder, analisiBurccPivotRowsRaw])
   const analisiBurccPivotTotaliPerAnno = analisiBurccPivotData?.totaliPerAnno ?? []
   const analisiBurccPivotAnnoOptions = useMemo(() => {
     const years = new Set<string>()
@@ -6918,6 +6963,24 @@ function App() {
     }
     return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
   }, [previsioniFunnelData?.rccDisponibili, previsioniFunnelData?.rccFiltro, previsioniFunnelRcc])
+  const previsioniFunnelBusinessUnitOptions = useMemo(() => {
+    const options = new Set<string>()
+    ;(previsioniFunnelData?.businessUnitDisponibili ?? []).forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        options.add(normalized)
+      }
+    })
+    const selected = previsioniFunnelBusinessUnit.trim()
+    if (selected) {
+      options.add(selected)
+    }
+    const serverFilter = (previsioniFunnelData?.businessUnitFiltro ?? '').trim()
+    if (serverFilter) {
+      options.add(serverFilter)
+    }
+    return [...options].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+  }, [previsioniFunnelBusinessUnit, previsioniFunnelData?.businessUnitDisponibili, previsioniFunnelData?.businessUnitFiltro])
   const previsioniFunnelTipoOptions = useMemo(() => {
     const options = new Set<string>()
     ;(previsioniFunnelData?.tipiDisponibili ?? []).forEach((value) => {
@@ -9783,22 +9846,27 @@ function App() {
         break
       }
       case 'analisi-burcc-pivot-fatturato': {
-        appendSheet(analisiBurccPivotRows.map((row) => ({
-          Anno: row.anno,
-          BU: row.businessUnit,
-          RCC: row.rcc,
-          FatturatoAnno: row.fatturatoAnno,
-          FatturatoFuturoAnno: row.fatturatoFuturoAnno,
-          TotaleFatturatoCerto: row.totaleFatturatoCerto,
-          BudgetPrevisto: row.budgetPrevisto,
-          MargineColBudget: row.margineColBudget,
-          PercentualeCertaRaggiunta: row.percentualeCertaRaggiunta,
-          PercentualeRaggiungimentoTemporale: row.percentualeRaggiungimentoTemporale,
-          RicavoIpotetico: row.totaleRicavoIpotetico,
-          RicavoIpoteticoPesato: row.totaleRicavoIpoteticoPesato,
-          TotaleIpotetico: row.totaleIpotetico,
-          PercentualeCompresoRicavoIpotetico: row.percentualeCompresoRicavoIpotetico,
-        })), 'PivotFatturato')
+        const firstAggregationLabel = analisiBurccPivotOrder === 'rcc-bu' ? 'RCC' : 'BU'
+        const secondAggregationLabel = analisiBurccPivotOrder === 'rcc-bu' ? 'BU' : 'RCC'
+        appendSheet(analisiBurccPivotRows.map((row) => {
+          const output: Record<string, unknown> = {
+            Anno: row.anno,
+            [firstAggregationLabel]: analisiBurccPivotOrder === 'rcc-bu' ? row.rcc : row.businessUnit,
+            [secondAggregationLabel]: analisiBurccPivotOrder === 'rcc-bu' ? row.businessUnit : row.rcc,
+            FatturatoAnno: row.fatturatoAnno,
+            FatturatoFuturoAnno: row.fatturatoFuturoAnno,
+            TotaleFatturatoCerto: row.totaleFatturatoCerto,
+            BudgetPrevisto: row.budgetPrevisto,
+            MargineColBudget: row.margineColBudget,
+            PercentualeCertaRaggiunta: row.percentualeCertaRaggiunta,
+            PercentualeRaggiungimentoTemporale: row.percentualeRaggiungimentoTemporale,
+            RicavoIpotetico: row.totaleRicavoIpotetico,
+            RicavoIpoteticoPesato: row.totaleRicavoIpoteticoPesato,
+            TotaleIpotetico: row.totaleIpotetico,
+            PercentualeCompresoRicavoIpotetico: row.percentualeCompresoRicavoIpotetico,
+          }
+          return output
+        }), 'PivotFatturato')
         appendSheet(analisiBurccPivotTotaliPerAnno.map((row) => ({
           Anno: row.anno,
           FatturatoAnno: row.fatturatoAnno,
@@ -10365,6 +10433,69 @@ function App() {
       'Acquisti',
     )
 
+    const normalizeCommessaExportCode = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('it-IT')
+    const currentCommessaExport = normalizeCommessaExportCode(detailData?.commessa || detailCommessa)
+    appendSheet(
+      (detailData?.ribaltamentiAnnuali ?? []).map((row, index) => {
+        const importo = Math.abs(Number(row.importo ?? 0) || 0)
+        const isOrigine = normalizeCommessaExportCode(row.commessaOrigine) === currentCommessaExport
+        const isDestinazione = normalizeCommessaExportCode(row.commessaDestinazione) === currentCommessaExport
+        return {
+          Anno: row.anno,
+          CommessaOrigine: row.commessaOrigine,
+          CommessaDestinazione: row.commessaDestinazione,
+          Ruolo: isOrigine ? 'Origine' : (isDestinazione ? 'Destinazione' : ''),
+          Importo: isOrigine ? -importo : importo,
+          Nota: row.nota,
+          Riga: index + 1,
+        }
+      }),
+      'RibaltamentiAnnuali',
+    )
+
+    appendSheet(
+      (detailData?.ribaltamentiSuFatture ?? [])
+        .filter((row) => normalizeCommessaExportCode(row.tipologia) === 'vendita')
+        .map((row) => {
+          const importo = Math.abs(Number(row.importoRibaltato ?? 0) || 0)
+          const isProvenienza = normalizeCommessaExportCode(row.commessaProvenienza) === currentCommessaExport
+          return {
+            AnnoCompetenza: row.annoCompetenza,
+            Numero: row.numero,
+            Contabilita: row.contabilita,
+            DataFattura: formatDate(row.dataFattura),
+            ImportoFattura: row.importoFattura,
+            ImportoRibaltato: isProvenienza ? -importo : importo,
+            CommessaProvenienza: row.commessaProvenienza,
+            CommessaDestinazione: row.commessaDestinazione,
+          }
+        }),
+      'RibaltamentiFattureVendite',
+    )
+
+    appendSheet(
+      (detailData?.ribaltamentiSuFatture ?? [])
+        .filter((row) => {
+          const tipologia = normalizeCommessaExportCode(row.tipologia)
+          return tipologia === 'acquisto' || tipologia === 'acquisti'
+        })
+        .map((row) => {
+          const importo = Math.abs(Number(row.importoRibaltato ?? 0) || 0)
+          const isProvenienza = normalizeCommessaExportCode(row.commessaProvenienza) === currentCommessaExport
+          return {
+            AnnoCompetenza: row.annoCompetenza,
+            Numero: row.numero,
+            Contabilita: row.contabilita,
+            DataFattura: formatDate(row.dataFattura),
+            ImportoFattura: row.importoFattura,
+            ImportoRibaltato: isProvenienza ? -importo : importo,
+            CommessaProvenienza: row.commessaProvenienza,
+            CommessaDestinazione: row.commessaDestinazione,
+          }
+        }),
+      'RibaltamentiFattureAcquisti',
+    )
+
     appendSheet(
       detailRequisitiOreRows.map((row) => {
         const isAttivo = row.attivo !== false
@@ -10504,6 +10635,7 @@ function App() {
     normalizeRisorsaLabel,
     openCommessaDetail,
     previsioniFunnelAnnoOptions,
+    previsioniFunnelBusinessUnitOptions,
     previsioniFunnelRccOptions,
     previsioniFunnelStatoDocumentoOptions,
     previsioniFunnelTipoOptions,
@@ -10905,6 +11037,7 @@ function App() {
     analisiBurccRcc,
     analisiBurccPivotAnni,
     analisiBurccPivotBusinessUnit,
+    analisiBurccPivotOrder,
     analisiBurccPivotRcc,
     analisiBurccPivotRows,
     analisiBurccPivotTotaliPerAnno,
@@ -10960,6 +11093,7 @@ function App() {
     getQuarterFromMonth,
     isQuarterEndMonth,
     previsioniFunnelAnni,
+    previsioniFunnelBusinessUnit,
     previsioniFunnelData,
     previsioniFunnelRcc,
     previsioniFunnelRows,
@@ -10996,6 +11130,7 @@ function App() {
     setAnalisiBurccBusinessUnit,
     setAnalisiBurccPivotAnni,
     setAnalisiBurccPivotBusinessUnit,
+    setAnalisiBurccPivotOrder,
     setAnalisiBurccPivotRcc,
     setAnalisiBurccRcc,
     setAnalisiAlberoProiezioniAnno,
@@ -11019,6 +11154,7 @@ function App() {
     setAnalisiRccPivotRcc,
     setAnalisiRccRcc,
     setPrevisioniFunnelAnni,
+    setPrevisioniFunnelBusinessUnit,
     setPrevisioniFunnelRcc,
     setPrevisioniFunnelStatoDocumento,
     setPrevisioniFunnelTipo,

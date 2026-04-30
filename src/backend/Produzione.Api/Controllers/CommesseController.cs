@@ -2658,6 +2658,12 @@ public sealed class CommesseController(
                 contextData.EffectiveUser,
                 normalizedCommessa,
                 cancellationToken);
+            var ribaltamentiAnnuali = await commesseFilterRepository.GetCommessaRibaltamentiAnnualiAsync(
+                normalizedCommessa,
+                cancellationToken);
+            var ribaltamentiSuFatture = await commesseFilterRepository.GetCommessaRibaltamentiSuFattureAsync(
+                normalizedCommessa,
+                cancellationToken);
             var ordiniOfferteDettaglio = await commesseFilterRepository.GetCommessaOrdiniOfferteDettaglioAsync(
                 normalizedCommessa,
                 cancellationToken);
@@ -2747,6 +2753,30 @@ public sealed class CommesseController(
                         Importo = item.Importo,
                         IsFuture = item.IsFuture,
                         StatoTemporale = item.StatoTemporale
+                    })
+                    .ToArray(),
+                RibaltamentiAnnuali = ribaltamentiAnnuali
+                    .Select(item => new CommessaRibaltamentoAnnualeDto
+                    {
+                        Anno = item.Anno,
+                        CommessaOrigine = item.CommessaOrigine,
+                        CommessaDestinazione = item.CommessaDestinazione,
+                        Importo = item.Importo,
+                        Nota = item.Nota
+                    })
+                    .ToArray(),
+                RibaltamentiSuFatture = ribaltamentiSuFatture
+                    .Select(item => new CommessaRibaltamentoFatturaDto
+                    {
+                        Tipologia = item.Tipologia,
+                        AnnoCompetenza = item.AnnoCompetenza,
+                        Numero = item.Numero,
+                        Contabilita = item.Contabilita,
+                        DataFattura = item.DataFattura,
+                        ImportoFattura = item.ImportoFattura,
+                        ImportoRibaltato = item.ImportoRibaltato,
+                        CommessaProvenienza = item.CommessaProvenienza,
+                        CommessaDestinazione = item.CommessaDestinazione
                     })
                     .ToArray(),
                 FatturatoPivot = fatturatoDettaglio.FatturatoPivot
