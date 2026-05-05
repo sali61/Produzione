@@ -462,6 +462,141 @@ public sealed class CommesseController(
         }
     }
 
+    [HttpGet("kpi")]
+    [ProducesResponseType(typeof(CommesseKpiResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> KpiCommesse(
+        [FromQuery] string profile,
+        [FromQuery] int? anno = null,
+        [FromQuery(Name = "anni")] int[]? anni = null,
+        [FromQuery] string? commessa = null,
+        [FromQuery] string? tipologiaCommessa = null,
+        [FromQuery] string? stato = null,
+        [FromQuery] string? macroTipologia = null,
+        [FromQuery] string? prodotto = null,
+        [FromQuery] string? businessUnit = null,
+        [FromQuery] string? rcc = null,
+        [FromQuery] string? pm = null,
+        [FromQuery] bool escludiProdotti = false,
+        [FromQuery] string? prodottoCommessa = null,
+        [FromQuery] int take = 5000,
+        [FromHeader(Name = UserExecutionContextService.ImpersonationHeaderName)] string? actAsUsername = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (isValid, contextData, errorResponse, profileResult) = await ResolveContextAndProfileAsync(profile, actAsUsername, cancellationToken);
+            if (!isValid || contextData is null || string.IsNullOrWhiteSpace(profileResult))
+            {
+                return errorResponse ?? Problem("Errore interno nella validazione profilo.");
+            }
+
+            var selectedAnni = (anni ?? Array.Empty<int>())
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderByDescending(value => value)
+                .ToArray();
+
+            if (selectedAnni.Length == 0 && anno.HasValue && anno.Value > 0)
+            {
+                selectedAnni = [anno.Value];
+            }
+
+            var request = new CommesseSintesiSearchRequest(
+                Anni: selectedAnni,
+                Commessa: commessa,
+                TipologiaCommessa: tipologiaCommessa,
+                Stato: stato,
+                MacroTipologia: macroTipologia,
+                Prodotto: prodotto,
+                BusinessUnit: businessUnit,
+                Rcc: rcc,
+                Pm: pm,
+                Take: take,
+                Aggrega: false,
+                EscludiProdotti: escludiProdotti,
+                ProdottoCommessa: prodottoCommessa);
+
+            var rows = await commesseFilterRepository.SearchKpiCommesseAsync(
+                contextData.EffectiveUser,
+                profileResult,
+                request,
+                cancellationToken);
+
+            var response = new CommesseKpiResponseDto
+            {
+                Profile = profileResult,
+                Count = rows.Count,
+                Items = rows
+                    .Select(row => new CommessaKpiRowDto
+                    {
+                        AnnoApertura = row.AnnoApertura,
+                        DataRiferimento = row.DataRiferimento,
+                        Commessa = row.Commessa,
+                        DescrizioneCommessa = row.DescrizioneCommessa,
+                        TipologiaCommessa = row.TipologiaCommessa,
+                        Stato = row.Stato,
+                        MacroTipologia = row.MacroTipologia,
+                        Prodotto = row.Prodotto,
+                        Controparte = row.Controparte,
+                        BusinessUnit = row.BusinessUnit,
+                        Rcc = row.Rcc,
+                        Pm = row.Pm,
+                        Produzione = row.Produzione,
+                        OrePrevisteFineMesePrecedente = row.OrePrevisteFineMesePrecedente,
+                        OrePrevisteFineAnno = row.OrePrevisteFineAnno,
+                        OrePrevisteFineCommessa = row.OrePrevisteFineCommessa,
+                        OreLavorateFineMesePrecedente = row.OreLavorateFineMesePrecedente,
+                        OreLavorateFineAnno = row.OreLavorateFineAnno,
+                        OreLavorateFineCommessa = row.OreLavorateFineCommessa,
+                        SovrapercentualeFineMesePrecedente = row.SovrapercentualeFineMesePrecedente,
+                        SovrapercentualeFineAnno = row.SovrapercentualeFineAnno,
+                        SovrapercentualeFineCommessa = row.SovrapercentualeFineCommessa,
+                        RicavoFineMesePrecedente = row.RicavoFineMesePrecedente,
+                        RicavoFineAnno = row.RicavoFineAnno,
+                        RicavoFineCommessa = row.RicavoFineCommessa,
+                        MaturatoNonFatturatoFineMesePrecedente = row.MaturatoNonFatturatoFineMesePrecedente,
+                        CostoPersonaleFineMesePrecedente = row.CostoPersonaleFineMesePrecedente,
+                        CostoPersonaleFineAnno = row.CostoPersonaleFineAnno,
+                        CostoPersonaleFineCommessa = row.CostoPersonaleFineCommessa,
+                        AcquistiFineMesePrecedente = row.AcquistiFineMesePrecedente,
+                        AcquistiFineAnno = row.AcquistiFineAnno,
+                        AcquistiFineCommessa = row.AcquistiFineCommessa,
+                        UtileFineMesePrecedente = row.UtileFineMesePrecedente,
+                        UtileFineAnno = row.UtileFineAnno,
+                        UtileFineCommessa = row.UtileFineCommessa,
+                        PercentualeUtileFineMesePrecedente = row.PercentualeUtileFineMesePrecedente,
+                        PercentualeUtileFineAnno = row.PercentualeUtileFineAnno,
+                        PercentualeUtileFineCommessa = row.PercentualeUtileFineCommessa,
+                        SpcMFineMesePrecedente = row.SpcMFineMesePrecedente,
+                        SpcMFineAnno = row.SpcMFineAnno,
+                        SpcMFineCommessa = row.SpcMFineCommessa
+                    })
+                    .ToArray()
+            };
+
+            return Ok(response);
+        }
+        catch (SqlException ex)
+        {
+            logger.LogError(ex, "Errore SQL durante /api/commesse/kpi.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Database Xenia non raggiungibile da Produzione.Api."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Errore inatteso durante /api/commesse/kpi.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Errore interno durante il recupero KPI commesse."
+            });
+        }
+    }
+
     [HttpGet("risorse/filters")]
     [ProducesResponseType(typeof(CommesseRisorseFiltersResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

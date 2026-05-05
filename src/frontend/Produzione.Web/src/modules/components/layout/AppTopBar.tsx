@@ -48,6 +48,7 @@ export function AppTopBar(props: AppTopBarProps) {
     activateAnalisiRccPivotFatturatoPage,
     activateAnalisiRccRisultatoMensilePage,
     activateCommesseAndamentoMensilePage,
+    activateCommesseKpiPage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
     activateCommesseSegnalazioniPage,
@@ -105,6 +106,9 @@ export function AppTopBar(props: AppTopBarProps) {
               </button>
               <button type="button" className="menu-action" onClick={activateCommesseAndamentoMensilePage}>
                 Andamento Mensile
+              </button>
+              <button type="button" className="menu-action" onClick={activateCommesseKpiPage}>
+                KPI Commesse
               </button>
               <button type="button" className="menu-action" onClick={activateCommesseDatiAnnualiAggregatiPage}>
                 Dati Annuali Aggregati

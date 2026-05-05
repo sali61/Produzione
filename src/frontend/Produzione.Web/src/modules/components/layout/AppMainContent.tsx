@@ -19,6 +19,7 @@ import { RisorsePage } from '../../pages/analisiRisorse/RisorsePage'
 import { ProcessoOffertaPage } from '../../pages/processoOfferta/ProcessoOffertaPage'
 import { CommessaDettaglioPage } from '../../pages/analisiCommesse/CommessaDettaglioPage'
 import { CommesseAndamentoMensilePage } from '../../pages/analisiCommesse/CommesseAndamentoMensilePage'
+import { CommesseKpiPage } from '../../pages/analisiCommesse/CommesseKpiPage'
 import { CommesseAnomalePage } from '../../pages/analisiCommesse/CommesseAnomalePage'
 import { CommesseDatiAnnualiAggregatiPage } from '../../pages/analisiCommesse/CommesseDatiAnnualiAggregatiPage'
 import { CommesseSegnalazioniPage } from '../../pages/analisiCommesse/CommesseSegnalazioniPage'
@@ -48,6 +49,10 @@ export function AppMainContent(props: AppMainContentProps) {
 
       {activePage === 'commesse-andamento-mensile' && (
         <CommesseAndamentoMensilePage {...analisiCommessePageProps} />
+      )}
+
+      {activePage === 'commesse-kpi' && (
+        <CommesseKpiPage {...analisiCommessePageProps} />
       )}
 
       {activePage === 'commesse-anomale' && (

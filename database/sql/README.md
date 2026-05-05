@@ -73,3 +73,16 @@ Script presenti:
   crea/aggiorna `manutenzione.sp_reindextabellecdg`, procedura di manutenzione
   per il rebuild/reorganize degli indici e l'aggiornamento statistiche
   `FULLSCAN` sulle principali tabelle CDG usate da import e report.
+- `019_CdgAnalisiIndicatoriCommesse.sql`:
+  crea la tabella `cdg.CdgAnalisiIndicatoriCommesse`, con sole chiavi e
+  misure KPI da unire in pagina alla vista anagrafica. L'alimentazione passa
+  dall'orchestratore `cdg.spAlimentaIndicatoriCommesse(@DataRiferimento,
+  @IdCommessa, @Sostituisci)`, che esegue una sola truncate e richiama i due
+  rami separati `cdg.spAlimentaIndicatoriCommesseTm` e
+  `cdg.spAlimentaIndicatoriCommesseNonTm`. Il ramo TM gestisce le commesse
+  `tm = 1`, il ramo NON_TM gestisce le commesse `tm = 0` con macrotipologia
+  Produzione o Innovazione, Investimenti e Ricerca. Entrambi considerano gli
+  stati `O`/`T`, escludono le commesse chiuse prima del 2020 e non inseriscono
+  righe con tutte le misure KPI nulle o pari a zero. Se `@DataRiferimento` non
+  e' valorizzata, fino al giorno 15 incluso considera il mese ancora
+  precedente per attendere il completamento della fatturazione.

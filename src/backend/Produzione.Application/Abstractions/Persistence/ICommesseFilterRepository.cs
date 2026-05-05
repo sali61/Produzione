@@ -131,6 +131,11 @@ public interface ICommesseFilterRepository
         string profile,
         CommesseSintesiSearchRequest request,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<CommessaKpiRow>> SearchKpiCommesseAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyCollection<CommessaAnomalaRow>> SearchCommesseAnomaleAsync(
         UserContext user,
         string profile,

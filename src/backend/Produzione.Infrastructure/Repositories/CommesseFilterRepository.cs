@@ -262,6 +262,106 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
     private const string SintesiCommesseStoredProcedure = "produzione.spSintesiCommesse";
     private const string MensileCommesseStoredProcedure = "produzione.spBixeniaAnalisiMensileCommesse";
     private const string AndamentoMensileCommesseStoredProcedure = "produzione.spAndamentoMensileCommesse";
+    private const string KpiCommesseQuery = """
+        ;WITH Anagrafica AS
+        (
+            SELECT
+                k.Id AS KpiId,
+                CAST(q.idcommessa AS INT) AS IdCommessa,
+                CAST(YEAR(q.data_commessa) AS INT) AS AnnoApertura,
+                CAST(LTRIM(RTRIM(ISNULL(q.COMMESSA, N''))) AS NVARCHAR(128)) AS Commessa,
+                CAST(LTRIM(RTRIM(ISNULL(q.descrizione, N''))) AS NVARCHAR(512)) AS DescrizioneCommessa,
+                CAST(LTRIM(RTRIM(ISNULL(q.Tipo_commessa, N''))) AS NVARCHAR(256)) AS TipologiaCommessa,
+                CAST(LTRIM(RTRIM(ISNULL(q.stato, N''))) AS NVARCHAR(128)) AS Stato,
+                CAST(LTRIM(RTRIM(ISNULL(q.macrotipologia, N''))) AS NVARCHAR(256)) AS MacroTipologia,
+                CAST(
+                    CASE
+                        WHEN UPPER(LTRIM(RTRIM(ISNULL(q.Nomeprodotto, N'')))) IN (N'NON DEFINITO', N'NON DEFINTO')
+                            THEN N''
+                        ELSE LTRIM(RTRIM(ISNULL(q.Nomeprodotto, N'')))
+                    END
+                    AS NVARCHAR(256)
+                ) AS Prodotto,
+                CAST(LTRIM(RTRIM(ISNULL(q.controparte, N''))) AS NVARCHAR(256)) AS Controparte,
+                CAST(LTRIM(RTRIM(ISNULL(q.idBusinessUnit, N''))) AS NVARCHAR(128)) AS BusinessUnit,
+                CAST(LTRIM(RTRIM(ISNULL(q.RCC, N''))) AS NVARCHAR(256)) AS Rcc,
+                CAST(LTRIM(RTRIM(ISNULL(q.PM, N''))) AS NVARCHAR(256)) AS Pm,
+                CAST(ISNULL(q.Produzione, 0) AS BIT) AS Produzione,
+                CAST(ISNULL(q.idPM, 0) AS INT) AS IdPm,
+                CAST(ISNULL(q.idRCC, 0) AS INT) AS IdRcc,
+                ROW_NUMBER() OVER (
+                    PARTITION BY k.Id
+                    ORDER BY q.data_commessa DESC, q.COMMESSA
+                ) AS rn
+            FROM cdg.CdgAnalisiIndicatoriCommesse k
+            INNER JOIN dbo.cdg_qryComessaPmRcc q
+                ON q.idcommessa = k.IdCommessa
+               AND q.data_commessa IS NOT NULL
+               AND CAST(q.data_commessa AS DATE) <= k.DataRiferimento
+            WHERE
+                @IsGlobal = 1
+                OR (@IsPm = 1 AND ISNULL(q.idPM, 0) = @IdRisorsa)
+                OR (@IsRcc = 1 AND ISNULL(q.idRCC, 0) = @IdRisorsa)
+                OR (
+                    @IsResponsabileOu = 1
+                    AND EXISTS (
+                        SELECT 1
+                        FROM [orga].[vw_OU_OrganigrammaAncestor] ou
+                        WHERE ou.id_responsabile_ou_ancestor = @IdRisorsa
+                          AND ou.sigla COLLATE DATABASE_DEFAULT = q.idBusinessUnit COLLATE DATABASE_DEFAULT
+                    )
+                )
+        )
+        SELECT TOP (@Take)
+            a.AnnoApertura,
+            CAST(k.DataRiferimento AS DATETIME) AS DataRiferimento,
+            a.Commessa,
+            a.DescrizioneCommessa,
+            a.TipologiaCommessa,
+            a.Stato,
+            a.MacroTipologia,
+            a.Prodotto,
+            a.Controparte,
+            a.BusinessUnit,
+            a.Rcc,
+            a.Pm,
+            a.Produzione,
+            k.OrePrevisteFineMesePrecedente,
+            k.OrePrevisteFineAnno,
+            k.OrePrevisteFineCommessa,
+            k.OreLavorateFineMesePrecedente,
+            k.OreLavorateFineAnno,
+            k.OreLavorateFineCommessa,
+            k.SovrapercentualeFineMesePrecedente,
+            k.SovrapercentualeFineAnno,
+            k.SovrapercentualeFineCommessa,
+            k.RicavoFineMesePrecedente,
+            k.RicavoFineAnno,
+            k.RicavoFineCommessa,
+            k.MaturatoNonFatturatoFineMesePrecedente,
+            k.CostoPersonaleFineMesePrecedente,
+            k.CostoPersonaleFineAnno,
+            k.CostoPersonaleFineCommessa,
+            k.AcquistiFineMesePrecedente,
+            k.AcquistiFineAnno,
+            k.AcquistiFineCommessa,
+            k.UtileFineMesePrecedente,
+            k.UtileFineAnno,
+            k.UtileFineCommessa,
+            k.PercentualeUtileFineMesePrecedente,
+            k.PercentualeUtileFineAnno,
+            k.PercentualeUtileFineCommessa,
+            k.SpcMFineMesePrecedente,
+            k.SpcMFineAnno,
+            k.SpcMFineCommessa
+        FROM cdg.CdgAnalisiIndicatoriCommesse k
+        INNER JOIN Anagrafica a
+            ON a.KpiId = k.Id
+           AND a.rn = 1
+        ORDER BY
+            a.AnnoApertura DESC,
+            a.Commessa;
+        """;
     private const string AnalisiCommesseStoredProcedure = "CDG.BIXeniaAnalisiCommesse";
     private const string RisorseLookupQuery = """
         SELECT
@@ -2883,7 +2983,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             command.CommandType = CommandType.StoredProcedure;
             ApplyVisibilityParameters(command, user, visibility);
             command.Parameters.AddWithValue("@Anno", anno.HasValue ? anno.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@TakePerFilter", 300);
+            command.Parameters.AddWithValue("@TakePerFilter", 100000);
 
             var buckets = CreateFilterBuckets();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -3521,6 +3621,122 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 .ThenByDescending(row => row.MeseCompetenza)
                 .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
                 .Take(Math.Clamp(request.Take, 1, 100000))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyCollection<CommessaKpiRow>> SearchKpiCommesseAsync(
+        UserContext user,
+        string profile,
+        CommesseSintesiSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        var visibility = ResolveVisibility(profile);
+        var selectedAnni = request.Anni
+            .Where(value => value > 0)
+            .Distinct()
+            .ToArray();
+        var normalizedTake = Math.Clamp(request.Take, 1, 100000);
+
+        static string Normalize(string? value) => value?.Trim() ?? string.Empty;
+        static bool MatchesExact(string actual, string? expected)
+        {
+            var normalizedExpected = Normalize(expected);
+            return string.IsNullOrWhiteSpace(normalizedExpected) ||
+                Normalize(actual).Equals(normalizedExpected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        static bool MatchesContains(string actual, string? expected)
+        {
+            var normalizedExpected = Normalize(expected);
+            return string.IsNullOrWhiteSpace(normalizedExpected) ||
+                Normalize(actual).Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(KpiCommesseQuery, connection);
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Take", normalizedTake);
+            ApplyVisibilityParameters(command, user, visibility);
+
+            var rows = new List<CommessaKpiRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ordinals = BuildColumnOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var row = new CommessaKpiRow(
+                    ReadNullableInt(reader, ordinals, "AnnoApertura") ?? 0,
+                    ReadNullableDate(reader, "DataRiferimento") ?? DateTime.MinValue,
+                    ReadString(reader, ordinals, "Commessa"),
+                    ReadString(reader, ordinals, "DescrizioneCommessa"),
+                    ReadString(reader, ordinals, "TipologiaCommessa"),
+                    ReadString(reader, ordinals, "Stato"),
+                    ReadString(reader, ordinals, "MacroTipologia"),
+                    ReadString(reader, ordinals, "Prodotto"),
+                    ReadString(reader, ordinals, "Controparte"),
+                    ReadString(reader, ordinals, "BusinessUnit"),
+                    ReadString(reader, ordinals, "Rcc"),
+                    ReadString(reader, ordinals, "Pm"),
+                    ReadBoolean(reader, ordinals, "Produzione"),
+                    ReadDecimal(reader, ordinals, "OrePrevisteFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "OrePrevisteFineAnno"),
+                    ReadDecimal(reader, ordinals, "OrePrevisteFineCommessa"),
+                    ReadDecimal(reader, ordinals, "OreLavorateFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "OreLavorateFineAnno"),
+                    ReadDecimal(reader, ordinals, "OreLavorateFineCommessa"),
+                    ReadDecimal(reader, ordinals, "SovrapercentualeFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "SovrapercentualeFineAnno"),
+                    ReadDecimal(reader, ordinals, "SovrapercentualeFineCommessa"),
+                    ReadDecimal(reader, ordinals, "RicavoFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "RicavoFineAnno"),
+                    ReadDecimal(reader, ordinals, "RicavoFineCommessa"),
+                    ReadDecimal(reader, ordinals, "MaturatoNonFatturatoFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "CostoPersonaleFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "CostoPersonaleFineAnno"),
+                    ReadDecimal(reader, ordinals, "CostoPersonaleFineCommessa"),
+                    ReadDecimal(reader, ordinals, "AcquistiFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "AcquistiFineAnno"),
+                    ReadDecimal(reader, ordinals, "AcquistiFineCommessa"),
+                    ReadDecimal(reader, ordinals, "UtileFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "UtileFineAnno"),
+                    ReadDecimal(reader, ordinals, "UtileFineCommessa"),
+                    ReadDecimal(reader, ordinals, "PercentualeUtileFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "PercentualeUtileFineAnno"),
+                    ReadDecimal(reader, ordinals, "PercentualeUtileFineCommessa"),
+                    ReadDecimal(reader, ordinals, "SpcMFineMesePrecedente"),
+                    ReadDecimal(reader, ordinals, "SpcMFineAnno"),
+                    ReadDecimal(reader, ordinals, "SpcMFineCommessa"));
+
+                rows.Add(row);
+            }
+
+            return rows
+                .Where(row => selectedAnni.Length == 0 || selectedAnni.Contains(row.AnnoApertura))
+                .Where(row => MatchesExact(row.Commessa, request.Commessa))
+                .Where(row => MatchesExact(row.TipologiaCommessa, request.TipologiaCommessa))
+                .Where(row => MatchesExact(row.Stato, request.Stato))
+                .Where(row => MatchesExact(row.MacroTipologia, request.MacroTipologia))
+                .Where(row => MatchesContains(row.Controparte, request.Prodotto))
+                .Where(row => MatchesExact(row.BusinessUnit, request.BusinessUnit))
+                .Where(row => MatchesExact(row.Rcc, request.Rcc))
+                .Where(row => MatchesExact(row.Pm, request.Pm))
+                .Where(row => request.EscludiProdotti ? !IsValidProductValue(row.Prodotto) : MatchesExact(row.Prodotto, request.ProdottoCommessa))
+                .OrderByDescending(row => row.AnnoApertura)
+                .ThenBy(row => row.Commessa, StringComparer.OrdinalIgnoreCase)
+                .Take(normalizedTake)
                 .ToArray();
         }
         catch

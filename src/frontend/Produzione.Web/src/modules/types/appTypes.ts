@@ -45,6 +45,7 @@ export type AppPage =
   | 'none'
   | 'commesse-sintesi'
   | 'commesse-andamento-mensile'
+  | 'commesse-kpi'
   | 'commesse-anomale'
   | 'commesse-segnalazioni'
   | 'commesse-dati-annuali-aggregati'
@@ -822,6 +823,56 @@ export type CommesseAndamentoMensileResponse = {
   profile: string
   count: number
   items: CommessaAndamentoMensileRow[]
+}
+
+export type CommessaKpiRow = {
+  annoApertura: number
+  dataRiferimento: string
+  commessa: string
+  descrizioneCommessa: string
+  tipologiaCommessa: string
+  stato: string
+  macroTipologia: string
+  prodotto: string
+  controparte: string
+  businessUnit: string
+  rcc: string
+  pm: string
+  produzione: boolean
+  orePrevisteFineMesePrecedente: number
+  orePrevisteFineAnno: number
+  orePrevisteFineCommessa: number
+  oreLavorateFineMesePrecedente: number
+  oreLavorateFineAnno: number
+  oreLavorateFineCommessa: number
+  sovrapercentualeFineMesePrecedente: number
+  sovrapercentualeFineAnno: number
+  sovrapercentualeFineCommessa: number
+  ricavoFineMesePrecedente: number
+  ricavoFineAnno: number
+  ricavoFineCommessa: number
+  maturatoNonFatturatoFineMesePrecedente: number
+  costoPersonaleFineMesePrecedente: number
+  costoPersonaleFineAnno: number
+  costoPersonaleFineCommessa: number
+  acquistiFineMesePrecedente: number
+  acquistiFineAnno: number
+  acquistiFineCommessa: number
+  utileFineMesePrecedente: number
+  utileFineAnno: number
+  utileFineCommessa: number
+  percentualeUtileFineMesePrecedente: number
+  percentualeUtileFineAnno: number
+  percentualeUtileFineCommessa: number
+  spcMFineMesePrecedente: number
+  spcMFineAnno: number
+  spcMFineCommessa: number
+}
+
+export type CommesseKpiResponse = {
+  profile: string
+  count: number
+  items: CommessaKpiRow[]
 }
 
 export type CommessaAnomalaRow = {

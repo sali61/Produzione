@@ -36,6 +36,7 @@ export const analisiDettaglioFatturatoAllowedProfiles = ['Supervisore', 'Respons
 export const processoOffertaAllowedProfiles = ['Supervisore', 'Responsabile Commerciale', 'Responsabile Produzione', 'Responsabile Commerciale Commessa', 'Responsabile OU']
 export const analisiSearchCollapsiblePages = new Set<AppPage>([
   'commesse-andamento-mensile',
+  'commesse-kpi',
   'risorse-risultati',
   'risorse-risultati-pivot',
   'risorse-risultati-mensile',
@@ -115,6 +116,11 @@ export const appInfoVoicesDefault: AppInfoVoice[] = [
     menu: 'Analisi Commesse',
     voce: 'Andamento Mensile',
     sintesi: 'Mostra andamento mensile di ricavi, costi, utile e ore sulla base delle commesse visibili al profilo. Supporta confronto per anno.',
+  },
+  {
+    menu: 'Analisi Commesse',
+    voce: 'KPI Commesse',
+    sintesi: 'Mostra gli indicatori KPI commessa alimentati da tabella dedicata e arricchiti con i dati anagrafici della vista commesse.',
   },
   {
     menu: 'Analisi Commesse',
@@ -287,6 +293,5 @@ export const appInfoVoicesDefault: AppInfoVoice[] = [
     sintesi: 'Elenco fatture passive con filtri su anno, provenienza e contesto commessa. Include importi complessivi e contabilita di dettaglio.',
   },
 ]
-
 
 

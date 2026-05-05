@@ -68,10 +68,12 @@ import type {
   CommessaAvanzamentoRow,
   CommessaFatturaMovimentoRow,
   CommessaAndamentoMensileRow,
+  CommessaKpiRow,
   CommessaRisorseValutazioneRow,
   CommessaSintesiRow,
   CommesseAndamentoMensileResponse,
   CommesseAnomaleResponse,
+  CommesseKpiResponse,
   CommesseDatiAnnualiPivotData,
   CommesseDatiAnnualiPivotRow,
   CommesseDettaglioResponse,
@@ -263,7 +265,7 @@ function App() {
   const [isRedirectingToAuth, setIsRedirectingToAuth] = useState(false)
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null)
   const [activePage, setActivePage] = useState<AppPage>('none')
-  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-anomale' | 'commesse-segnalazioni' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
+  const [lastSintesiPage, setLastSintesiPage] = useState<'commesse-sintesi' | 'commesse-andamento-mensile' | 'commesse-kpi' | 'commesse-anomale' | 'commesse-segnalazioni' | 'commesse-dati-annuali-aggregati' | 'prodotti-sintesi' | 'dati-contabili-vendita' | 'dati-contabili-acquisti'>('commesse-sintesi')
   const [activeImpersonation, setActiveImpersonation] = useState('')
   const [impersonationInput, setImpersonationInput] = useState('')
   const [infoModalOpen, setInfoModalOpen] = useState(false)
@@ -404,6 +406,18 @@ function App() {
   const [commesseAndamentoMensilePm, setCommesseAndamentoMensilePm] = useState('')
   const [commesseAndamentoMensileProdotto, setCommesseAndamentoMensileProdotto] = useState('')
   const [commesseAndamentoMensileData, setCommesseAndamentoMensileData] = useState<CommesseAndamentoMensileResponse | null>(null)
+  const [commesseKpiAnni, setCommesseKpiAnni] = useState<string[]>([])
+  const [commesseKpiCommessaSearch, setCommesseKpiCommessaSearch] = useState('')
+  const [commesseKpiCommessa, setCommesseKpiCommessa] = useState('')
+  const [commesseKpiTipologia, setCommesseKpiTipologia] = useState('')
+  const [commesseKpiStato, setCommesseKpiStato] = useState('')
+  const [commesseKpiMacroTipologia, setCommesseKpiMacroTipologia] = useState('')
+  const [commesseKpiControparte, setCommesseKpiControparte] = useState('')
+  const [commesseKpiBusinessUnit, setCommesseKpiBusinessUnit] = useState('')
+  const [commesseKpiRcc, setCommesseKpiRcc] = useState('')
+  const [commesseKpiPm, setCommesseKpiPm] = useState('')
+  const [commesseKpiProdotto, setCommesseKpiProdotto] = useState('')
+  const [commesseKpiData, setCommesseKpiData] = useState<CommesseKpiResponse | null>(null)
   const [commesseAnomaleData, setCommesseAnomaleData] = useState<CommesseAnomaleResponse | null>(null)
   const [commesseAnomaleFiltroAnomalia, setCommesseAnomaleFiltroAnomalia] = useState('')
   const [commesseAnomaleFiltroRcc, setCommesseAnomaleFiltroRcc] = useState('')
@@ -800,6 +814,7 @@ function App() {
     setCommesseAndamentoMensilePm('')
     setCommesseAndamentoMensileProdotto('')
     setCommesseAndamentoMensileData(null)
+    setCommesseKpiData(null)
     setCommesseAnomaleData(null)
     setCommesseSegnalazioniData(null)
     setCommesseSegnalazioniFiltroStato('')
@@ -2836,6 +2851,96 @@ function App() {
     }
   }
 
+  const loadCommesseKpi = async (anniOverride?: string[]) => {
+    if (!token.trim() || !currentProfile.trim()) {
+      setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
+      return
+    }
+
+    const selectedYears = [...new Set(
+      (anniOverride ?? commesseKpiAnni)
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )].sort((left, right) => left - right)
+    const selectedCommessa = commesseKpiCommessa.trim()
+    const selectedTipologia = commesseKpiTipologia.trim()
+    const selectedStato = commesseKpiStato.trim()
+    const selectedMacroTipologia = commesseKpiMacroTipologia.trim()
+    const selectedControparte = commesseKpiControparte.trim()
+    const selectedBusinessUnit = commesseKpiBusinessUnit.trim()
+    const selectedRcc = commesseKpiRcc.trim()
+    const selectedPm = commesseKpiPm.trim()
+    const selectedProdotto = commesseKpiProdotto.trim()
+
+    setAnalisiRccLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('profile', currentProfile)
+      selectedYears.forEach((value) => params.append('anni', value.toString()))
+      if (selectedCommessa) {
+        params.set('commessa', selectedCommessa)
+      }
+      if (selectedTipologia) {
+        params.set('tipologiaCommessa', selectedTipologia)
+      }
+      if (selectedStato) {
+        params.set('stato', selectedStato)
+      }
+      if (selectedMacroTipologia) {
+        params.set('macroTipologia', selectedMacroTipologia)
+      }
+      if (selectedControparte) {
+        params.set('prodotto', selectedControparte)
+      }
+      if (selectedBusinessUnit) {
+        params.set('businessUnit', selectedBusinessUnit)
+      }
+      if (selectedRcc) {
+        params.set('rcc', selectedRcc)
+      }
+      if (selectedPm) {
+        params.set('pm', selectedPm)
+      }
+      if (selectedProdotto === '__exclude_products__') {
+        params.set('escludiProdotti', 'true')
+      } else if (selectedProdotto) {
+        params.set('prodottoCommessa', selectedProdotto)
+      }
+      params.set('take', '10000')
+
+      const response = await fetch(toBackendUrl(`/api/commesse/kpi?${params.toString()}`), {
+        headers: authHeaders(token, activeImpersonation),
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        redirectToCentralAuth('stale_token')
+        return
+      }
+
+      if (response.status === 403) {
+        const message = await readApiMessage(response)
+        setCommesseKpiData(null)
+        setStatusMessage(message || `Profilo "${currentProfile}" non autorizzato per KPI Commesse.`)
+        return
+      }
+
+      if (!response.ok) {
+        const message = await readApiMessage(response)
+        setCommesseKpiData(null)
+        setStatusMessage(message || `Errore caricamento KPI Commesse (${response.status}).`)
+        return
+      }
+
+      const payload = (await response.json()) as CommesseKpiResponse
+      setCommesseKpiData(payload)
+      setCommesseKpiAnni(selectedYears.map((value) => value.toString()))
+      setStatusMessage(`KPI Commesse caricati: ${payload.count} righe.`)
+    } finally {
+      setAnalisiRccLoading(false)
+    }
+  }
+
   const loadCommesseAnomale = async () => {
     if (!token.trim() || !currentProfile.trim()) {
       setStatusMessage("Sessione non disponibile, esegui nuovamente l'accesso.")
@@ -4302,6 +4407,7 @@ function App() {
     if (
       activePage === 'commesse-sintesi' ||
       activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-kpi' ||
       activePage === 'commesse-anomale' ||
       activePage === 'commesse-segnalazioni' ||
       activePage === 'commesse-dati-annuali-aggregati' ||
@@ -4340,6 +4446,13 @@ function App() {
     if (lastSintesiPage === 'commesse-andamento-mensile') {
       if (!commesseAndamentoMensileData && !analisiRccLoading) {
         void loadCommesseAndamentoMensile()
+      }
+      return
+    }
+
+    if (lastSintesiPage === 'commesse-kpi') {
+      if (!commesseKpiData && !analisiRccLoading) {
+        void loadCommesseKpi()
       }
       return
     }
@@ -4455,6 +4568,20 @@ function App() {
         setCommesseAndamentoMensilePm('')
         setCommesseAndamentoMensileProdotto('')
         setCommesseAndamentoMensileData(null)
+        break
+      case 'commesse-kpi':
+        setCommesseKpiAnni([])
+        setCommesseKpiCommessaSearch('')
+        setCommesseKpiCommessa('')
+        setCommesseKpiTipologia('')
+        setCommesseKpiStato('')
+        setCommesseKpiMacroTipologia('')
+        setCommesseKpiControparte('')
+        setCommesseKpiBusinessUnit('')
+        setCommesseKpiRcc('')
+        setCommesseKpiPm('')
+        setCommesseKpiProdotto('')
+        setCommesseKpiData(null)
         break
       case 'commesse-anomale':
         setCommesseAnomaleFiltroAnomalia('')
@@ -4608,6 +4735,7 @@ function App() {
   const {
     activateSintesiPage,
     activateCommesseAndamentoMensilePage,
+    activateCommesseKpiPage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
     activateCommesseSegnalazioniPage,
@@ -4665,6 +4793,7 @@ function App() {
     canImpersonate,
     clearSession,
     commesseAndamentoMensileAnni,
+    commesseKpiAnni,
     commesseDatiAnnualiAvailableSelection,
     commesseDatiAnnualiSelectedSelection,
     currentProfile,
@@ -4683,6 +4812,7 @@ function App() {
     loadAnalisiRccPivotFatturato,
     loadAnalisiRccRisultatoMensile,
     loadCommesseAndamentoMensile,
+    loadCommesseKpi,
     loadCommesseAnomale,
     loadCommesseDatiAnnualiAggregati,
     loadCommesseSegnalazioni,
@@ -4705,6 +4835,8 @@ function App() {
     risorsePivotSelectedSelection,
     setActivePage,
     setCollapsedProductKeys,
+    setCommesseAndamentoMensileAnni,
+    setCommesseKpiAnni,
     setCommesseDatiAnnualiAvailableSelection,
     setCommesseDatiAnnualiSelectedFields,
     setCommesseDatiAnnualiSelectedSelection,
@@ -4855,6 +4987,7 @@ function App() {
       activePage === 'prodotti-sintesi' ||
       activePage === 'commessa-dettaglio' ||
       activePage === 'commesse-andamento-mensile' ||
+      activePage === 'commesse-kpi' ||
       activePage === 'commesse-anomale' ||
       activePage === 'commesse-segnalazioni' ||
       activePage === 'commesse-dati-annuali-aggregati'
@@ -6120,6 +6253,58 @@ function App() {
   const commesseSegnalazioniDataLoaded = commesseSegnalazioniData !== null
   const commesseSegnalazioniRowsRawCount = commesseSegnalazioniRowsRaw.length
   const commesseAndamentoMensileRows = commesseAndamentoMensileData?.items ?? []
+  const commesseKpiRows = commesseKpiData?.items ?? []
+  const commesseKpiTotals = useMemo(() => {
+    const initial = {
+      orePrevisteFineMesePrecedente: 0,
+      orePrevisteFineAnno: 0,
+      orePrevisteFineCommessa: 0,
+      oreLavorateFineMesePrecedente: 0,
+      oreLavorateFineAnno: 0,
+      oreLavorateFineCommessa: 0,
+      sovrapercentualeFineMesePrecedente: 0,
+      sovrapercentualeFineAnno: 0,
+      sovrapercentualeFineCommessa: 0,
+      ricavoFineMesePrecedente: 0,
+      ricavoFineAnno: 0,
+      ricavoFineCommessa: 0,
+      maturatoNonFatturatoFineMesePrecedente: 0,
+      costoPersonaleFineMesePrecedente: 0,
+      costoPersonaleFineAnno: 0,
+      costoPersonaleFineCommessa: 0,
+      acquistiFineMesePrecedente: 0,
+      acquistiFineAnno: 0,
+      acquistiFineCommessa: 0,
+      utileFineMesePrecedente: 0,
+      utileFineAnno: 0,
+      utileFineCommessa: 0,
+      percentualeUtileFineMesePrecedente: 0,
+      percentualeUtileFineAnno: 0,
+      percentualeUtileFineCommessa: 0,
+      spcMFineMesePrecedente: 0,
+      spcMFineAnno: 0,
+      spcMFineCommessa: 0,
+    } as Record<string, number>
+
+    const totals = commesseKpiRows.reduce((acc, row) => {
+      Object.keys(acc).forEach((key) => {
+        acc[key] += Number(row[key as keyof CommessaKpiRow] ?? 0)
+      })
+      return acc
+    }, { ...initial })
+
+    const calcRatio = (value: number, denominator: number) => (denominator === 0 ? 0 : value / denominator)
+    totals.sovrapercentualeFineMesePrecedente = calcRatio(totals.oreLavorateFineMesePrecedente, totals.orePrevisteFineMesePrecedente)
+    totals.sovrapercentualeFineAnno = calcRatio(totals.oreLavorateFineAnno, totals.orePrevisteFineAnno)
+    totals.sovrapercentualeFineCommessa = calcRatio(totals.oreLavorateFineCommessa, totals.orePrevisteFineCommessa)
+    totals.percentualeUtileFineMesePrecedente = calcRatio(totals.utileFineMesePrecedente, totals.ricavoFineMesePrecedente)
+    totals.percentualeUtileFineAnno = calcRatio(totals.utileFineAnno, totals.ricavoFineAnno)
+    totals.percentualeUtileFineCommessa = calcRatio(totals.utileFineCommessa, totals.ricavoFineCommessa)
+    totals.spcMFineMesePrecedente = calcRatio(totals.ricavoFineMesePrecedente * 8, totals.oreLavorateFineMesePrecedente)
+    totals.spcMFineAnno = calcRatio(totals.ricavoFineAnno * 8, totals.oreLavorateFineAnno)
+    totals.spcMFineCommessa = calcRatio(totals.ricavoFineCommessa * 8, totals.oreLavorateFineCommessa)
+    return totals
+  }, [commesseKpiRows])
   const commesseAndamentoMensileTotals = useMemo(() => (
     commesseAndamentoMensileRows.reduce((acc, row) => ({
       oreLavorate: acc.oreLavorate + row.oreLavorate,
@@ -6320,6 +6505,152 @@ function App() {
   const commesseAndamentoMensilePmSelectItems = useMemo(
     () => buildPersonSelectItems(commesseAndamentoMensilePmOptions),
     [commesseAndamentoMensilePmOptions],
+  )
+  const commesseKpiAnnoOptions = useMemo(() => {
+    const years = new Set<string>()
+    commesseKpiAnni.forEach((value) => {
+      const normalized = value.trim()
+      if (normalized) {
+        years.add(normalized)
+      }
+    })
+    commesseKpiRows.forEach((row) => {
+      if (Number.isFinite(row.annoApertura) && row.annoApertura > 0) {
+        years.add(row.annoApertura.toString())
+      }
+    })
+    return [...years].sort((left, right) => Number(right) - Number(left))
+  }, [commesseKpiAnni, commesseKpiRows])
+  const commesseKpiTipologiaOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.tipologieCommessa,
+      commesseKpiTipologia,
+      commesseKpiRows.map((row) => row.tipologiaCommessa),
+    ),
+    [commesseKpiRows, commesseKpiTipologia, sintesiFiltersCatalog.tipologieCommessa],
+  )
+  const commesseKpiStatoOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.stati,
+      commesseKpiStato,
+      commesseKpiRows.map((row) => row.stato),
+    ),
+    [commesseKpiRows, commesseKpiStato, sintesiFiltersCatalog.stati],
+  )
+  const commesseKpiMacroTipologiaOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.macroTipologie,
+      commesseKpiMacroTipologia,
+      commesseKpiRows.map((row) => row.macroTipologia),
+    ),
+    [commesseKpiMacroTipologia, commesseKpiRows, sintesiFiltersCatalog.macroTipologie],
+  )
+  const commesseKpiControparteOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.prodotti,
+      commesseKpiControparte,
+      commesseKpiRows.map((row) => row.controparte),
+    ),
+    [commesseKpiControparte, commesseKpiRows, sintesiFiltersCatalog.prodotti],
+  )
+  const commesseKpiProdottoOptions = useMemo(
+    () => {
+      const options = new Map<string, string>()
+      prodottiAttiviOptions.forEach((option) => {
+        const value = normalizeFilterText(option.value || option.label)
+        if (!value) {
+          return
+        }
+
+        options.set(value.toLocaleLowerCase('it-IT'), value)
+      })
+
+      return [...options.values()].sort((left, right) => left.localeCompare(right, 'it', { sensitivity: 'base' }))
+    },
+    [prodottiAttiviOptions],
+  )
+  const commesseKpiBusinessUnitOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.businessUnits,
+      commesseKpiBusinessUnit,
+      commesseKpiRows.map((row) => row.businessUnit),
+    ),
+    [commesseKpiBusinessUnit, commesseKpiRows, sintesiFiltersCatalog.businessUnits],
+  )
+  const commesseKpiRccOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.rcc,
+      commesseKpiRcc,
+      commesseKpiRows.map((row) => row.rcc),
+    ),
+    [commesseKpiRcc, commesseKpiRows, sintesiFiltersCatalog.rcc],
+  )
+  const commesseKpiPmOptions = useMemo(
+    () => mergeFilterOptionValues(
+      sintesiFiltersCatalog.pm,
+      commesseKpiPm,
+      commesseKpiRows.map((row) => row.pm),
+    ),
+    [commesseKpiPm, commesseKpiRows, sintesiFiltersCatalog.pm],
+  )
+  const commesseKpiAllCommesseOptions = useMemo(() => {
+    const map = new Map<string, FilterOption>()
+    const addOption = (rawValue: string, rawLabel?: string) => {
+      const normalizedValue = normalizeFilterText(rawValue)
+      if (!normalizedValue) {
+        return
+      }
+      const normalizedLabel = normalizeFilterText(rawLabel ?? rawValue) || normalizedValue
+      const key = normalizedValue.toLocaleLowerCase('it-IT')
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, { value: normalizedValue, label: normalizedLabel })
+        return
+      }
+
+      const existingIsFallback = existing.label.localeCompare(existing.value, 'it', { sensitivity: 'base' }) === 0
+      const incomingIsDescriptive = normalizedLabel.localeCompare(normalizedValue, 'it', { sensitivity: 'base' }) !== 0
+      if (existingIsFallback && incomingIsDescriptive) {
+        map.set(key, { value: normalizedValue, label: normalizedLabel })
+      }
+    }
+
+    sintesiFiltersCatalog.commesse.forEach((option) => {
+      addOption(option.value, option.label)
+    })
+    commesseKpiRows.forEach((row) => addOption(row.commessa))
+    addOption(commesseKpiCommessa)
+
+    return [...map.values()].sort((left, right) => left.label.localeCompare(right.label, 'it', { sensitivity: 'base' }))
+  }, [commesseKpiCommessa, commesseKpiRows, sintesiFiltersCatalog.commesse])
+  const commesseKpiCommessaOptions = useMemo(() => {
+    const searchTerm = normalizeFilterText(commesseKpiCommessaSearch).toLowerCase()
+    const filtered = searchTerm
+      ? commesseKpiAllCommesseOptions
+        .filter((option) => (
+          option.label.toLowerCase().includes(searchTerm)
+          || option.value.toLowerCase().includes(searchTerm)
+        ))
+      : commesseKpiAllCommesseOptions
+
+    const selected = normalizeFilterText(commesseKpiCommessa)
+    if (!selected) {
+      return filtered.slice(0, 500)
+    }
+
+    if (filtered.some((option) => option.value.localeCompare(selected, 'it', { sensitivity: 'base' }) === 0)) {
+      return filtered.slice(0, 500)
+    }
+
+    return [{ value: selected, label: selected }, ...filtered.slice(0, 499)]
+  }, [commesseKpiAllCommesseOptions, commesseKpiCommessa, commesseKpiCommessaSearch])
+  const commesseKpiRccSelectItems = useMemo(
+    () => buildPersonSelectItems(commesseKpiRccOptions),
+    [commesseKpiRccOptions],
+  )
+  const commesseKpiPmSelectItems = useMemo(
+    () => buildPersonSelectItems(commesseKpiPmOptions),
+    [commesseKpiPmOptions],
   )
   const commesseDatiAnnualiRows = commesseDatiAnnualiData?.items ?? []
   const commesseDatiAnnualiAnnoOptions = useMemo(() => {
@@ -8775,95 +9106,31 @@ function App() {
   const processoOffertaCountLabel = analisiRccLoading
     ? 'Caricamento dati...'
     : `${processoOffertaRowsCount} righe`
-  const analisiPageRowsCount = (
-    isCommesseAnomalePage
-      ? commesseAnomaleRows.length
-      : (
-    activePage === 'commesse-segnalazioni'
-      ? commesseSegnalazioniRows.length
-      : (
-    activePage === 'commesse-andamento-mensile'
-      ? commesseAndamentoMensileRows.length
-      : (
-        activePage === 'commesse-dati-annuali-aggregati'
-          ? commesseDatiAnnualiPivotRows.length
-          : (
-            isRisorsePage
-              ? (
-                isRisorsePivotPage
-                  ? risorsePivotRows.length
-                  : risorseRowsSorted.length
-              )
-              : (
-            activePage === 'analisi-rcc-risultato-mensile'
-              ? (analisiRccData?.risultatoPesato.righe.length ?? 0)
-              : (
-                activePage === 'analisi-rcc-pivot-fatturato'
-                  ? analisiRccPivotRows.length
-                  : (
-                    activePage === 'analisi-bu-risultato-mensile'
-                      ? (analisiBuData?.risultatoPesato.righe.length ?? 0)
-                      : (
-                        activePage === 'analisi-bu-pivot-fatturato'
-                          ? analisiBuPivotRows.length
-                          : (
-                            activePage === 'analisi-burcc-risultato-mensile'
-                              ? (analisiBurccData?.risultatoPesato.righe.length ?? 0)
-                              : (
-                            activePage === 'analisi-burcc-pivot-fatturato'
-                                  ? analisiBurccPivotRows.length
-                                  : (
-                                    activePage === 'analisi-piano-fatturazione'
-                                      ? analisiPianoFatturazioneRows.length
-                                      : (
-                                        activePage === 'analisi-albero-proiezioni'
-                                          ? analisiAlberoProiezioniRows.length
-                                          : (
-                                        activePage === 'analisi-dettaglio-fatturato'
-                                          ? analisiDettaglioFatturatoRows.length
-                                          : (
-                                    activePage === 'previsioni-funnel'
-                                      ? previsioniFunnelRows.length
-                                      : (
-                                        activePage === 'previsioni-report-funnel-rcc'
-                                          ? previsioniReportFunnelRccPivotRows.length
-                                          : (
-                                            activePage === 'previsioni-report-funnel-bu'
-                                              ? previsioniReportFunnelBuPivotRows.length
-                                              : (
-                                                activePage === 'previsioni-report-funnel-burcc'
-                                                  ? previsioniReportFunnelBurccPivotRows.length
-                                                  : (
-                                                activePage === 'previsioni-utile-mensile-rcc'
-                                                  ? previsioniUtileMensileRccRows.length
-                                                  : (
-                                                    activePage === 'previsioni-utile-mensile-bu'
-                                                      ? previsioniUtileMensileBuRows.length
-                                                      : (
-                                                        isProcessoOffertaPage
-                                                          ? processoOffertaRowsCount
-                                                          : 0
-                                                  )
-                                              )
-                                          )
-                                      )
-      )
-                                          )
-                                  )
-                              )
-                          )
-                      )
-                  )
-                              )
-                          )
-                      )
-                  )
-              )
-              )
-          )
-      )
-      )
-  )
+  const analisiPageRowsCount = (() => {
+    if (isCommesseAnomalePage) return commesseAnomaleRows.length
+    if (activePage === 'commesse-segnalazioni') return commesseSegnalazioniRows.length
+    if (activePage === 'commesse-andamento-mensile') return commesseAndamentoMensileRows.length
+    if (activePage === 'commesse-kpi') return commesseKpiRows.length
+    if (activePage === 'commesse-dati-annuali-aggregati') return commesseDatiAnnualiPivotRows.length
+    if (isRisorsePage) return isRisorsePivotPage ? risorsePivotRows.length : risorseRowsSorted.length
+    if (activePage === 'analisi-rcc-risultato-mensile') return analisiRccData?.risultatoPesato.righe.length ?? 0
+    if (activePage === 'analisi-rcc-pivot-fatturato') return analisiRccPivotRows.length
+    if (activePage === 'analisi-bu-risultato-mensile') return analisiBuData?.risultatoPesato.righe.length ?? 0
+    if (activePage === 'analisi-bu-pivot-fatturato') return analisiBuPivotRows.length
+    if (activePage === 'analisi-burcc-risultato-mensile') return analisiBurccData?.risultatoPesato.righe.length ?? 0
+    if (activePage === 'analisi-burcc-pivot-fatturato') return analisiBurccPivotRows.length
+    if (activePage === 'analisi-piano-fatturazione') return analisiPianoFatturazioneRows.length
+    if (activePage === 'analisi-albero-proiezioni') return analisiAlberoProiezioniRows.length
+    if (activePage === 'analisi-dettaglio-fatturato') return analisiDettaglioFatturatoRows.length
+    if (activePage === 'previsioni-funnel') return previsioniFunnelRows.length
+    if (activePage === 'previsioni-report-funnel-rcc') return previsioniReportFunnelRccPivotRows.length
+    if (activePage === 'previsioni-report-funnel-bu') return previsioniReportFunnelBuPivotRows.length
+    if (activePage === 'previsioni-report-funnel-burcc') return previsioniReportFunnelBurccPivotRows.length
+    if (activePage === 'previsioni-utile-mensile-rcc') return previsioniUtileMensileRccRows.length
+    if (activePage === 'previsioni-utile-mensile-bu') return previsioniUtileMensileBuRows.length
+    if (isProcessoOffertaPage) return processoOffertaRowsCount
+    return 0
+  })()
   const analisiPageCountLabel = analisiRccLoading
     ? 'Caricamento dati...'
     : `${analisiPageRowsCount} righe`
@@ -9662,6 +9929,53 @@ function App() {
         filenamePrefix = 'Commesse_Anomale'
         break
       }
+      case 'commesse-kpi': {
+        appendSheet(commesseKpiRows.map((row) => ({
+          AnnoApertura: row.annoApertura,
+          DataRiferimento: row.dataRiferimento,
+          Commessa: row.commessa,
+          Descrizione: row.descrizioneCommessa,
+          Tipologia: row.tipologiaCommessa,
+          Stato: row.stato,
+          Macrotipologia: row.macroTipologia,
+          Prodotto: row.prodotto,
+          Controparte: row.controparte,
+          BusinessUnit: row.businessUnit,
+          RCC: row.rcc,
+          PM: row.pm,
+          Produzione: row.produzione ? 1 : 0,
+          OrePrevisteFineMesePrecedente: row.orePrevisteFineMesePrecedente,
+          OreLavorateFineMesePrecedente: row.oreLavorateFineMesePrecedente,
+          SovrapercentualeFineMesePrecedente: row.sovrapercentualeFineMesePrecedente,
+          RicavoFineMesePrecedente: row.ricavoFineMesePrecedente,
+          MaturatoNonFatturatoFineMesePrecedente: row.maturatoNonFatturatoFineMesePrecedente,
+          CostoPersonaleFineMesePrecedente: row.costoPersonaleFineMesePrecedente,
+          AcquistiFineMesePrecedente: row.acquistiFineMesePrecedente,
+          UtileFineMesePrecedente: row.utileFineMesePrecedente,
+          PercentualeUtileFineMesePrecedente: row.percentualeUtileFineMesePrecedente,
+          SpcMFineMesePrecedente: row.spcMFineMesePrecedente,
+          OrePrevisteFineAnno: row.orePrevisteFineAnno,
+          OreLavorateFineAnno: row.oreLavorateFineAnno,
+          SovrapercentualeFineAnno: row.sovrapercentualeFineAnno,
+          RicavoFineAnno: row.ricavoFineAnno,
+          CostoPersonaleFineAnno: row.costoPersonaleFineAnno,
+          AcquistiFineAnno: row.acquistiFineAnno,
+          UtileFineAnno: row.utileFineAnno,
+          PercentualeUtileFineAnno: row.percentualeUtileFineAnno,
+          SpcMFineAnno: row.spcMFineAnno,
+          OrePrevisteFineCommessa: row.orePrevisteFineCommessa,
+          OreLavorateFineCommessa: row.oreLavorateFineCommessa,
+          SovrapercentualeFineCommessa: row.sovrapercentualeFineCommessa,
+          RicavoFineCommessa: row.ricavoFineCommessa,
+          CostoPersonaleFineCommessa: row.costoPersonaleFineCommessa,
+          AcquistiFineCommessa: row.acquistiFineCommessa,
+          UtileFineCommessa: row.utileFineCommessa,
+          PercentualeUtileFineCommessa: row.percentualeUtileFineCommessa,
+          SpcMFineCommessa: row.spcMFineCommessa,
+        })), 'KPICommesse')
+        filenamePrefix = 'Commesse_KPI'
+        break
+      }
       case 'commesse-andamento-mensile': {
         const formatPeriodoMese = (row: any) => {
           const meseA = row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : ''
@@ -9799,8 +10113,8 @@ function App() {
                   ? 'AnalisiOURisorse'
                     : 'AnalisiMensileOURisorse'
                 )
-            )
-        ))
+            ))
+        )
         appendSheet([{
           OreTotali: risorseTotals.oreTotali,
           CostoSpecificoRisorsa: risorseTotals.costoSpecificoRisorsa,
@@ -10908,6 +11222,30 @@ function App() {
     commesseAndamentoMensileTipologia,
     commesseAndamentoMensileTipologiaOptions,
     commesseAndamentoMensileTotals,
+    commesseKpiAnni,
+    commesseKpiAnnoOptions,
+    commesseKpiBusinessUnit,
+    commesseKpiBusinessUnitOptions,
+    commesseKpiCommessa,
+    commesseKpiCommessaOptions,
+    commesseKpiCommessaSearch,
+    commesseKpiControparte,
+    commesseKpiControparteOptions,
+    commesseKpiData,
+    commesseKpiMacroTipologia,
+    commesseKpiMacroTipologiaOptions,
+    commesseKpiPm,
+    commesseKpiPmSelectItems,
+    commesseKpiProdotto,
+    commesseKpiProdottoOptions,
+    commesseKpiRcc,
+    commesseKpiRccSelectItems,
+    commesseKpiRows,
+    commesseKpiStato,
+    commesseKpiStatoOptions,
+    commesseKpiTipologia,
+    commesseKpiTipologiaOptions,
+    commesseKpiTotals,
     commesseAnomaleAnomaliaOptions,
     commesseAnomaleDataLoaded,
     commesseAnomaleFiltroAnomalia,
@@ -10968,6 +11306,7 @@ function App() {
     isSintesiFiltersCollapsible,
     moveCommesseDatiAnnualiField,
     parseReferenceMonthStrict,
+    loadCommesseKpi,
     productOrCounterpartColumn,
     productOrCounterpartLabel,
     refreshSintesiFilters,
@@ -10989,6 +11328,17 @@ function App() {
     setCommesseAndamentoMensileRcc,
     setCommesseAndamentoMensileStato,
     setCommesseAndamentoMensileTipologia,
+    setCommesseKpiAnni,
+    setCommesseKpiBusinessUnit,
+    setCommesseKpiCommessa,
+    setCommesseKpiCommessaSearch,
+    setCommesseKpiControparte,
+    setCommesseKpiMacroTipologia,
+    setCommesseKpiPm,
+    setCommesseKpiProdotto,
+    setCommesseKpiRcc,
+    setCommesseKpiStato,
+    setCommesseKpiTipologia,
     setCommesseAnomaleFiltroAnomalia,
     setCommesseAnomaleFiltroRcc,
     setCommesseSegnalazioniFiltroAssegnatario,
@@ -11326,6 +11676,7 @@ function App() {
     activateAnalisiRccPivotFatturatoPage,
     activateAnalisiRccRisultatoMensilePage,
     activateCommesseAndamentoMensilePage,
+    activateCommesseKpiPage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
     activateCommesseSegnalazioniPage,

@@ -8,6 +8,7 @@ export function buildAppNavigationActions(ctx: any) {
     canImpersonate,
     clearSession,
     commesseAndamentoMensileAnni,
+    commesseKpiAnni,
     commesseDatiAnnualiAvailableSelection,
     commesseDatiAnnualiSelectedSelection,
     currentProfile,
@@ -26,6 +27,7 @@ export function buildAppNavigationActions(ctx: any) {
     loadAnalisiRccPivotFatturato,
     loadAnalisiRccRisultatoMensile,
     loadCommesseAndamentoMensile,
+    loadCommesseKpi,
     loadCommesseAnomale,
     loadCommesseDatiAnnualiAggregati,
     loadCommesseSegnalazioni,
@@ -101,6 +103,19 @@ export function buildAppNavigationActions(ctx: any) {
 
     void loadSintesiFilters(token, activeImpersonation, currentProfile, commesseAndamentoMensileAnni, 'commesse')
     void loadCommesseAndamentoMensile()
+  }
+
+  const activateCommesseKpiPage = () => {
+    setOpenMenu(null)
+    setLastSintesiPage('commesse-kpi')
+    ctx.setCommesseKpiAnni?.([])
+    setActivePage('commesse-kpi')
+    if (!token.trim() || !currentProfile) {
+      return
+    }
+
+    void loadSintesiFilters(token, activeImpersonation, currentProfile, commesseKpiAnni, 'commesse')
+    void loadCommesseKpi([])
   }
 
   const activateCommesseAnomalePage = () => {
@@ -583,6 +598,11 @@ export function buildAppNavigationActions(ctx: any) {
       return
     }
 
+    if (activePage === 'commesse-kpi') {
+      void loadCommesseKpi()
+      return
+    }
+
     if (activePage === 'commesse-anomale') {
       void loadCommesseAnomale()
       return
@@ -776,6 +796,7 @@ export function buildAppNavigationActions(ctx: any) {
   return {
     activateSintesiPage,
     activateCommesseAndamentoMensilePage,
+    activateCommesseKpiPage,
     activateCommesseAnomalePage,
     activateCommesseDatiAnnualiAggregatiPage,
     activateCommesseSegnalazioniPage,
