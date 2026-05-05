@@ -1210,6 +1210,27 @@ button:disabled {
   z-index: 1;
   background: #eef4fd;
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bonifici-table th[colspan]:not([colspan="1"]) {
+  cursor: default;
+}
+
+.bonifici-table th[data-table-sort-direction] {
+  background: #dce9ff;
+}
+
+.bonifici-table th[data-table-sort-direction]::after {
+  color: #48668d;
+  content: " ▲";
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.bonifici-table th[data-table-sort-direction="desc"]::after {
+  content: " ▼";
 }
 
 .sort-header-btn {

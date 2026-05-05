@@ -364,11 +364,38 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         """;
     private const string AnalisiCommesseStoredProcedure = "CDG.BIXeniaAnalisiCommesse";
     private const string RisorseLookupQuery = """
+        WITH OuPrimaria AS (
+            SELECT
+                CAST(d.IdRisorsa AS INT) AS IdRisorsa,
+                CAST(LTRIM(RTRIM(ISNULL(ou.Sigla, d.Codice))) AS NVARCHAR(128)) AS IdOu,
+                CAST(LTRIM(RTRIM(ISNULL(d.RuoloPrincipale, N''))) AS NVARCHAR(128)) AS NomeRuolo,
+                CAST(ISNULL(d.PercentualeUtilizzo, 0) AS DECIMAL(18, 4)) AS PercentualeUtilizzo,
+                CAST(ISNULL(d.ou_produzione, 0) AS BIT) AS OuProduzione,
+                ROW_NUMBER() OVER (
+                    PARTITION BY d.IdRisorsa
+                    ORDER BY
+                        ISNULL(d.PercentualeUtilizzo, 0) DESC,
+                        ISNULL(d.HaDettaglio, 0) DESC,
+                        ISNULL(d.Ordine, 9999),
+                        d.IdOU
+                ) AS rn
+            FROM orga.vw_OU_RisorseDettaglio d
+            LEFT JOIN orga.OU ou
+                ON ou.IdOU = d.IdOU
+            WHERE d.IdRisorsa IS NOT NULL
+        )
         SELECT
             CAST(r.id AS INT) AS IdRisorsa,
             CAST(LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))) AS NVARCHAR(256)) AS NomeRisorsa,
-            CAST(CASE WHEN r.DataFine IS NULL THEN 1 ELSE 0 END AS BIT) AS InForza
+            CAST(CASE WHEN r.DataFine IS NULL THEN 1 ELSE 0 END AS BIT) AS InForza,
+            CAST(LTRIM(RTRIM(ISNULL(op.IdOu, N''))) AS NVARCHAR(128)) AS IdOu,
+            CAST(LTRIM(RTRIM(ISNULL(op.NomeRuolo, N''))) AS NVARCHAR(128)) AS NomeRuolo,
+            CAST(ISNULL(op.PercentualeUtilizzo, 0) AS DECIMAL(18, 4)) AS PercentualeUtilizzo,
+            CAST(ISNULL(op.OuProduzione, 0) AS BIT) AS OuProduzione
         FROM dbo.Risorse r
+        LEFT JOIN OuPrimaria op
+            ON op.IdRisorsa = r.id
+           AND op.rn = 1
         ORDER BY
             LTRIM(RTRIM(ISNULL(r.[Nome Risorsa], N''))),
             r.id;
@@ -3236,7 +3263,7 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             await connection.OpenAsync(cancellationToken);
 
             var risorseLookup = request.AnalisiOuPivot
-                ? new Dictionary<int, (string NomeRisorsa, bool InForza)>()
+                ? new Dictionary<int, RisorsaLookupItem>()
                 : await LoadRisorseLookupAsync(connection, cancellationToken);
 
             var storedProcedure = request.AnalisiOu || request.AnalisiOuPivot
@@ -3284,6 +3311,9 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
                 var idOu = ReadString(reader, ordinals, "idOU", "idOu", "idou");
                 var nomeRisorsa = ReadString(reader, ordinals, "nome_risorsa", "nomeRisorsa", "Nome Risorsa");
+                var nomeRuolo = ReadString(reader, ordinals, "NomeRuolo");
+                var percentualeUtilizzo = ReadDecimal(reader, ordinals, "PercentualeUtilizzo");
+                var ouProduzione = ReadBoolean(reader, ordinals, "ou_produzione");
                 var risorsaInForza = true;
                 if (idRisorsa > 0 && risorseLookup.TryGetValue(idRisorsa, out var risorsaInfo))
                 {
@@ -3292,10 +3322,22 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                         nomeRisorsa = risorsaInfo.NomeRisorsa;
                     }
                     risorsaInForza = risorsaInfo.InForza;
+                    if (!request.AnalisiOu)
+                    {
+                        idOu = risorsaInfo.IdOu;
+                        nomeRuolo = risorsaInfo.NomeRuolo;
+                        percentualeUtilizzo = risorsaInfo.PercentualeUtilizzo;
+                        ouProduzione = risorsaInfo.OuProduzione;
+                    }
                 }
                 else if (request.AnalisiOuPivot)
                 {
                     nomeRisorsa = string.IsNullOrWhiteSpace(idOu) ? "OU non definita" : idOu;
+                }
+
+                if (!request.AnalisiOu && !MatchesFilterValue(idOu, request.Ou))
+                {
+                    continue;
                 }
 
                 var businessUnit = ReadString(reader, ordinals, "idbusinessunit");
@@ -3329,10 +3371,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                     ReadDecimal(reader, ordinals, "UtileInBaseACosto"),
                     ReadDecimal(reader, ordinals, "CostoSpecificoRisorsa"),
                     idOu,
-                    ReadString(reader, ordinals, "NomeRuolo"),
-                    ReadDecimal(reader, ordinals, "PercentualeUtilizzo"),
+                    nomeRuolo,
+                    percentualeUtilizzo,
                     ReadString(reader, ordinals, "area"),
-                    ReadBoolean(reader, ordinals, "ou_produzione"),
+                    ouProduzione,
                     ReadString(reader, ordinals, "codicesocieta")));
             }
 
@@ -5418,7 +5460,10 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         AddStringClause(clauses, "macrotipologia", request.MacroTipologia);
         AddStringClause(clauses, "controparte", request.Controparte);
         AddStringClause(clauses, "idbusinessunit", request.BusinessUnit);
-        AddStringClause(clauses, "idOU", request.Ou);
+        if (request.AnalisiOu)
+        {
+            AddStringClause(clauses, "idOU", request.Ou);
+        }
         AddStringClause(clauses, "RCC", request.Rcc);
         AddStringClause(clauses, "PM", request.Pm);
 
@@ -5518,11 +5563,19 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         return $"({string.Join(" OR ", clauses)})";
     }
 
-    private static async Task<Dictionary<int, (string NomeRisorsa, bool InForza)>> LoadRisorseLookupAsync(
+    private sealed record RisorsaLookupItem(
+        string NomeRisorsa,
+        bool InForza,
+        string IdOu,
+        string NomeRuolo,
+        decimal PercentualeUtilizzo,
+        bool OuProduzione);
+
+    private static async Task<Dictionary<int, RisorsaLookupItem>> LoadRisorseLookupAsync(
         SqlConnection connection,
         CancellationToken cancellationToken)
     {
-        var result = new Dictionary<int, (string NomeRisorsa, bool InForza)>();
+        var result = new Dictionary<int, RisorsaLookupItem>();
 
         await using var command = new SqlCommand(RisorseLookupQuery, connection);
         command.CommandType = CommandType.Text;
@@ -5542,7 +5595,13 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
             }
 
             var inForza = ReadBoolean(reader, "InForza");
-            result[idRisorsa] = (nomeRisorsa, inForza);
+            result[idRisorsa] = new RisorsaLookupItem(
+                nomeRisorsa,
+                inForza,
+                ReadString(reader, "IdOu"),
+                ReadString(reader, "NomeRuolo"),
+                ReadDecimal(reader, "PercentualeUtilizzo"),
+                ReadBoolean(reader, "OuProduzione"));
         }
 
         return result;
@@ -6323,6 +6382,13 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
 
         var normalized = value.Trim().ToUpperInvariant();
         return normalized is not "NON DEFINITO" and not "NON DEFINTO";
+    }
+
+    private static bool MatchesFilterValue(string? actual, string? expected)
+    {
+        var normalizedExpected = expected?.Trim() ?? string.Empty;
+        return string.IsNullOrWhiteSpace(normalizedExpected) ||
+            string.Equals(actual?.Trim() ?? string.Empty, normalizedExpected, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildVisibilityClause(UserContext user, VisibilityFlags visibility, bool useIdOuColumn = false)

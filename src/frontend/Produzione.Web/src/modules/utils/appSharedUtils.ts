@@ -462,11 +462,7 @@ export const normalizeRisorsaLabel = (row: CommessaRisorseValutazioneRow) => {
 }
 
 export const resolveOuValue = (row: CommessaRisorseValutazioneRow) => {
-  const idOu = (row.idOu ?? '').trim()
-  if (idOu) {
-    return idOu
-  }
-  return (row.businessUnit ?? '').trim()
+  return (row.idOu ?? '').trim()
 }
 
 export const extractRisorsePivotFieldValue = (row: CommessaRisorseValutazioneRow, fieldKey: RisorsePivotFieldKey) => {
