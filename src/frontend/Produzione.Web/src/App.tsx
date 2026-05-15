@@ -1,5 +1,6 @@
 import { Fragment, type ChangeEvent, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
+import { buildTimestamp, exportTableToPdf, type PdfTableColumn } from './modules/utils/pdfExportUtils'
 import './App.css'
 import { AppMainContent } from './modules/components/layout/AppMainContent'
 import { AppTopBar } from './modules/components/layout/AppTopBar'
@@ -108,6 +109,7 @@ import {
   calculateUtileFineProgetto,
   distinctFilterOptionsForUi,
   distinctPersonFilterOptionsForUi,
+  distinctProductFilterOptionsForUi,
   extractCommessaCodeFromOption,
   extractDatiAnnualiPivotFieldValue,
   formatReferenceMonthLabel,
@@ -4757,7 +4759,9 @@ function App() {
     id: isProdottiSintesiPage ? 'sintesi-prodotto' : 'sintesi-controparte',
     label: isProdottiSintesiPage ? 'Prodotto' : 'Controparte',
     key: 'prodotto',
-    options: distinctFilterOptionsForUi(sintesiFiltersCatalog.prodotti),
+    options: isProdottiSintesiPage
+      ? distinctProductFilterOptionsForUi(sintesiFiltersCatalog.prodotti)
+      : distinctFilterOptionsForUi(sintesiFiltersCatalog.prodotti),
   }
   const businessUnitFilter: {
     id: string
@@ -8911,6 +8915,115 @@ function App() {
     return sortDirection === 'asc' ? '\u2191' : '\u2193'
   }
 
+  const formatPdfNumber = (value: number) => (
+    Number.isFinite(value) ? formatNumber(value) : ''
+  )
+
+  const sintesiBasePdfColumns: PdfTableColumn[] = [
+    { key: 'anno', header: 'Anno' },
+    { key: 'commessa', header: 'Commessa' },
+    { key: 'descrizione', header: 'Descrizione' },
+    ...(isProdottiSintesiPage ? [{ key: 'controparte', header: 'Controparte' }] : []),
+    { key: 'tipologia', header: 'Tipologia' },
+    { key: 'stato', header: 'Stato' },
+    { key: 'macrotipologia', header: 'Macrotipologia' },
+    { key: 'prodottoControparte', header: productOrCounterpartLabel },
+    { key: 'businessUnit', header: 'BU' },
+    { key: 'rcc', header: 'RCC' },
+    { key: 'pm', header: 'PM' },
+    { key: 'oreLavorate', header: 'Ore lav.' },
+    { key: 'costoPersonale', header: 'Costo pers.' },
+    { key: 'ricavi', header: 'Ricavi' },
+    { key: 'costi', header: 'Costi' },
+    { key: 'ricaviMaturati', header: 'Ricavi mat.' },
+    { key: 'utileSpecifico', header: 'Utile spec.' },
+    { key: 'ricaviFuturi', header: 'Ricavi fut.' },
+    { key: 'costiFuturi', header: 'Costi fut.' },
+    { key: 'oreFuture', header: 'Ore fut.' },
+    { key: 'costoPersonaleFuturo', header: 'Costo pers. fut.' },
+    ...(isAggregatedMode ? [{ key: 'utileFineProgetto', header: 'Utile fine prog.' }] : []),
+  ]
+
+  const buildSintesiPdfRow = (row: any, tipoRiga = ''): Record<string, unknown> => ({
+    tipoRiga,
+    anno: row.anno ?? '',
+    commessa: row.commessa,
+    descrizione: row.descrizioneCommessa,
+    controparte: row.controparte,
+    tipologia: row.tipologiaCommessa,
+    stato: row.stato,
+    macrotipologia: row.macroTipologia,
+    prodottoControparte: isProdottiSintesiPage ? row.prodotto : row.controparte,
+    businessUnit: row.businessUnit,
+    rcc: row.rcc,
+    pm: row.pm,
+    oreLavorate: formatPdfNumber(row.oreLavorate),
+    costoPersonale: formatPdfNumber(row.costoPersonale),
+    ricavi: formatPdfNumber(row.ricavi),
+    costi: formatPdfNumber(row.costi),
+    ricaviMaturati: formatPdfNumber(row.ricaviMaturati),
+    utileSpecifico: formatPdfNumber(row.utileSpecifico),
+    ricaviFuturi: formatPdfNumber(row.ricaviFuturi),
+    costiFuturi: formatPdfNumber(row.costiFuturi),
+    oreFuture: formatPdfNumber(row.oreFuture),
+    costoPersonaleFuturo: formatPdfNumber(row.costoPersonaleFuturo),
+    ...(isAggregatedMode
+      ? { utileFineProgetto: shouldShowUtileFineProgettoForRow(row) ? formatPdfNumber(calculateUtileFineProgetto(row)) : '' }
+      : {}),
+  })
+
+  const exportSintesiPdf = () => {
+    if (isDatiContabiliPage) {
+      setStatusMessage('Export PDF disponibile per Commesse e Prodotti.')
+      return
+    }
+
+    const hasDataToExport = isProdottiSintesiPage ? sintesiTableRows.length > 0 : sortedRows.length > 0
+    if (!hasDataToExport) {
+      setStatusMessage('Nessun dato disponibile da esportare in PDF.')
+      return
+    }
+
+    const columns = isProdottiSintesiPage
+      ? [{ key: 'tipoRiga', header: 'Tipo riga' }, ...sintesiBasePdfColumns]
+      : sintesiBasePdfColumns
+    const rows = isProdottiSintesiPage
+      ? sintesiTableRows.map((tableRow) => {
+        if (tableRow.kind === 'prodotto-summary') {
+          return {
+            ...buildSintesiPdfRow({
+              ...tableRow.row,
+              anno: '',
+              commessa: `${tableRow.commesseCount} commesse`,
+              descrizioneCommessa: '',
+              controparte: '',
+              tipologiaCommessa: '',
+              stato: '',
+              macroTipologia: '',
+              businessUnit: '',
+              rcc: '',
+              pm: '',
+            }, 'Prodotto'),
+          }
+        }
+
+        return buildSintesiPdfRow(tableRow.row, 'Commessa')
+      })
+      : sortedRows.map((row) => buildSintesiPdfRow(row))
+
+    const scopeLabel = isProdottiSintesiPage ? 'Prodotti' : 'Commesse'
+    const mode = sintesiMode === 'aggregato' ? 'aggregato' : 'dettaglio'
+    const filename = `Produzione_${scopeLabel}_Sintesi_${mode}_${selectedAnniLabel}_${buildTimestamp()}.pdf`
+    exportTableToPdf({
+      title: `Produzione - ${scopeLabel} - Sintesi`,
+      subtitle: `Modalita: ${mode}. Anni: ${selectedAnniLabel}. Righe esportate: ${rows.length}.`,
+      filename,
+      columns,
+      rows,
+    })
+    setStatusMessage(`Export PDF completato: ${filename}`)
+  }
+
   const exportSintesiExcel = () => {
     const hasDataToExport = isDatiContabiliVenditaPage
       ? datiContabiliVenditaSortedRows.length > 0
@@ -9007,6 +9120,7 @@ function App() {
             Anno: '',
             Commessa: `${tableRow.commesseCount} commesse`,
             Descrizione: '',
+            Controparte: '',
             Tipologia: '',
             Stato: '',
             Macrotipologia: '',
@@ -9036,6 +9150,7 @@ function App() {
           Anno: row.anno ?? '',
           Commessa: row.commessa,
           Descrizione: row.descrizioneCommessa,
+          Controparte: row.controparte,
           Tipologia: row.tipologiaCommessa,
           Stato: row.stato,
           Macrotipologia: row.macroTipologia,
@@ -9060,7 +9175,7 @@ function App() {
       })
       const worksheet = XLSX.utils.json_to_sheet(rows)
       worksheet['!cols'] = [
-        { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 56 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
+        { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 56 }, { wch: 28 }, { wch: 24 }, { wch: 10 }, { wch: 18 }, { wch: 18 },
         { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
         { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 18 },
       ]
@@ -9194,6 +9309,249 @@ function App() {
 
     XLSX.writeFile(workbook, filename)
     setStatusMessage(`Export Excel completato: ${filename}`)
+  }
+
+  const exportAnalisiPdf = (visibleRows?: any[]) => {
+    if (activePage !== 'commesse-andamento-mensile' && activePage !== 'commesse-kpi') {
+      setStatusMessage('Export PDF disponibile per Andamento Mensile e KPI Commesse.')
+      return
+    }
+
+    if (!canExportAnalisiPage) {
+      setStatusMessage('Nessun dato disponibile da esportare in PDF.')
+      return
+    }
+
+    if (activePage === 'commesse-andamento-mensile') {
+      const rowsSource = visibleRows ?? commesseAndamentoMensileRows
+      const getTotaleRicaviAndamento = (ricavi: number, ricaviMaturati: number) => (
+        (Number.isFinite(ricavi) ? ricavi : 0) + (Number.isFinite(ricaviMaturati) ? ricaviMaturati : 0)
+      )
+      const formatPeriodoMese = (row: any) => {
+        const meseA = row.meseCompetenza > 0 ? row.meseCompetenza.toString().padStart(2, '0') : ''
+        if (!meseA) {
+          return ''
+        }
+        const meseDa = row.meseDaCompetenza && row.meseDaCompetenza > 0
+          ? row.meseDaCompetenza.toString().padStart(2, '0')
+          : (parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString().padStart(2, '0')
+        return commesseAndamentoMensileAggrega && meseDa && meseDa !== meseA ? `${meseDa}-${meseA}` : meseA
+      }
+      const formatPercentualeUtileExport = (ricavi: number, ricaviMaturati: number, costi: number, costoPersonale: number) => {
+        const totaleRicavi = getTotaleRicaviAndamento(ricavi, ricaviMaturati)
+        if (totaleRicavi === 0) {
+          return ''
+        }
+        const totaleCosti = (Number.isFinite(costi) ? costi : 0) + (Number.isFinite(costoPersonale) ? costoPersonale : 0)
+        return `${((1 - totaleCosti / totaleRicavi) * 100).toLocaleString('it-IT', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        })}%`
+      }
+      const formatSpcMExport = (ricavi: number, ricaviMaturati: number, oreLavorate: number) => (
+        Number.isFinite(oreLavorate) && oreLavorate !== 0
+          ? ((getTotaleRicaviAndamento(ricavi, ricaviMaturati) / oreLavorate) * 8).toLocaleString('it-IT', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })
+          : ''
+      )
+      const columns: PdfTableColumn[] = [
+        { key: 'anno', header: 'Anno' },
+        { key: 'mese', header: 'Mese' },
+        { key: 'commessa', header: 'Commessa' },
+        { key: 'descrizione', header: 'Descrizione' },
+        { key: 'tipologia', header: 'Tipologia' },
+        { key: 'stato', header: 'Stato' },
+        { key: 'macrotipologia', header: 'Macrotipologia' },
+        { key: 'prodotto', header: 'Prodotto' },
+        { key: 'controparte', header: 'Controparte' },
+        { key: 'businessUnit', header: 'BU' },
+        { key: 'rcc', header: 'RCC' },
+        { key: 'pm', header: 'PM' },
+        { key: 'produzione', header: 'Produzione' },
+        { key: 'oreLavorate', header: 'Ore lav.' },
+        { key: 'costoPersonale', header: 'Costo pers.' },
+        { key: 'ricavi', header: 'Ricavi' },
+        { key: 'costi', header: 'Costi' },
+        { key: 'ricaviMaturati', header: 'Ricavi mat.' },
+        { key: 'utileSpecifico', header: 'Utile spec.' },
+        { key: 'oreFuture', header: 'Ore fut.' },
+        { key: 'costoPersonaleFuturo', header: 'Costo pers. fut.' },
+        { key: 'percentualeUtile', header: '% utile' },
+        { key: 'spcM', header: 'SPC-M' },
+      ]
+      const rows = rowsSource.map((row) => ({
+        anno: row.annoCompetenza,
+        mese: formatPeriodoMese(row),
+        commessa: row.commessa,
+        descrizione: row.descrizioneCommessa,
+        tipologia: row.tipologiaCommessa,
+        stato: row.stato,
+        macrotipologia: row.macroTipologia,
+        prodotto: row.prodotto,
+        controparte: row.controparte,
+        businessUnit: row.businessUnit,
+        rcc: row.rcc,
+        pm: row.pm,
+        produzione: row.produzione ? 'Si' : 'No',
+        oreLavorate: formatPdfNumber(row.oreLavorate),
+        costoPersonale: formatPdfNumber(row.costoPersonale),
+        ricavi: formatPdfNumber(row.ricavi),
+        costi: formatPdfNumber(row.costi),
+        ricaviMaturati: formatPdfNumber(row.ricaviMaturati),
+        utileSpecifico: formatPdfNumber(row.utileSpecifico),
+        oreFuture: formatPdfNumber(row.oreFuture),
+        costoPersonaleFuturo: formatPdfNumber(row.costoPersonaleFuturo),
+        percentualeUtile: formatPercentualeUtileExport(row.ricavi, row.ricaviMaturati, row.costi, row.costoPersonale),
+        spcM: formatSpcMExport(row.ricavi, row.ricaviMaturati, row.oreLavorate),
+      }))
+      const footerRows = [{
+        anno: 'Totale',
+        oreLavorate: formatPdfNumber(commesseAndamentoMensileTotals.oreLavorate),
+        costoPersonale: formatPdfNumber(commesseAndamentoMensileTotals.costoPersonale),
+        ricavi: formatPdfNumber(commesseAndamentoMensileTotals.ricavi),
+        costi: formatPdfNumber(commesseAndamentoMensileTotals.costi),
+        ricaviMaturati: formatPdfNumber(commesseAndamentoMensileTotals.ricaviMaturati),
+        utileSpecifico: formatPdfNumber(commesseAndamentoMensileTotals.utileSpecifico),
+        oreFuture: formatPdfNumber(commesseAndamentoMensileTotals.oreFuture),
+        costoPersonaleFuturo: formatPdfNumber(commesseAndamentoMensileTotals.costoPersonaleFuturo),
+        percentualeUtile: formatPercentualeUtileExport(
+          commesseAndamentoMensileTotals.ricavi,
+          commesseAndamentoMensileTotals.ricaviMaturati,
+          commesseAndamentoMensileTotals.costi,
+          commesseAndamentoMensileTotals.costoPersonale,
+        ),
+        spcM: formatSpcMExport(
+          commesseAndamentoMensileTotals.ricavi,
+          commesseAndamentoMensileTotals.ricaviMaturati,
+          commesseAndamentoMensileTotals.oreLavorate,
+        ),
+      }]
+      const filename = `Produzione_Commesse_AndamentoMensile_${buildTimestamp()}.pdf`
+      exportTableToPdf({
+        title: 'Produzione - Commesse - Andamento Mensile',
+        subtitle: `Righe esportate: ${rows.length}. Periodo: ${(parseReferenceMonthStrict(commesseAndamentoMensileMeseDa) ?? 1).toString().padStart(2, '0')}-${(parseReferenceMonthStrict(commesseAndamentoMensileMese) ?? getDefaultReferenceMonth()).toString().padStart(2, '0')}.`,
+        filename,
+        columns,
+        rows,
+        footerRows,
+      })
+      setStatusMessage(`Export PDF completato: ${filename}`)
+      return
+    }
+
+    const rowsSource = visibleRows ?? commesseKpiRows
+    const kpiColumns: PdfTableColumn[] = [
+      { key: 'annoApertura', header: 'Anno' },
+      { key: 'commessa', header: 'Commessa' },
+      { key: 'descrizione', header: 'Descrizione' },
+      { key: 'tipologia', header: 'Tipologia' },
+      { key: 'stato', header: 'Stato' },
+      { key: 'macrotipologia', header: 'Macrotipologia' },
+      { key: 'prodotto', header: 'Prodotto' },
+      { key: 'controparte', header: 'Controparte' },
+      { key: 'businessUnit', header: 'BU' },
+      { key: 'rcc', header: 'RCC' },
+      { key: 'pm', header: 'PM' },
+      { key: 'produzione', header: 'Produzione' },
+      { key: 'orePrevFmp', header: 'Ore prev. FMP' },
+      { key: 'oreLavFmp', header: 'Ore lav. FMP' },
+      { key: 'sovraFmp', header: 'Sovra% FMP' },
+      { key: 'ricavoFmp', header: 'Ricavo FMP' },
+      { key: 'matNonFattFmp', header: 'Mat. non fatt. FMP' },
+      { key: 'costoPersFmp', header: 'Costo pers. FMP' },
+      { key: 'acquistiFmp', header: 'Acquisti FMP' },
+      { key: 'utileFmp', header: 'Utile FMP' },
+      { key: 'percUtileFmp', header: '% utile FMP' },
+      { key: 'spcmFmp', header: 'SPC-M FMP' },
+      { key: 'orePrevFa', header: 'Ore prev. FA' },
+      { key: 'oreLavFa', header: 'Ore lav. FA' },
+      { key: 'sovraFa', header: 'Sovra% FA' },
+      { key: 'ricavoFa', header: 'Ricavo FA' },
+      { key: 'costoPersFa', header: 'Costo pers. FA' },
+      { key: 'acquistiFa', header: 'Acquisti FA' },
+      { key: 'utileFa', header: 'Utile FA' },
+      { key: 'percUtileFa', header: '% utile FA' },
+      { key: 'spcmFa', header: 'SPC-M FA' },
+      { key: 'orePrevFc', header: 'Ore prev. FC' },
+      { key: 'oreLavFc', header: 'Ore lav. FC' },
+      { key: 'sovraFc', header: 'Sovra% FC' },
+      { key: 'ricavoFc', header: 'Ricavo FC' },
+      { key: 'costoPersFc', header: 'Costo pers. FC' },
+      { key: 'acquistiFc', header: 'Acquisti FC' },
+      { key: 'utileFc', header: 'Utile FC' },
+      { key: 'percUtileFc', header: '% utile FC' },
+      { key: 'spcmFc', header: 'SPC-M FC' },
+    ]
+    const mapKpiRow = (row: any): Record<string, unknown> => ({
+      annoApertura: row.annoApertura,
+      commessa: row.commessa,
+      descrizione: row.descrizioneCommessa,
+      tipologia: row.tipologiaCommessa,
+      stato: row.stato,
+      macrotipologia: row.macroTipologia,
+      prodotto: row.prodotto,
+      controparte: row.controparte,
+      businessUnit: row.businessUnit,
+      rcc: row.rcc,
+      pm: row.pm,
+      produzione: row.produzione ? 'Si' : 'No',
+      orePrevFmp: formatPdfNumber(row.orePrevisteFineMesePrecedente),
+      oreLavFmp: formatPdfNumber(row.oreLavorateFineMesePrecedente),
+      sovraFmp: formatPercentValue(row.sovrapercentualeFineMesePrecedente),
+      ricavoFmp: formatPdfNumber(row.ricavoFineMesePrecedente),
+      matNonFattFmp: formatPdfNumber(row.maturatoNonFatturatoFineMesePrecedente),
+      costoPersFmp: formatPdfNumber(row.costoPersonaleFineMesePrecedente),
+      acquistiFmp: formatPdfNumber(row.acquistiFineMesePrecedente),
+      utileFmp: formatPdfNumber(row.utileFineMesePrecedente),
+      percUtileFmp: formatPercentValue(row.percentualeUtileFineMesePrecedente),
+      spcmFmp: formatPdfNumber(row.spcMFineMesePrecedente),
+      orePrevFa: formatPdfNumber(row.orePrevisteFineAnno),
+      oreLavFa: formatPdfNumber(row.oreLavorateFineAnno),
+      sovraFa: formatPercentValue(row.sovrapercentualeFineAnno),
+      ricavoFa: formatPdfNumber(row.ricavoFineAnno),
+      costoPersFa: formatPdfNumber(row.costoPersonaleFineAnno),
+      acquistiFa: formatPdfNumber(row.acquistiFineAnno),
+      utileFa: formatPdfNumber(row.utileFineAnno),
+      percUtileFa: formatPercentValue(row.percentualeUtileFineAnno),
+      spcmFa: formatPdfNumber(row.spcMFineAnno),
+      orePrevFc: formatPdfNumber(row.orePrevisteFineCommessa),
+      oreLavFc: formatPdfNumber(row.oreLavorateFineCommessa),
+      sovraFc: formatPercentValue(row.sovrapercentualeFineCommessa),
+      ricavoFc: formatPdfNumber(row.ricavoFineCommessa),
+      costoPersFc: formatPdfNumber(row.costoPersonaleFineCommessa),
+      acquistiFc: formatPdfNumber(row.acquistiFineCommessa),
+      utileFc: formatPdfNumber(row.utileFineCommessa),
+      percUtileFc: formatPercentValue(row.percentualeUtileFineCommessa),
+      spcmFc: formatPdfNumber(row.spcMFineCommessa),
+    })
+    const rows = rowsSource.map(mapKpiRow)
+    const footerRows = [{
+      ...mapKpiRow(commesseKpiTotals),
+      annoApertura: 'Totale',
+      commessa: '',
+      descrizione: '',
+      tipologia: '',
+      stato: '',
+      macrotipologia: '',
+      prodotto: '',
+      controparte: '',
+      businessUnit: '',
+      rcc: '',
+      pm: '',
+      produzione: '',
+    }]
+    const filename = `Produzione_Commesse_KPI_${buildTimestamp()}.pdf`
+    exportTableToPdf({
+      title: 'Produzione - Commesse - KPI',
+      subtitle: `Righe esportate: ${rows.length}.`,
+      filename,
+      columns: kpiColumns,
+      rows,
+      footerRows,
+    })
+    setStatusMessage(`Export PDF completato: ${filename}`)
   }
 
   const exportAnalisiExcel = () => {
@@ -10643,7 +11001,9 @@ function App() {
     datiContabiliVenditaSortedRows,
     expandAllProducts,
     exportCommesseDatiAnnualiExcel,
+    exportAnalisiPdf,
     exportSintesiExcel,
+    exportSintesiPdf,
     formatDate,
     formatPercentRatio,
     formatPercentValue,

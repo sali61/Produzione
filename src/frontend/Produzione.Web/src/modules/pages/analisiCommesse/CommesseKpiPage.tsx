@@ -104,6 +104,7 @@ export function CommesseKpiPage(props: CommesseKpiPageProps) {
     commesseKpiTotals,
     currentProfile,
     exportAnalisiExcel,
+    exportAnalisiPdf,
     formatNumber,
     handleAnalisiSubmit,
     isAnalisiSearchCollapsed,
@@ -324,6 +325,9 @@ export function CommesseKpiPage(props: CommesseKpiPageProps) {
             </button>
             <button type="button" className="ghost-button" onClick={exportAnalisiExcel} disabled={analisiRccLoading || !canExportAnalisiPage}>
               Export Excel
+            </button>
+            <button type="button" className="ghost-button" onClick={() => exportAnalisiPdf(sortedRows)} disabled={analisiRccLoading || !canExportAnalisiPage}>
+              Export PDF
             </button>
             <button type="button" className="ghost-button" onClick={() => loadCommesseKpi()} disabled={analisiRccLoading}>
               Aggiorna

@@ -64,6 +64,7 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
     commesseAndamentoMensileTotals,
     currentProfile,
     exportAnalisiExcel,
+    exportAnalisiPdf,
     formatNumber,
     formatReferenceMonthLabel,
     getDefaultReferenceMonth,
@@ -490,6 +491,14 @@ export function CommesseAndamentoMensilePage(props: CommesseAndamentoMensilePage
                     disabled={analisiRccLoading || !canExportAnalisiPage}
                   >
                     Export Excel
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => exportAnalisiPdf(sortedCommesseAndamentoMensileRows)}
+                    disabled={analisiRccLoading || !canExportAnalisiPage}
+                  >
+                    Export PDF
                   </button>
                   {isAnalisiSearchCollapsible && (
                     <button

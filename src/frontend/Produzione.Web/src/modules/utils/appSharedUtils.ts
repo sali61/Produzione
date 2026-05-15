@@ -264,6 +264,20 @@ export const distinctFilterOptionsForUi = (options: FilterOption[]) => {
   ))
 }
 
+export const distinctProductFilterOptionsForUi = (options: FilterOption[]) => (
+  distinctFilterOptionsForUi(options).sort((left, right) => {
+    const leftObsolete = left.label.trim().startsWith('*') ? 1 : 0
+    const rightObsolete = right.label.trim().startsWith('*') ? 1 : 0
+    if (leftObsolete !== rightObsolete) {
+      return leftObsolete - rightObsolete
+    }
+
+    const leftLabel = left.label.replace(/^\*\s*/, '')
+    const rightLabel = right.label.replace(/^\*\s*/, '')
+    return leftLabel.localeCompare(rightLabel, 'it', { sensitivity: 'base' })
+  })
+)
+
 export const distinctPersonFilterOptionsForUi = (options: FilterOption[]) => {
   const map = new Map<string, FilterOption>()
   options.forEach((option) => {

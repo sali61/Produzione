@@ -22,6 +22,7 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
     datiContabiliVenditaSortedRows,
     expandAllProducts,
     exportSintesiExcel,
+    exportSintesiPdf,
     formatDate,
     formatNumber,
     handleSintesiSubmit,
@@ -296,6 +297,16 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
                   >
                     Export Excel
                   </button>
+                  {!isDatiContabiliPage && (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={exportSintesiPdf}
+                      disabled={sintesiLoadingData || sintesiExportRowsCount === 0}
+                    >
+                      Export PDF
+                    </button>
+                  )}
                   {isProdottiSintesiPage && !isDatiContabiliPage && (
                     <>
                       <button
@@ -528,7 +539,7 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
 
               {sortedRows.length > 0 && (
                 <div className="bonifici-table-wrap bonifici-table-wrap-main sintesi-results-wrap">
-                  <table className="bonifici-table">
+                  <table className={`bonifici-table ${isProdottiSintesiPage ? 'prodotti-sintesi-table' : ''}`}>
                     <thead>
                       <tr>
                         <th>
@@ -546,6 +557,13 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
                             Descrizione <span className="sort-indicator">{sortIndicator('descrizioneCommessa')}</span>
                           </button>
                         </th>
+                        {isProdottiSintesiPage && (
+                          <th>
+                            <button type="button" className="sort-header-btn" onClick={() => toggleSort('controparte')}>
+                              Controparte <span className="sort-indicator">{sortIndicator('controparte')}</span>
+                            </button>
+                          </th>
+                        )}
                         <th>
                           <button type="button" className="sort-header-btn" onClick={() => toggleSort('tipologiaCommessa')}>
                             Tipologia <span className="sort-indicator">{sortIndicator('tipologiaCommessa')}</span>
@@ -649,7 +667,7 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
                               key={tableRow.key}
                               className={`table-group-summary-row ${tableRow.isCollapsed ? 'is-collapsed' : ''}`}
                             >
-                              <td colSpan={10} className="table-group-summary-label">
+                              <td colSpan={isProdottiSintesiPage ? 11 : 10} className="table-group-summary-label">
                                 <div className="table-group-summary-label-content">
                                   <button
                                     type="button"
@@ -700,6 +718,9 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
                               </button>
                             </td>
                             <td>{row.descrizioneCommessa}</td>
+                            {isProdottiSintesiPage && (
+                              <td>{row.controparte}</td>
+                            )}
                             <td>{row.tipologiaCommessa}</td>
                             <td>{row.stato}</td>
                             <td>{row.macroTipologia}</td>
@@ -732,7 +753,7 @@ export function SintesiOverviewPage(props: SintesiOverviewPageProps) {
                     </tbody>
                     <tfoot>
                       <tr className="table-totals-row">
-                        <td colSpan={10} className="table-totals-label">Totale</td>
+                        <td colSpan={isProdottiSintesiPage ? 11 : 10} className="table-totals-label">Totale</td>
                         <td className="num">{formatNumber(totals.oreLavorate)}</td>
                         <td className={`num ${totals.costoPersonale < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.costoPersonale)}</td>
                         <td className={`num ${totals.ricavi < 0 ? 'num-negative' : ''}`}>{formatNumber(totals.ricavi)}</td>

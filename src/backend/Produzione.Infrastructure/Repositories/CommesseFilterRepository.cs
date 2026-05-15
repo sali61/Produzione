@@ -1342,6 +1342,40 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         WHERE ISNULL(p.Obsoleto, 0) = 0
         ORDER BY Label;
         """;
+    private const string ProdottiSintesiFilterOptionsQuery = """
+        WITH NormalizedProdotti AS
+        (
+            SELECT
+                CAST(
+                    LTRIM(RTRIM(
+                        COALESCE(
+                            NULLIF(ISNULL(p.NomeProdotto, N''), N''),
+                            NULLIF(ISNULL(p.Descrizione, N''), N''),
+                            CAST(p.ID AS NVARCHAR(20))
+                        )
+                    ))
+                AS NVARCHAR(256)) AS Value,
+                CASE WHEN ISNULL(p.Obsoleto, 0) = 1 THEN 1 ELSE 0 END AS Obsoleto
+            FROM dbo.Prodotti p
+        ),
+        DeduplicatedProdotti AS
+        (
+            SELECT
+                Value,
+                MIN(Obsoleto) AS Obsoleto
+            FROM NormalizedProdotti
+            WHERE ISNULL(LTRIM(RTRIM(Value)), N'') <> N''
+              AND UPPER(LTRIM(RTRIM(Value))) NOT IN (N'NON DEFINITO', N'NON DEFINTO')
+            GROUP BY Value
+        )
+        SELECT
+            Value,
+            CAST(CASE WHEN Obsoleto = 1 THEN N'* ' ELSE N'' END + Value AS NVARCHAR(258)) AS Label
+        FROM DeduplicatedProdotti
+        ORDER BY
+            Obsoleto,
+            Value;
+        """;
     private const string CommessaConfigUpdateQuery = """
         DECLARE @IdCommessa INT =
         (
@@ -1986,6 +2020,49 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
                 .GroupBy(item => item.Id)
                 .Select(group => group.First())
                 .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private async Task<IReadOnlyCollection<CommesseSintesiFilterOption>> GetProdottiSintesiFilterOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(ProdottiSintesiFilterOptionsQuery, connection);
+            command.CommandType = CommandType.Text;
+
+            var rows = new List<CommesseSintesiFilterOption>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var value = ReadString(reader, "Value").Trim();
+                if (!IsValidProductValue(value))
+                {
+                    continue;
+                }
+
+                var label = ReadString(reader, "Label").Trim();
+                rows.Add(new CommesseSintesiFilterOption(value, string.IsNullOrWhiteSpace(label) ? value : label));
+            }
+
+            return rows
+                .GroupBy(item => item.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(item => item.Label.StartsWith("* ", StringComparison.Ordinal) ? 1 : 0)
+                .ThenBy(item => item.Value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
         catch
@@ -3108,9 +3185,12 @@ public sealed class CommesseFilterRepository(string? connectionString) : ICommes
         var tipologiaOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.TipologiaCommessa));
         var statoOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Stato));
         var macroOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.MacroTipologia));
-        var prodottoOptions = BuildDistinctOptionsFromRows(rows
-            .Select(row => row.Prodotto)
-            .Where(IsValidProductValue));
+        var prodottiCatalogOptions = await GetProdottiSintesiFilterOptionsAsync(cancellationToken);
+        var prodottoOptions = prodottiCatalogOptions.Count > 0
+            ? prodottiCatalogOptions
+            : BuildDistinctOptionsFromRows(rows
+                .Select(row => row.Prodotto)
+                .Where(IsValidProductValue));
         var businessUnitOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.BusinessUnit));
         var rccOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Rcc));
         var pmOptions = BuildDistinctOptionsFromRows(rows.Select(row => row.Pm));
